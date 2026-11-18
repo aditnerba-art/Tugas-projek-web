@@ -57,3 +57,30 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## TECKFO Service (Laravel)
+
+Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admin/kasir, panel teknisi, dan dashboard owner.
+
+### Menjalankan aplikasi
+
+1. Salin `.env.example` menjadi `.env`, lalu atur koneksi database.
+2. Jalankan `php artisan key:generate`.
+3. Jalankan `php artisan migrate --seed`.
+4. Jalankan `php artisan serve` dari folder `laravel-app/`.
+
+Database SQLite digunakan secara default; koneksi MySQL dapat diatur melalui variabel `DB_*` di `.env`.
+
+### Akun awal
+
+| Peran | Username | Kata sandi |
+| --- | --- | --- |
+| Owner | `owner` | `owner123` |
+| Admin | `admin` | `admin123` |
+| Teknisi | `budi_teknisi` | `teknisi123` |
+
+Ganti kata sandi awal sebelum aplikasi digunakan di lingkungan produksi.
+
+Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal publik tersedia di `/index.html`; persetujuan servis menggunakan pilihan setuju atau batal. Rute dashboard staf dilindungi autentikasi sesi dan middleware role.
+
+Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `fetch()` menyertakan token CSRF Laravel. Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.
+
