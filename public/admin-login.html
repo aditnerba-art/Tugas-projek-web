@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Login Admin - TECKFO Service</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/auth.css">
+</head>
+<body data-role="admin">
+<main class="card">
+    <div class="mark"><i></i> Panel Administrasi</div>
+    <h1>Masuk sebagai Admin</h1>
+    <p>Masukkan kredensial akun admin Anda untuk mengelola servis baru, kasir, dan pelanggan.</p>
+    <form id="loginForm" autocomplete="on">
+        <div class="field">
+            <label for="username">Username</label>
+            <input id="username" name="username" autocomplete="username" placeholder="Masukkan username" required autofocus>
+        </div>
+        <div class="field">
+            <label for="password">Kata Sandi</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" required>
+        </div>
+        <button class="btn" type="submit">Masuk sebagai Admin</button>
+        <div id="loginMessage" class="message" role="alert" aria-live="polite"></div>
+    </form>
+    <div class="links"><a href="/login.html">← Pilih peran staf lain</a></div>
+</main>
+<script src="/role-login.js"></script>
+</body>
+</html>
