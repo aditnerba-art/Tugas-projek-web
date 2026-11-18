@@ -543,6 +543,7 @@ class ApiController extends Controller
 
     public function customerLogout(Request $request): JsonResponse
     {
+        CustomerSession::where('session_hash', $request->session()->get('customer_session_hash'))->delete();
         $request->session()->forget('customer_service_id');
         $request->session()->forget('customer_session_hash');
 

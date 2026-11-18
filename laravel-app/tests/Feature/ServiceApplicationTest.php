@@ -105,6 +105,9 @@ class ServiceApplicationTest extends TestCase
         ]);
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
         $this->get('/index.html')->assertOk()->assertSee('name="csrf-token"', false);
+        auth()->logout();
+        $this->get('/admin.html')->assertRedirect('/admin-login.html');
+        $this->getJson('/api/admin/services-active')->assertUnauthorized();
     }
 
     public function test_owner_can_manage_staff_inventory_and_record_a_purchase(): void

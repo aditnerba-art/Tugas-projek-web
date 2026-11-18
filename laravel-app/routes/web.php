@@ -12,18 +12,18 @@ Route::view('/admin-login.html', 'admin-login');
 Route::view('/teknisi-login.html', 'teknisi-login');
 Route::view('/owner-login.html', 'owner-login');
 
-Route::view('/admin.html', 'admin')->middleware(['auth', 'role:admin']);
-Route::view('/teknisi.html', 'teknisi')->middleware(['auth', 'role:teknisi']);
-Route::view('/owner.html', 'owner')->middleware(['auth', 'role:owner']);
-Route::view('/spareparts.html', 'spareparts')->middleware(['auth', 'role:admin,owner']);
+Route::view('/admin.html', 'admin')->middleware('role:admin');
+Route::view('/teknisi.html', 'teknisi')->middleware('role:teknisi');
+Route::view('/owner.html', 'owner')->middleware('role:owner');
+Route::view('/spareparts.html', 'spareparts')->middleware('role:admin,owner');
 
 Route::prefix('api')->group(function () {
     Route::post('/auth/login', [ApiController::class, 'login'])->middleware('throttle:10,1');
     Route::post('/auth/logout', [ApiController::class, 'logout']);
-    Route::middleware(['auth', 'role:admin,teknisi,owner'])->group(function () {
+    Route::middleware('role:admin,teknisi,owner')->group(function () {
         Route::get('/auth/me', [ApiController::class, 'me']);
     });
-    Route::middleware(['auth', 'role:owner'])->group(function () {
+    Route::middleware('role:owner')->group(function () {
         Route::patch('/auth/account', [ApiController::class, 'updateAccount']);
         Route::get('/owner/staff', [ApiController::class, 'staffIndex']);
         Route::post('/owner/staff', [ApiController::class, 'staffStore']);
@@ -33,10 +33,8 @@ Route::prefix('api')->group(function () {
         Route::get('/owner/dashboard', [ApiController::class, 'ownerDashboard']);
         Route::get('/owner/purchases', [ApiController::class, 'purchases']);
         Route::post('/owner/purchases', [ApiController::class, 'createPurchase']);
-        Route::get('/admin/customers/access-codes', [ApiController::class, 'accessCodes']);
-        Route::post('/admin/customers/access-codes/{service}', [ApiController::class, 'rotateAccessCode']);
     });
-    Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::middleware('role:admin')->group(function () {
         Route::get('/admin/users', [ApiController::class, 'users']);
         Route::post('/admin/service', [ApiController::class, 'createService']);
         Route::put('/admin/service/assign-teknisi', [ApiController::class, 'assignTechnician']);
@@ -56,18 +54,18 @@ Route::prefix('api')->group(function () {
         Route::delete('/admin/customers/{customer}', [ApiController::class, 'deleteCustomer']);
         Route::delete('/admin/service/{service}', [ApiController::class, 'deleteService']);
     });
-    Route::middleware(['auth', 'role:admin,teknisi'])->group(function () {
+    Route::middleware('role:admin,teknisi')->group(function () {
         Route::get('/admin/teknisi', [ApiController::class, 'technicians']);
         Route::get('/admin/services-active', [ApiController::class, 'activeServices']);
         Route::get('/admin/nota/{noNota}', [ApiController::class, 'nota']);
         Route::put('/admin/service/status', [ApiController::class, 'updateServiceStatus']);
         Route::post('/admin/service/persetujuan', [ApiController::class, 'customerApproval']);
     });
-    Route::middleware(['auth', 'role:admin,teknisi,owner'])->group(function () {
+    Route::middleware('role:admin,teknisi,owner')->group(function () {
         Route::get('/spareparts', [ApiController::class, 'spareparts']);
         Route::get('/spareparts/{sparepart}', [ApiController::class, 'sparepart']);
     });
-    Route::middleware(['auth', 'role:admin,owner'])->group(function () {
+    Route::middleware('role:admin,owner')->group(function () {
         Route::post('/spareparts', [ApiController::class, 'createSparepart']);
         Route::put('/spareparts/{sparepart}', [ApiController::class, 'updateSparepart']);
         Route::delete('/spareparts/{sparepart}', [ApiController::class, 'deleteSparepart']);

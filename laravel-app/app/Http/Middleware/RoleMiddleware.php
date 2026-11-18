@@ -12,8 +12,12 @@ class RoleMiddleware
     {
         $user = $request->user();
         if (! $user) {
-            return ($request->expectsJson() || $request->is('api/*'))
-                ? response()->json(['status' => 'error', 'message' => 'Silakan login terlebih dahulu'], 401)
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['status' => 'error', 'message' => 'Silakan login terlebih dahulu'], 401);
+            }
+
+            return count($roles) === 1
+                ? redirect('/'.$roles[0].'-login.html')
                 : redirect('/login.html');
         }
 
