@@ -85,7 +85,7 @@ class ApiController extends Controller
             'role' => ['required', Rule::in(['owner', 'admin', 'teknisi'])],
         ]);
 
-        if (!Auth::attempt(['username' => trim($data['username']), 'password' => $data['password'], 'role' => $data['role']])) {
+        if (! Auth::attempt(['username' => trim($data['username']), 'password' => $data['password'], 'role' => $data['role']])) {
             return response()->json(['status' => 'error', 'message' => 'Username atau kata sandi salah'], 401);
         }
 
@@ -116,7 +116,7 @@ class ApiController extends Controller
             'newPassword' => ['nullable', 'string', 'min:10', 'max:1024'],
         ]);
         $user = $request->user();
-        if (!Hash::check($data['currentPassword'], $user->password)) {
+        if (! Hash::check($data['currentPassword'], $user->password)) {
             return response()->json(['status' => 'error', 'message' => 'Kata sandi saat ini salah'], 401);
         }
         $username = trim($data['newUsername'] ?? '');
@@ -313,7 +313,7 @@ class ApiController extends Controller
             $service = $query->lockForUpdate()->firstOrFail();
             $oldStatus = $service->status;
 
-            if (!empty($data['sparepart_id'])) {
+            if (! empty($data['sparepart_id'])) {
                 $sparepart = Sparepart::whereKey($data['sparepart_id'])->lockForUpdate()->firstOrFail();
                 $quantity = (int) ($data['jumlah_sparepart'] ?? 0);
                 if ($quantity < 1) {
@@ -333,7 +333,7 @@ class ApiController extends Controller
 
             $service->biaya_jasa = $data['biaya_jasa'] ?? $service->biaya_jasa;
             $partsTotal = $service->items()->sum('subtotal');
-            $service->total_biaya = !empty($data['total_biaya'])
+            $service->total_biaya = ! empty($data['total_biaya'])
                 ? $data['total_biaya']
                 : (float) $service->biaya_jasa + (float) $partsTotal;
             $service->status = $data['status_baru'];
@@ -401,7 +401,7 @@ class ApiController extends Controller
             $change = isset($data['kembalian'])
                 ? (float) $data['kembalian']
                 : ($statusPayment === 'lunas' ? max(0, $amount - (float) $service->total_biaya) : ($statusPayment === 'dp' ? max(0, $amount - $dp) : 0));
-            $newStatus = (!empty($data['ambil_unit']) || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true))) ? 'diambil' : $oldStatus;
+            $newStatus = (! empty($data['ambil_unit']) || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true))) ? 'diambil' : $oldStatus;
 
             $service->fill([
                 'status' => $newStatus,
@@ -411,8 +411,8 @@ class ApiController extends Controller
                 'dp_dibayar' => $dp,
                 'kembalian' => $change,
             ])->save();
-            $note = "Pembayaran diperbarui: Status [".strtoupper($statusPayment)."], Metode [{$method}]. Nominal Diterima: Rp ".number_format($amount, 0, ',', '.').", Kembalian: Rp ".number_format($change, 0, ',', '.').'.';
-            if (!empty($data['catatan'])) {
+            $note = 'Pembayaran diperbarui: Status ['.strtoupper($statusPayment)."], Metode [{$method}]. Nominal Diterima: Rp ".number_format($amount, 0, ',', '.').', Kembalian: Rp '.number_format($change, 0, ',', '.').'.';
+            if (! empty($data['catatan'])) {
                 $note .= ' Catatan: '.$data['catatan'].'.';
             }
             if ($newStatus === 'diambil') {
@@ -507,7 +507,7 @@ class ApiController extends Controller
             ->where('token_hash', $this->accessHash($data['token']))
             ->whereNull('revoked_at')->where('expires_at', '>', now())->first();
         $normalize = fn ($name) => mb_strtolower(preg_replace('/\s+/u', ' ', trim($name)), 'UTF-8');
-        if (!$token || $normalize($token->service->customer->nama) !== $normalize($data['customer_name'])) {
+        if (! $token || $normalize($token->service->customer->nama) !== $normalize($data['customer_name'])) {
             return response()->json(['status' => 'error', 'message' => 'Nama pelanggan atau kode akses tidak cocok'], 401);
         }
         $session = Str::random(64);
@@ -528,11 +528,11 @@ class ApiController extends Controller
             ->where('session_hash', $request->session()->get('customer_session_hash'))
             ->where('expires_at', '>', now())
             ->first();
-        if (!$serviceId || !$customerSession || $customerSession->accessToken->revoked_at || $customerSession->accessToken->expires_at->isPast()) {
+        if (! $serviceId || ! $customerSession || $customerSession->accessToken->revoked_at || $customerSession->accessToken->expires_at->isPast()) {
             return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
         }
         $service = Service::find($serviceId);
-        if (!$service) {
+        if (! $service) {
             $request->session()->forget('customer_service_id');
 
             return response()->json(['status' => 'error', 'message' => 'Data servis tidak ditemukan'], 404);
@@ -562,12 +562,12 @@ class ApiController extends Controller
             ->where('expires_at', '>', now())
             ->first();
         $sessionServiceId = $customerSession
-            && !$customerSession->accessToken->revoked_at
-            && !$customerSession->accessToken->expires_at->isPast()
+            && ! $customerSession->accessToken->revoked_at
+            && ! $customerSession->accessToken->expires_at->isPast()
                 ? $request->session()->get('customer_service_id')
                 : null;
         $serviceId = $sessionServiceId;
-        if (!$serviceId && !empty($data['kode_akses'])) {
+        if (! $serviceId && ! empty($data['kode_akses'])) {
             $token = ServiceAccessToken::where('token_hash', $this->accessHash($data['kode_akses']))
                 ->whereNull('revoked_at')->where('expires_at', '>', now())->first();
             $serviceId = $token?->service_id;
@@ -575,7 +575,7 @@ class ApiController extends Controller
         if ($request->user() && in_array($request->user()->role, ['admin', 'teknisi'], true)) {
             $serviceId = $data['service_id'] ?? $serviceId;
         }
-        if ($sessionServiceId && !empty($data['service_id']) && (int) $data['service_id'] !== (int) $sessionServiceId) {
+        if ($sessionServiceId && ! empty($data['service_id']) && (int) $data['service_id'] !== (int) $sessionServiceId) {
             return response()->json(['status' => 'error', 'message' => 'Kode akses tidak sesuai dengan servis'], 403);
         }
         $serviceQuery = Service::query();
@@ -586,7 +586,7 @@ class ApiController extends Controller
         }
         $service = DB::transaction(function () use ($serviceQuery, $data): Service {
             $service = (clone $serviceQuery)->lockForUpdate()->firstOrFail();
-            if (!in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true)) {
+            if (! in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true)) {
                 abort(409, 'Servis tidak sedang menunggu persetujuan');
             }
             $oldStatus = $service->status;
@@ -616,7 +616,7 @@ class ApiController extends Controller
                 ? Service::whereKey($serviceId)->where('no_nota', $identifier)->first()
                 : null;
         }
-        if (!$service) {
+        if (! $service) {
             return response()->json(['status' => 'error', 'message' => 'Kode akses atau nomor nota tidak ditemukan'], 404);
         }
 
@@ -769,7 +769,7 @@ class ApiController extends Controller
             $total = 0;
             foreach ($data['items'] as $item) {
                 $part = null;
-                if (!empty($item['is_new'])) {
+                if (! empty($item['is_new'])) {
                     $part = Sparepart::firstOrCreate(
                         ['kode_barang' => $item['kode_barang']],
                         [
@@ -778,10 +778,10 @@ class ApiController extends Controller
                             'harga_jual' => $item['harga_jual'] ?? $item['harga_beli_satuan'] * 1.3,
                         ]
                     );
-                } elseif (!empty($item['sparepart_id'])) {
+                } elseif (! empty($item['sparepart_id'])) {
                     $part = Sparepart::whereKey($item['sparepart_id'])->lockForUpdate()->firstOrFail();
                 }
-                if (!$part) {
+                if (! $part) {
                     abort(422, 'ID Sparepart tidak valid');
                 }
                 $quantity = (int) $item['jumlah'];

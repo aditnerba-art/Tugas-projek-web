@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 
 <head>
@@ -26,7 +26,7 @@
 
 <body data-theme="dashboard" class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans">
     <div class="app-topbar">
-        <a href="teknisi.html" class="app-nav-link">ðŸ› ï¸ Panel Teknisi</a>
+        <a href="teknisi.html" class="app-nav-link">🛠️ Panel Teknisi</a>
     </div>
 
     <!-- Main Content -->
@@ -36,14 +36,14 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400">
                 <div>
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0B1E3F] text-amber-400 mb-2 border border-amber-400/40">
-                        âš¡ Workbench & Service Log
+                        ⚡ Workbench & Service Log
                     </span>
                     <h1 class="text-2xl font-extrabold text-[#0B1E3F] tracking-tight">Panel Kerja Teknisi</h1>
                     <p class="text-xs text-slate-500 mt-1">Diagnosa kerusakan, pasang onderdil resmi, input biaya jasa, dan perbarui log status servis</p>
                 </div>
                 <button onclick="initData()"
                     class="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-300 transition shadow-sm">
-                    ðŸ”„ Refresh Data
+                    🔄 Refresh Data
                 </button>
             </div>
 
@@ -94,12 +94,12 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Status Baru Servis <span class="text-rose-500">*</span></label>
                             <select id="status_baru" required
                                 class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500">
-                                <option value="diperiksa">ðŸ” Diperiksa (Pengecekan Awal)</option>
-                                <option value="menunggu_persetujuan">â³ Menunggu Persetujuan Pelanggan</option>
-                                <option value="dikerjakan">âš™ï¸ Dikerjakan</option>
-                                <option value="menunggu_sparepart">ðŸ“¦ Menunggu Sparepart</option>
-                                <option value="selesai">âœ… Selesai (Siap Diambil)</option>
-                                <option value="batal">âŒ Batal / Tidak Bisa Diperbaiki</option>
+                                <option value="diperiksa">🔍 Diperiksa (Pengecekan Awal)</option>
+                                <option value="menunggu_persetujuan">⏳ Menunggu Persetujuan Pelanggan</option>
+                                <option value="dikerjakan">⚙️ Dikerjakan</option>
+                                <option value="menunggu_sparepart">📦 Menunggu Sparepart</option>
+                                <option value="selesai">✅ Selesai (Siap Diambil)</option>
+                                <option value="batal">❌ Batal / Tidak Bisa Diperbaiki</option>
                             </select>
                         </div>
 
@@ -142,13 +142,13 @@
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Catatan Hasil Diagnosa / Pengerjaan <span class="text-rose-500">*</span></label>
                         <textarea id="catatan_teknis" required rows="3"
-                            placeholder="Contoh: Penggantian thermal paste & RAM 8GB DDR4 selesai. Suhu CPU stabil 45Â°C, lolos uji stress test normal."
+                            placeholder="Contoh: Penggantian thermal paste & RAM 8GB DDR4 selesai. Suhu CPU stabil 45°C, lolos uji stress test normal."
                             class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 text-slate-900"></textarea>
                     </div>
 
                     <button type="button" onclick="submitUpdate()"
                         class="w-full bg-[#0B1E3F] hover:bg-[#132F63] text-white font-extrabold py-3.5 px-6 rounded-xl transition text-sm border border-amber-400/80 shadow-md flex items-center justify-center gap-2">
-                        <span>âš¡</span> Simpan Progres Pengerjaan
+                        <span>⚡</span> Simpan Progres Pengerjaan
                     </button>
                 </form>
             </div>
@@ -248,7 +248,7 @@
                         notaRes.data.onderdil.forEach(item => {
                             listWrap.innerHTML += `
                                 <div class="flex justify-between items-center bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs">
-                                    <span class="font-semibold text-slate-800">â€¢ ${item.nama_barang} (x${item.jumlah})</span>
+                                    <span class="font-semibold text-slate-800">• ${item.nama_barang} (x${item.jumlah})</span>
                                     <span class="font-bold text-emerald-700">Rp ${Number(item.subtotal).toLocaleString('id-ID')}</span>
                                 </div>
                             `;
@@ -357,7 +357,7 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert('âœ… Progres pengerjaan dan onderdil berhasil diperbarui!');
+                    alert('✅ Progres pengerjaan dan onderdil berhasil diperbarui!');
                     document.getElementById('formUpdate').reset();
                     document.getElementById('sparepart_info').innerText = '';
                     document.getElementById('unitInfoBanner').classList.add('hidden');

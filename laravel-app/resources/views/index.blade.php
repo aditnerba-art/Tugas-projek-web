@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 
 <head>
@@ -496,7 +496,7 @@
                 </div>
                 <button onclick="doLogout()"
                     class="text-xs text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400 px-3.5 py-1.5 rounded-lg transition font-semibold bg-rose-500/10">
-                    ðŸšª Keluar
+                    🚪 Keluar
                 </button>
             </div>
 
@@ -504,7 +504,7 @@
             <div id="persetujuanCard" class="hidden portal-feature-card rounded-2xl p-6 border shadow-2xl space-y-4">
                 <div class="flex items-start gap-4">
                     <div class="portal-card-icon w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 shadow-inner">
-                        ðŸ””
+                        🔔
                     </div>
                     <div class="flex-1 min-w-0">
                         <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-300 uppercase tracking-wider bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/40">
@@ -524,11 +524,11 @@
                 <div class="flex flex-col sm:flex-row gap-3 pt-3 border-t border-amber-500/20">
                     <button type="button" id="btnSetujui" onclick="kirimPersetujuan('dikerjakan')"
                         class="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl transition shadow-lg shadow-emerald-600/30 text-sm">
-                        <span>âœ…</span> Setujui Perbaikan
+                        <span>✅</span> Setujui Perbaikan
                     </button>
                     <button type="button" id="btnBatal" onclick="kirimPersetujuan('batal')"
                         class="flex-1 inline-flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold py-3 px-5 rounded-xl transition shadow-lg shadow-rose-600/30 text-sm border border-rose-500/40">
-                        <span>âŒ</span> Batalkan Servis
+                        <span>❌</span> Batalkan Servis
                     </button>
                 </div>
             </div>
@@ -582,7 +582,7 @@
                         <div id="resUnit" class="font-semibold text-slate-100 mt-0.5"></div>
                     </div>
                     <div>
-                        <span class="text-xs text-slate-400">ðŸ‘¨â€ðŸ”§ Teknisi Penanggung Jawab (PIC)</span>
+                        <span class="text-xs text-slate-400">👨‍🔧 Teknisi Penanggung Jawab (PIC)</span>
                         <div id="resTeknisi" class="font-bold text-blue-400 flex items-center gap-1.5 mt-0.5"></div>
                     </div>
                     <div>
@@ -595,7 +595,7 @@
             <!-- 2. Rincian Biaya -->
             <div class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
                 <div class="flex items-center gap-2.5 border-b border-slate-700/80 pb-3">
-                    <span class="portal-card-icon p-1.5 rounded-lg text-base">ðŸ’°</span>
+                    <span class="portal-card-icon p-1.5 rounded-lg text-base">💰</span>
                     <div>
                         <h2 class="text-base font-bold text-slate-100">Rincian Detail Biaya Servis</h2>
                         <p class="text-xs text-slate-400">Transparansi tarif pengerjaan jasa dan onderdil yang diganti</p>
@@ -650,7 +650,7 @@
             <!-- 3. Timeline Pengerjaan -->
             <div class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
                 <div class="flex items-center gap-2.5 border-b border-slate-700/80 pb-3">
-                    <span class="portal-card-icon p-1.5 rounded-lg text-base">â±ï¸</span>
+                    <span class="portal-card-icon p-1.5 rounded-lg text-base">⏱️</span>
                     <div>
                         <h2 class="text-base font-bold text-slate-100">Riwayat Timeline Pengerjaan</h2>
                         <p class="text-xs text-slate-400">Catatan kronologis diagnosa dan perbaikan dari teknisi</p>
@@ -674,7 +674,7 @@
             if (!token || !customerName) return;
 
             btn.disabled = true;
-            btn.textContent = 'Memverifikasiâ€¦';
+            btn.textContent = 'Memverifikasi…';
             errEl.classList.add('hidden');
             try {
                 const loginRes = await fetch('/api/customer/login', {
@@ -690,7 +690,7 @@
                 if (!dataRes.ok) throw new Error(dataResult.message || 'Data servis tidak dapat dimuat.');
                 tampilkanHasil(dataResult.data);
             } catch (err) {
-                errEl.textContent = `âŒ ${err.message || 'Gagal terhubung ke server. Coba lagi.'}`;
+                errEl.textContent = `❌ ${err.message || 'Gagal terhubung ke server. Coba lagi.'}`;
                 errEl.classList.remove('hidden');
             } finally {
                 btn.disabled = false;
@@ -720,13 +720,13 @@
             // Overview
             document.getElementById('resNota').innerText = unit.no_nota;
             document.getElementById('resNama').innerText = unit.nama_pelanggan;
-            document.getElementById('resUnit').innerText = `${unit.jenis_unit} â€¢ ${unit.merek_tipe} ${unit.no_seri ? '(' + unit.no_seri + ')' : ''}`;
+            document.getElementById('resUnit').innerText = `${unit.jenis_unit} • ${unit.merek_tipe} ${unit.no_seri ? '(' + unit.no_seri + ')' : ''}`;
             document.getElementById('resKeluhan').innerText = unit.keluhan;
 
             // Teknisi PIC
             const teknisiEl = document.getElementById('resTeknisi');
             if (unit.nama_teknisi) {
-                teknisiEl.innerHTML = `<span>ðŸ‘¤</span> ${unit.nama_teknisi}`;
+                teknisiEl.innerHTML = `<span>👤</span> ${unit.nama_teknisi}`;
                 teknisiEl.className = 'font-bold text-blue-400 flex items-center gap-1.5 mt-0.5';
             } else {
                 teknisiEl.innerText = 'Menunggu penugasan teknisi';
@@ -765,7 +765,7 @@
             tbody.innerHTML += `
                 <tr>
                     <td class="p-2.5">
-                        <div class="font-bold text-slate-100">ðŸ”§ Biaya Jasa Servis & Analisa</div>
+                        <div class="font-bold text-slate-100">🔧 Biaya Jasa Servis & Analisa</div>
                         <div class="text-[10px] text-slate-400">Pengerjaan teknis, diagnosa, dan perbaikan perangkat</div>
                     </td>
                     <td class="p-2.5 text-center font-semibold">1</td>
@@ -780,7 +780,7 @@
                     tbody.innerHTML += `
                         <tr>
                             <td class="p-2.5">
-                                <div class="font-semibold text-slate-200">ðŸ“¦ ${item.nama_barang}</div>
+                                <div class="font-semibold text-slate-200">📦 ${item.nama_barang}</div>
                                 <div class="text-[10px] text-slate-400 font-mono">Kode: ${item.kode_barang}</div>
                             </td>
                             <td class="p-2.5 text-center font-bold text-slate-300">${item.jumlah}</td>
@@ -804,14 +804,14 @@
 
             if (unit.status_pembayaran === 'lunas') {
                 payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-                payBadge.innerText = 'âœ… Lunas';
+                payBadge.innerText = '✅ Lunas';
                 if (parseFloat(unit.kembalian) > 0) {
                     rowKembalian.classList.remove('hidden');
                     document.getElementById('resKembalian').innerText = `Rp ${parseFloat(unit.kembalian).toLocaleString('id-ID')}`;
                 }
             } else if (unit.status_pembayaran === 'dp') {
                 payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30';
-                payBadge.innerText = 'â³ Uang Muka (DP)';
+                payBadge.innerText = '⏳ Uang Muka (DP)';
                 rowDp.classList.remove('hidden'); rowSisa.classList.remove('hidden');
                 const dp = parseFloat(unit.dp_dibayar || 0);
                 const sisa = Math.max(0, totalBiaya - dp);
@@ -819,7 +819,7 @@
                 document.getElementById('resSisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
             } else {
                 payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30';
-                payBadge.innerText = 'âš ï¸ Belum Bayar';
+                payBadge.innerText = '⚠️ Belum Bayar';
                 rowSisa.classList.remove('hidden');
                 document.getElementById('resSisa').innerText = `Rp ${totalBiaya.toLocaleString('id-ID')}`;
             }
@@ -917,8 +917,8 @@
 
                 if (result.status === 'success') {
                     alert(isSetuju
-                        ? 'âœ… Terima kasih! Anda telah menyetujui estimasi perbaikan. Status servis kini DIKERJAKAN.'
-                        : 'âŒ Servis telah berhasil dibatalkan. Status servis kini BATAL.');
+                        ? '✅ Terima kasih! Anda telah menyetujui estimasi perbaikan. Status servis kini DIKERJAKAN.'
+                        : '❌ Servis telah berhasil dibatalkan. Status servis kini BATAL.');
 
                     // Muat ulang data servis yang terikat pada sesi token pelanggan atau kode servis
                     let reloaded = false;
@@ -946,11 +946,11 @@
                         } catch (e) {}
                     }
                 } else {
-                    alert('âš ï¸ Gagal memperbarui status: ' + (result.message || 'Terjadi kesalahan sistem'));
+                    alert('⚠️ Gagal memperbarui status: ' + (result.message || 'Terjadi kesalahan sistem'));
                 }
             } catch (err) {
                 console.error('Error konfirmasi persetujuan:', err);
-                alert('âŒ Terjadi kesalahan koneksi ke server. Silakan coba lagi.');
+                alert('❌ Terjadi kesalahan koneksi ke server. Silakan coba lagi.');
             } finally {
                 if (btnSetujui) {
                     btnSetujui.disabled = false;

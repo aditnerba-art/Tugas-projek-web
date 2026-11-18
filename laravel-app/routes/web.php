@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\ApiController;
+use App\Models\Service;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'index');
@@ -39,10 +41,10 @@ Route::prefix('api')->group(function () {
         Route::post('/admin/service', [ApiController::class, 'createService']);
         Route::put('/admin/service/assign-teknisi', [ApiController::class, 'assignTechnician']);
         Route::put('/admin/service/pembayaran', [ApiController::class, 'payment']);
-        Route::put('/admin/service/pelunasan', function (\Illuminate\Http\Request $request, ApiController $controller) {
+        Route::put('/admin/service/pelunasan', function (Request $request, ApiController $controller) {
             $request->merge(['status_pembayaran' => 'lunas', 'ambil_unit' => true]);
-            if (!$request->filled('nominal_dibayar') && $request->filled('service_id')) {
-                $request->merge(['nominal_dibayar' => \App\Models\Service::find($request->input('service_id'))?->total_biaya ?? 0, 'kembalian' => 0]);
+            if (! $request->filled('nominal_dibayar') && $request->filled('service_id')) {
+                $request->merge(['nominal_dibayar' => Service::find($request->input('service_id'))?->total_biaya ?? 0, 'kembalian' => 0]);
             }
 
             return $controller->payment($request);

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="id">
 <head>
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -38,7 +38,7 @@
         <button class="btn" type="submit">Masuk sebagai Owner</button>
         <div id="loginMessage" class="message" role="alert" aria-live="polite"></div>
     </form>
-    <div class="links"><a href="/login.html">â† Pilih peran staf lain</a></div>
+    <div class="links"><a href="/login.html">← Pilih peran staf lain</a></div>
 </main>
 <script src="/role-login.js"></script>
 </body>

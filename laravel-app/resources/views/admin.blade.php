@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 
 <head>
@@ -27,7 +27,7 @@
 <body data-theme="dashboard" class="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-900">
     <!-- Topbar Navigasi -->
     <div class="app-topbar">
-        <a href="admin.html" class="app-nav-link">ðŸ¢ Panel Admin</a>
+        <a href="admin.html" class="app-nav-link">🏢 Panel Admin</a>
     </div>
 
     <!-- Main Content -->
@@ -37,7 +37,7 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400">
                 <div>
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0B1E3F] text-amber-400 mb-2 border border-amber-400/40">
-                        âš¡ Service Desk & Front Office
+                        ⚡ Service Desk & Front Office
                     </span>
                     <h1 class="text-2xl font-extrabold text-[#0B1E3F] tracking-tight">Panel Administrasi Servis</h1>
                     <p class="text-xs text-slate-500 mt-1">Pendaftaran servis unit baru, kasir pelunasan, dan kelola data pelanggan</p>
@@ -47,7 +47,7 @@
             <!-- 1. Form Pendaftaran Servis Baru -->
             <div class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400">
                 <div class="flex items-center gap-3.5 mb-6 pb-4 border-b border-slate-100">
-                    <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">ðŸ“</span>
+                    <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">📝</span>
                     <div>
                         <h2 class="text-xl font-bold text-[#0B1E3F]">Pendaftaran Servis Baru</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Input unit masuk baru dari pelanggan dan terbitkan kode akses pelacakan</p>
@@ -71,10 +71,10 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Jenis Unit <span class="text-rose-500">*</span></label>
                             <select id="jenis_unit"
                                 class="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition bg-white">
-                                <option value="Laptop">ðŸ’» Laptop</option>
-                                <option value="PC">ðŸ–¥ï¸ PC / Komputer Desktop</option>
-                                <option value="Printer">ðŸ–¨ï¸ Printer</option>
-                                <option value="Lainnya">ðŸ”Œ Perangkat Lainnya</option>
+                                <option value="Laptop">💻 Laptop</option>
+                                <option value="PC">🖥️ PC / Komputer Desktop</option>
+                                <option value="Printer">🖨️ Printer</option>
+                                <option value="Lainnya">🔌 Perangkat Lainnya</option>
                             </select>
                         </div>
                     </div>
@@ -107,7 +107,7 @@
 
                     <button type="button" onclick="simpanServis()"
                         class="w-full bg-[#0B1E3F] hover:bg-[#132F63] text-white font-bold py-3.5 px-6 rounded-xl transition border border-amber-400/80 shadow-md flex items-center justify-center gap-2 text-sm tracking-wide">
-                        <span>ðŸ“¥</span> Simpan Servis & Tampilkan Kode
+                        <span>📥</span> Simpan Servis & Tampilkan Kode
                     </button>
                 </form>
             </div>
@@ -116,7 +116,7 @@
             <div class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3.5">
-                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">ðŸ’³</span>
+                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">💳</span>
                         <div>
                             <h2 class="text-xl font-bold text-[#0B1E3F]">Daftar Unit Servis Aktif & Kasir Pelunasan</h2>
                             <p class="text-xs text-slate-500 mt-0.5">Kelola kasir pelunasan, pembayaran (Cash / QRIS / Transfer), dan penyerahan unit ke pelanggan</p>
@@ -124,7 +124,7 @@
                     </div>
                     <button onclick="loadActiveServices()"
                         class="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-300 transition shadow-sm">
-                        ðŸ”„ Refresh Data
+                        🔄 Refresh Data
                     </button>
                 </div>
 
@@ -153,7 +153,7 @@
             <section class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400 space-y-5" aria-labelledby="customersTitle">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3.5">
-                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">ðŸ‘¥</span>
+                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">👥</span>
                         <div>
                             <h2 id="customersTitle" class="text-xl font-bold text-[#0B1E3F]">Data Pelanggan & Kontak</h2>
                             <p class="text-xs text-slate-500 mt-0.5">Daftar pelanggan terdaftar dan akumulasi riwayat servis unit.</p>
@@ -161,11 +161,11 @@
                     </div>
                     <button type="button" onclick="loadCustomers()"
                         class="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-300 transition shadow-sm">
-                        ðŸ”„ Muat Ulang
+                        🔄 Muat Ulang
                     </button>
                 </div>
                 <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs leading-relaxed text-blue-900 flex items-start gap-2.5">
-                    <span class="text-base flex-shrink-0">ðŸ”’</span>
+                    <span class="text-base flex-shrink-0">🔒</span>
                     <span>Penghapusan pelanggan akan menghapus permanen seluruh riwayat servis, detail sparepart, log teknisi, dan kode akses terkait. Jumlah servis serta pendapatan historis ikut berubah dan data tidak dapat dipulihkan.</span>
                 </div>
                 <p id="customersMessage" class="text-sm text-slate-600 font-semibold" role="status" aria-live="polite"></p>
@@ -181,7 +181,7 @@
                             </tr>
                         </thead>
                         <tbody id="customersTable" class="divide-y divide-slate-100 bg-white">
-                            <tr><td colspan="5" class="p-6 text-center text-slate-400">Memuat data pelangganâ€¦</td></tr>
+                            <tr><td colspan="5" class="p-6 text-center text-slate-400">Memuat data pelanggan…</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -214,7 +214,7 @@
                     </button>
                     <a id="successWhatsappLink" target="_blank" rel="noopener noreferrer"
                         class="inline-flex items-center justify-center rounded-xl border border-amber-400/80 bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800">
-                        ðŸ’¬ Kirim ke WhatsApp
+                        💬 Kirim ke WhatsApp
                     </a>
                 </div>
             </div>
@@ -265,7 +265,7 @@
             <!-- Modal Header -->
             <div class="bg-[#0B1E3F] text-white px-6 py-4 flex justify-between items-center border-b-2 border-amber-400">
                 <div class="flex items-center gap-2.5">
-                    <span class="p-1.5 bg-amber-500 text-slate-950 rounded-lg text-sm font-bold">ðŸ’µ</span>
+                    <span class="p-1.5 bg-amber-500 text-slate-950 rounded-lg text-sm font-bold">💵</span>
                     <h3 class="text-base font-bold">Kasir: Pelunasan & Ambil Unit</h3>
                 </div>
                 <button type="button" onclick="closeModalPelunasan()"
@@ -305,9 +305,9 @@
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Metode Pembayaran (Pelunasan)</label>
                     <select id="modal_metode_pembayaran" required
                         class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 font-medium">
-                        <option value="Cash">ðŸ’µ Cash (Tunai)</option>
-                        <option value="QRIS">ðŸ“± QRIS</option>
-                        <option value="Transfer">ðŸ’³ Transfer Bank</option>
+                        <option value="Cash">💵 Cash (Tunai)</option>
+                        <option value="QRIS">📱 QRIS</option>
+                        <option value="Transfer">💳 Transfer Bank</option>
                     </select>
                 </div>
 
@@ -320,7 +320,7 @@
                 </div>
 
                 <div class="p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 space-y-1">
-                    <p class="font-bold flex items-center gap-1.5"><span>âš ï¸</span> Informasi Pelunasan:</p>
+                    <p class="font-bold flex items-center gap-1.5"><span>⚠️</span> Informasi Pelunasan:</p>
                     <p>Status pembayaran akan diubah menjadi <strong class="text-emerald-700">Lunas</strong> dan status unit servis akan diubah menjadi <strong class="text-[#0B1E3F]">Diambil</strong>.</p>
                 </div>
 
@@ -403,11 +403,11 @@
 
                         let badgeBayar = '';
                         if (srv.status_pembayaran === 'lunas') {
-                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">âœ… Lunas</span>';
+                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Lunas</span>';
                         } else if (srv.status_pembayaran === 'dp') {
-                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">â³ DP</span>';
+                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">⏳ DP</span>';
                         } else {
-                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">âš ï¸ Belum Bayar</span>';
+                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ Belum Bayar</span>';
                         }
 
                         const tr = document.createElement('tr');
@@ -422,7 +422,7 @@
                             </td>
                             <td class="p-3.5">
                                 <div class="font-semibold text-slate-800">${srv.merek_tipe}</div>
-                                <div class="text-xs text-slate-500 capitalize">${srv.jenis_unit || ''} â€¢ Status: <span class="font-bold text-[#0B1E3F]">${(srv.status || '').replace('_', ' ')}</span></div>
+                                <div class="text-xs text-slate-500 capitalize">${srv.jenis_unit || ''} • Status: <span class="font-bold text-[#0B1E3F]">${(srv.status || '').replace('_', ' ')}</span></div>
                             </td>
                             <td class="p-3.5 whitespace-nowrap font-black text-slate-900">Rp ${totalBiayaRp}</td>
                             <td class="p-3.5 whitespace-nowrap">${badgeBayar}</td>
@@ -430,10 +430,10 @@
                                 <div class="flex items-center justify-center gap-2">
                                     <button onclick="openModalPelunasan(${srv.id}, '${srv.no_nota}', '${encodeURIComponent(srv.nama_pelanggan)}', '${encodeURIComponent(srv.merek_tipe)}', ${srv.total_biaya || 0}, '${srv.status_pembayaran}')"
                                         class="inline-flex items-center gap-1.5 bg-[#0B1E3F] hover:bg-[#132F63] text-white px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-400/80 shadow-sm transition">
-                                        ðŸ’µ Pelunasan
+                                        💵 Pelunasan
                                     </button>
                                     <button type="button" class="delete-service-button inline-flex items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100">
-                                        ðŸ—‘ï¸ Hapus
+                                        🗑️ Hapus
                                     </button>
                                 </div>
                             </td>
@@ -448,7 +448,7 @@
                         sendWhatsappLink.className = 'send-whatsapp-link inline-flex items-center gap-1 rounded-xl border border-amber-400/80 bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-800';
                         sendWhatsappLink.target = '_blank';
                         sendWhatsappLink.rel = 'noopener noreferrer';
-                        sendWhatsappLink.textContent = 'ðŸ’¬ Kirim WA';
+                        sendWhatsappLink.textContent = '💬 Kirim WA';
                         if (accessCode) {
                             const code = document.createElement('code');
                             code.className = 'inline-flex items-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-mono text-base font-extrabold tracking-[0.2em] text-[#0B1E3F]';
@@ -682,7 +682,7 @@
         async function loadCustomers() {
             const tbody = document.getElementById('customersTable');
             const message = document.getElementById('customersMessage');
-            tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">Memuat data pelangganâ€¦</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">Memuat data pelanggan…</td></tr>';
             message.textContent = '';
 
             try {
@@ -726,14 +726,14 @@
                     const editButton = document.createElement('button');
                     editButton.type = 'button';
                     editButton.className = 'inline-flex min-h-9 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-400';
-                    editButton.textContent = 'âœï¸ Edit';
+                    editButton.textContent = '✏️ Edit';
                     editButton.addEventListener('click', () => openEditPelanggan(customer));
                     actions.appendChild(editButton);
 
                     const deleteButton = document.createElement('button');
                     deleteButton.type = 'button';
                     deleteButton.className = 'inline-flex min-h-9 items-center justify-center rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-400';
-                    deleteButton.textContent = 'ðŸ—‘ï¸ Hapus';
+                    deleteButton.textContent = '🗑️ Hapus';
                     deleteButton.addEventListener('click', () => hapusPelanggan(customer.id));
                     actions.appendChild(deleteButton);
                     actionCell.appendChild(actions);

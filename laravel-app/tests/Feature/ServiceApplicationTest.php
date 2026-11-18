@@ -106,4 +106,81 @@ class ServiceApplicationTest extends TestCase
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
         $this->get('/index.html')->assertOk()->assertSee('name="csrf-token"', false);
     }
+
+    public function test_owner_can_manage_staff_inventory_and_record_a_purchase(): void
+    {
+        $owner = User::create([
+            'nama' => 'Owner Tes',
+            'username' => 'owner_test',
+            'password' => Hash::make('password123'),
+            'role' => 'owner',
+        ]);
+        $this->actingAs($owner);
+
+        $staffResponse = $this->postJson('/api/owner/staff', [
+            'nama' => 'Teknisi Baru',
+            'username' => 'teknisi_baru',
+            'password' => 'password123',
+            'role' => 'teknisi',
+        ])->assertCreated();
+        $staffId = $staffResponse->json('user.id');
+        $this->patchJson('/api/owner/staff/'.$staffId, ['nama' => 'Teknisi Diperbarui'])
+            ->assertOk()->assertJsonPath('user.nama', 'Teknisi Diperbarui');
+
+        $partResponse = $this->postJson('/api/spareparts', [
+            'kode_barang' => 'RAM-8GB',
+            'nama_barang' => 'RAM 8GB',
+            'stok' => 2,
+            'harga_beli' => 300000,
+            'harga_jual' => 400000,
+        ])->assertOk();
+        $partId = $partResponse->json('data.id');
+        $this->postJson('/api/owner/purchases', [
+            'supplier' => 'Supplier Tes',
+            'tanggal_pembelian' => '2026-11-18',
+            'items' => [[
+                'sparepart_id' => $partId,
+                'jumlah' => 3,
+                'harga_beli_satuan' => 310000,
+            ]],
+        ])->assertOk()->assertJsonPath('data.total_items', 1);
+
+        $this->assertDatabaseHas('spareparts', ['id' => $partId, 'stok' => 5, 'harga_beli' => 310000]);
+        $this->getJson('/api/owner/dashboard')->assertOk()
+            ->assertJsonPath('data.purchases.total_transaksi_pengadaan', 1);
+        $this->deleteJson('/api/owner/staff/'.$staffId)->assertOk();
+        $this->assertDatabaseMissing('users', ['id' => $staffId]);
+    }
+
+    public function test_admin_cashier_payment_records_change_and_unit_handover(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kasir',
+            'username' => 'kasir_test',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $customer = Customer::create(['nama' => 'Pelanggan Kasir', 'no_wa' => '08123456789']);
+        $service = Service::create([
+            'no_nota' => 'SRV-CASH-001',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop Tes',
+            'keluhan' => 'Tidak menyala',
+            'status' => 'selesai',
+            'total_biaya' => 100000,
+        ]);
+
+        $this->actingAs($admin)->putJson('/api/admin/service/pelunasan', [
+            'service_id' => $service->id,
+            'nominal_dibayar' => 125000,
+        ])->assertOk()->assertJsonPath('data.kembalian', 25000)
+            ->assertJsonPath('data.status_unit', 'diambil');
+
+        $this->assertDatabaseHas('services', [
+            'id' => $service->id,
+            'status' => 'diambil',
+            'status_pembayaran' => 'lunas',
+            'kembalian' => 25000,
+        ]);
+    }
 }

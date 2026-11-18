@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 
 <head>
@@ -26,8 +26,8 @@
 
 <body data-theme="dashboard" class="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-900">
     <div class="app-topbar">
-        <a href="owner.html" class="app-nav-link">ðŸ‘‘ Panel Owner</a>
-        <a href="/spareparts.html" class="app-nav-link">ðŸ“¦ Kelola Sparepart</a>
+        <a href="owner.html" class="app-nav-link">👑 Panel Owner</a>
+        <a href="/spareparts.html" class="app-nav-link">📦 Kelola Sparepart</a>
     </div>
 
     <!-- Main Content -->
@@ -37,7 +37,7 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400">
                 <div>
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0B1E3F] text-amber-400 mb-2 border border-amber-400/40">
-                        ðŸ‘‘ Executive Dashboard & Oversight
+                        👑 Executive Dashboard & Oversight
                     </span>
                     <h1 class="text-2xl font-extrabold text-[#0B1E3F] tracking-tight">Panel Eksekutif Owner</h1>
                     <p class="text-xs text-slate-500 mt-1">Pantau analitik servis, omzet pendapatan, kelola akun staf, dan catat pengadaan sparepart supplier</p>
@@ -45,11 +45,11 @@
                 <div class="flex flex-wrap gap-2.5">
                     <button onclick="openModalPengadaan()"
                         class="bg-[#0B1E3F] hover:bg-[#132F63] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition border border-amber-400/80 shadow-sm flex items-center gap-2">
-                        <span>âž•</span> Catat Pengadaan Baru
+                        <span>➕</span> Catat Pengadaan Baru
                     </button>
                     <button onclick="loadAllData()"
                         class="bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-300 transition shadow-sm">
-                        ðŸ”„ Refresh
+                        🔄 Refresh
                     </button>
                 </div>
             </div>
@@ -58,7 +58,7 @@
             <section class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3.5">
-                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">ðŸ‘¥</span>
+                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">👥</span>
                         <div>
                             <h2 class="text-xl font-bold text-[#0B1E3F]">Kelola Akun Admin & Teknisi</h2>
                             <p class="text-xs text-slate-500 mt-0.5">Owner memiliki otoritas penuh menambah, memperbarui data, dan menghapus akun staf.</p>
@@ -66,10 +66,10 @@
                     </div>
                     <div class="flex gap-2.5">
                         <button id="openAddStaffModalBtn" type="button" class="bg-[#0B1E3F] hover:bg-[#132F63] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition border border-amber-400/80 shadow-sm flex items-center gap-1.5">
-                            <span>âž•</span> Tambah Staf Baru
+                            <span>➕</span> Tambah Staf Baru
                         </button>
                         <button id="reloadStaffAccounts" type="button" class="bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-300 transition shadow-sm">
-                            ðŸ”„ Muat Ulang Akun
+                            🔄 Muat Ulang Akun
                         </button>
                     </div>
                 </div>
@@ -84,7 +84,7 @@
                             </tr>
                         </thead>
                         <tbody id="staffAccountRows" class="divide-y divide-slate-100 bg-white">
-                            <tr><td colspan="4" class="p-6 text-center text-slate-400">Memuat akun stafâ€¦</td></tr>
+                            <tr><td colspan="4" class="p-6 text-center text-slate-400">Memuat akun staf…</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -170,7 +170,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400 space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                         <span>Total Servis Masuk</span>
-                        <span class="p-2 bg-blue-50 text-[#0B1E3F] rounded-xl text-base">ðŸ“‹</span>
+                        <span class="p-2 bg-blue-50 text-[#0B1E3F] rounded-xl text-base">📋</span>
                     </div>
                     <div id="totalUnit" class="text-3xl font-black text-[#0B1E3F]">0</div>
                     <div class="text-xs text-slate-500">Unit servis terdaftar di sistem</div>
@@ -179,7 +179,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-emerald-500 space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                         <span>Unit Selesai / Diambil</span>
-                        <span class="p-2 bg-emerald-50 text-emerald-700 rounded-xl text-base">âœ…</span>
+                        <span class="p-2 bg-emerald-50 text-emerald-700 rounded-xl text-base">✅</span>
                     </div>
                     <div id="unitSelesai" class="text-3xl font-black text-emerald-600">0</div>
                     <div class="text-xs text-slate-500">Pengerjaan telah tuntas & diserahkan</div>
@@ -188,7 +188,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-blue-600 space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                         <span>Total Pendapatan (Omzet Lunas)</span>
-                        <span class="p-2 bg-blue-50 text-blue-700 rounded-xl text-base">ðŸ’µ</span>
+                        <span class="p-2 bg-blue-50 text-blue-700 rounded-xl text-base">💵</span>
                     </div>
                     <div id="totalPendapatan" class="text-3xl font-black text-[#0B1E3F]">Rp 0</div>
                     <div class="text-xs text-slate-500">Total kas masuk dari servis lunas</div>
@@ -197,7 +197,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-rose-500 space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                         <span>Pengeluaran Pengadaan Sparepart</span>
-                        <span class="p-2 bg-rose-50 text-rose-700 rounded-xl text-base">ðŸ›’</span>
+                        <span class="p-2 bg-rose-50 text-rose-700 rounded-xl text-base">🛒</span>
                     </div>
                     <div id="totalPengadaan" class="text-3xl font-black text-rose-700">Rp 0</div>
                     <div id="totalTransaksiPengadaan" class="text-xs text-slate-500">0 transaksi pembelian</div>
@@ -206,7 +206,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-500 space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                         <span>Estimasi Arus Kas Bersih (Net)</span>
-                        <span class="p-2 bg-amber-50 text-amber-800 rounded-xl text-base">ðŸ“ˆ</span>
+                        <span class="p-2 bg-amber-50 text-amber-800 rounded-xl text-base">📈</span>
                     </div>
                     <div id="labaBersih" class="text-3xl font-black text-emerald-600">Rp 0</div>
                     <div class="text-xs text-slate-500">Omzet servis dikurangi biaya pengadaan</div>
@@ -215,7 +215,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-[#0B1E3F] space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                         <span>Nilai Aset Stok Onderdil</span>
-                        <span class="p-2 bg-amber-50 text-amber-700 rounded-xl text-base">ðŸ“¦</span>
+                        <span class="p-2 bg-amber-50 text-amber-700 rounded-xl text-base">📦</span>
                     </div>
                     <div id="nilaiAsetStok" class="text-3xl font-black text-amber-700">Rp 0</div>
                     <div id="totalStokBarang" class="text-xs text-slate-500">0 total unit onderdil tersedia</div>
@@ -234,7 +234,7 @@
             <div class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3.5">
-                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">ðŸ›’</span>
+                        <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">🛒</span>
                         <div>
                             <h2 class="text-xl font-bold text-[#0B1E3F]">Riwayat Pengadaan Barang dari Supplier</h2>
                             <p class="text-xs text-slate-500 mt-0.5">Catatan pembelian sparepart supplier yang otomatis menambah stok fisik toko</p>
@@ -242,7 +242,7 @@
                     </div>
                     <button onclick="openModalPengadaan()"
                         class="bg-[#0B1E3F] hover:bg-[#132F63] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition border border-amber-400/80 shadow-sm flex items-center gap-1.5">
-                        <span>âž•</span> Catat Pengadaan Baru
+                        <span>➕</span> Catat Pengadaan Baru
                     </button>
                 </div>
 
@@ -274,7 +274,7 @@
             <!-- Modal Header -->
             <div class="bg-[#0B1E3F] text-white px-6 py-4 flex justify-between items-center border-b-2 border-amber-400">
                 <div class="flex items-center gap-2.5">
-                    <span class="p-1.5 bg-amber-500 text-slate-950 rounded-lg text-sm font-bold">ðŸ›’</span>
+                    <span class="p-1.5 bg-amber-500 text-slate-950 rounded-lg text-sm font-bold">🛒</span>
                     <div>
                         <h3 class="text-base font-bold">Pengadaan Sparepart Baru dari Supplier</h3>
                         <p class="text-[11px] text-slate-300">Stok di tabel spareparts otomatis bertambah setelah data disimpan</p>
@@ -300,7 +300,7 @@
 
                 <!-- Info Alert -->
                 <div class="p-3.5 bg-amber-50/80 rounded-xl border border-amber-300 text-xs text-amber-950 flex items-center gap-2.5">
-                    <span class="text-base flex-shrink-0">âš¡</span>
+                    <span class="text-base flex-shrink-0">⚡</span>
                     <span><strong>Otomasi Sistem:</strong> Jumlah unit yang dibeli akan langsung ditambahkan ke stok tabel <code>spareparts</code> secara otomatis.</span>
                 </div>
 
@@ -510,7 +510,7 @@
                 <div class="flex justify-between items-center">
                     <span class="font-bold text-[#0B1E3F]">Item #${id}</span>
                     <button type="button" onclick="removeItemRow(${id})" class="text-rose-600 hover:text-rose-800 font-bold text-xs">
-                        âœ• Hapus Item
+                        ✕ Hapus Item
                     </button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
@@ -612,7 +612,7 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert(`âœ… ${data.message}\nNo. Pembelian: ${data.data.no_pembelian}\nTotal: Rp ${Number(data.data.total_biaya).toLocaleString('id-ID')}`);
+                    alert(`✅ ${data.message}\nNo. Pembelian: ${data.data.no_pembelian}\nTotal: Rp ${Number(data.data.total_biaya).toLocaleString('id-ID')}`);
                     closeModalPengadaan();
                     loadAllData();
                 } else {

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 
 <head>
@@ -16,7 +16,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Data Onderdil &amp; Sparepart â€” TECKFO</title>
+    <title>Master Data Onderdil &amp; Sparepart — TECKFO</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -57,7 +57,7 @@
 
     <!-- Topbar Nav -->
     <div class="app-topbar">
-        <span class="text-amber-400 font-bold text-sm mr-1">ðŸ“¦</span>
+        <span class="text-amber-400 font-bold text-sm mr-1">📦</span>
         <a href="/spareparts.html" class="app-nav-link">Stok Sparepart</a>
     </div>
 
@@ -69,16 +69,16 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-start gap-4 pb-5 border-b-2 border-amber-400">
                 <div>
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-2xl">ðŸ“¦</span>
+                        <span class="text-2xl">📦</span>
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Master Data Onderdil &amp; Inventaris</h1>
                     </div>
-                    <p class="text-sm text-slate-500 ml-9">Kelola sparepart lengkap â€” Tambah, Ubah, Hapus, Cek Stok &amp; Margin Harga</p>
+                    <p class="text-sm text-slate-500 ml-9">Kelola sparepart lengkap — Tambah, Ubah, Hapus, Cek Stok &amp; Margin Harga</p>
                 </div>
                 <!-- Badge Total -->
                 <div class="flex items-center ml-9 sm:ml-0">
                     <span id="totalItemsBadge"
                         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold border border-amber-300 text-amber-800 bg-amber-50 shadow-sm whitespace-nowrap">
-                        <span>ðŸ—‚ï¸</span> Memuat data...
+                        <span>🗂️</span> Memuat data...
                     </span>
                 </div>
             </div>
@@ -86,24 +86,24 @@
             <!-- Summary Stats Row -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 stat-card p-4 flex items-center gap-3">
-                    <div class="p-2.5 rounded-lg bg-blue-50 text-blue-700 text-xl">ðŸ§®</div>
+                    <div class="p-2.5 rounded-lg bg-blue-50 text-blue-700 text-xl">🧮</div>
                     <div>
                         <p class="text-xs text-slate-500 font-medium">Total Jenis Barang</p>
-                        <p class="text-xl font-extrabold text-slate-800" id="statTotal">â€”</p>
+                        <p class="text-xl font-extrabold text-slate-800" id="statTotal">—</p>
                     </div>
                 </div>
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 stat-card p-4 flex items-center gap-3">
-                    <div class="p-2.5 rounded-lg bg-rose-50 text-rose-600 text-xl">âš ï¸</div>
+                    <div class="p-2.5 rounded-lg bg-rose-50 text-rose-600 text-xl">⚠️</div>
                     <div>
                         <p class="text-xs text-slate-500 font-medium">Stok Menipis / Habis</p>
-                        <p class="text-xl font-extrabold text-slate-800" id="statLow">â€”</p>
+                        <p class="text-xl font-extrabold text-slate-800" id="statLow">—</p>
                     </div>
                 </div>
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 stat-card p-4 flex items-center gap-3">
-                    <div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-700 text-xl">âœ…</div>
+                    <div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-700 text-xl">✅</div>
                     <div>
                         <p class="text-xs text-slate-500 font-medium">Stok Aman</p>
-                        <p class="text-xl font-extrabold text-slate-800" id="statOk">â€”</p>
+                        <p class="text-xl font-extrabold text-slate-800" id="statOk">—</p>
                     </div>
                 </div>
             </div>
@@ -112,7 +112,7 @@
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <!-- Card Header -->
                 <div class="modal-header px-6 py-4 flex items-center gap-2.5">
-                    <span class="text-amber-400 text-lg">âž•</span>
+                    <span class="text-amber-400 text-lg">➕</span>
                     <h2 class="text-base font-bold text-white">Tambah Sparepart Baru</h2>
                 </div>
                 <!-- Form -->
@@ -148,7 +148,7 @@
                             </div>
                             <div class="md:col-span-2">
                                 <button type="submit" class="btn-gold w-full py-2.5 px-4 rounded-lg text-sm shadow-sm flex items-center justify-center gap-1.5">
-                                    <span>âž•</span> Simpan Sparepart
+                                    <span>➕</span> Simpan Sparepart
                                 </button>
                             </div>
                         </div>
@@ -161,7 +161,7 @@
                 <!-- Card Header -->
                 <div class="modal-header px-6 py-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                     <div class="flex items-center gap-2">
-                        <span class="text-amber-400 text-lg">ðŸ“‹</span>
+                        <span class="text-amber-400 text-lg">📋</span>
                         <h2 class="text-base font-bold text-white">Daftar Stok &amp; Master Onderdil</h2>
                     </div>
                     <!-- Search & Reload -->
@@ -169,7 +169,7 @@
                         <input type="text" id="searchInput" oninput="filterSpareparts()" placeholder="Cari nama atau kode barang..."
                             class="flex-1 py-2 px-3 border border-slate-600 rounded-lg text-xs bg-slate-800 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                         <button onclick="loadSpareparts()" class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-sm rounded-lg border border-amber-400 transition" title="Muat Ulang">
-                            ðŸ”„
+                            🔄
                         </button>
                     </div>
                 </div>
@@ -204,7 +204,7 @@
             <!-- Modal Header -->
             <div class="modal-header px-6 py-4 flex justify-between items-center">
                 <div class="flex items-center gap-2.5">
-                    <span class="text-amber-400 text-base">âœï¸</span>
+                    <span class="text-amber-400 text-base">✏️</span>
                     <h3 class="text-base font-bold text-white">Edit Data Onderdil</h3>
                 </div>
                 <button type="button" onclick="closeModalEdit()" class="text-slate-400 hover:text-amber-400 text-2xl font-bold leading-none transition">&times;</button>
@@ -249,7 +249,7 @@
                         Batal
                     </button>
                     <button type="submit" class="flex-1 py-2.5 btn-navy rounded-lg text-xs font-bold shadow-sm">
-                        ðŸ’¾ Simpan Perubahan
+                        💾 Simpan Perubahan
                     </button>
                 </div>
             </form>
@@ -275,7 +275,7 @@
                     const lowStock = sparepartsCache.filter(i => parseInt(i.stok, 10) <= 5).length;
                     const okStock = total - lowStock;
 
-                    document.getElementById('totalItemsBadge').innerHTML = `<span>ðŸ—‚ï¸</span> Total: ${total} Jenis Sparepart`;
+                    document.getElementById('totalItemsBadge').innerHTML = `<span>🗂️</span> Total: ${total} Jenis Sparepart`;
                     document.getElementById('statTotal').textContent = total;
                     document.getElementById('statLow').textContent = lowStock;
                     document.getElementById('statOk').textContent = okStock;
@@ -336,11 +336,11 @@
                         <div class="flex items-center justify-center gap-1.5">
                             <button onclick="openModalEdit(${item.id})"
                                 class="px-2.5 py-1 btn-navy rounded text-xs font-semibold transition" title="Edit">
-                                âœï¸ Edit
+                                ✏️ Edit
                             </button>
                             <button onclick="hapusSparepart(${item.id}, '${encodeURIComponent(item.nama_barang)}')"
                                 class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded text-xs transition" title="Hapus">
-                                ðŸ—‘ï¸ Hapus
+                                🗑️ Hapus
                             </button>
                         </div>
                     </td>
@@ -368,7 +368,7 @@
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert('âœ… Sparepart berhasil ditambahkan!');
+                    alert('✅ Sparepart berhasil ditambahkan!');
                     document.getElementById('formSparepart').reset();
                     loadSpareparts();
                 } else {
@@ -418,7 +418,7 @@
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert('âœ… Data sparepart berhasil diperbarui!');
+                    alert('✅ Data sparepart berhasil diperbarui!');
                     closeModalEdit();
                     loadSpareparts();
                 } else {
@@ -440,10 +440,10 @@
                 const res = await fetch(`/api/spareparts/${id}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert(`âœ… ${data.message}`);
+                    alert(`✅ ${data.message}`);
                     loadSpareparts();
                 } else {
-                    alert(`âš ï¸ Gagal: ${data.message}`);
+                    alert(`⚠️ Gagal: ${data.message}`);
                 }
             } catch (err) {
                 alert('Terjadi kesalahan koneksi.');
