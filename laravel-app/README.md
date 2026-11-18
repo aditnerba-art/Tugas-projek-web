@@ -83,4 +83,3 @@ Ganti kata sandi awal sebelum aplikasi digunakan di lingkungan produksi.
 Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal publik tersedia di `/index.html`; persetujuan servis menggunakan pilihan setuju atau batal. Rute dashboard staf dilindungi autentikasi sesi dan middleware role.
 
 Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `fetch()` menyertakan token CSRF Laravel. Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.
-

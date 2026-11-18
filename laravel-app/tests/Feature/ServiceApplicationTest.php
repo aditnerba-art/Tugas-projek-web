@@ -46,16 +46,23 @@ class ServiceApplicationTest extends TestCase
         $service = Service::where('no_nota', $response->json('no_nota'))->firstOrFail();
         $service->update(['status' => 'menunggu_persetujuan']);
 
-        $this->getJson('/api/tracking/'.$code)
+        $this->getJson('/api/tracking?kode_akses='.$code)
             ->assertOk()
             ->assertJsonPath('data.unit.no_nota', $service->no_nota);
-        $this->postJson('/api/customer/login', ['token' => $code, 'customer_name' => 'Pelanggan Tes 2'])
+        $this->postJson('/api/customer/login', ['kode_akses' => $code, 'customer_name' => 'Pelanggan Tes 2'])
             ->assertOk()->assertJsonPath('status', 'success');
         $this->postJson('/api/customer/approval', [
             'service_id' => $service->id,
             'status_baru' => 'setuju',
         ])->assertOk();
         $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'dikerjakan']);
+
+        $rotated = $this->postJson('/api/admin/customers/access-codes/'.$service->id)->assertOk();
+        $newCode = $rotated->json('data.kode_akses');
+        $this->assertMatchesRegularExpression('/^\d{5}$/', $newCode);
+        $this->getJson('/api/tracking?kode_akses='.$code)->assertNotFound();
+        $this->getJson('/api/tracking?kode_akses='.$newCode)->assertOk();
+        $this->getJson('/api/customer/me')->assertUnauthorized();
     }
 
     public function test_customer_deletion_cascades_through_service_history_and_access_sessions(): void

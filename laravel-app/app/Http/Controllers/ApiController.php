@@ -271,6 +271,7 @@ class ApiController extends Controller
             'message' => 'Unit berhasil didaftarkan',
             'no_nota' => $service->no_nota,
             'service_id' => $service->id,
+            'kode_akses' => $code,
             'customer_token' => $code,
             'customer_link' => $customerLink,
             'customer_message' => "Halo {$customer->nama}, perangkat Anda sudah diterima untuk servis. Pantau statusnya di {$customerLink}. Kode akses pelanggan Anda: {$code}",
@@ -499,6 +500,7 @@ class ApiController extends Controller
 
     public function customerLogin(Request $request): JsonResponse
     {
+        $request->merge(['token' => $request->input('kode_akses', $request->input('token'))]);
         $data = $request->validate([
             'token' => ['required', 'regex:/^\d{5}$/'],
             'customer_name' => ['required', 'string', 'max:100'],
@@ -604,8 +606,13 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Persetujuan pelanggan tersimpan', 'data' => ['service_id' => $service->id, 'status_baru' => $service->status]]);
     }
 
-    public function publicTracking(Request $request, string $identifier): JsonResponse
+    public function publicTracking(Request $request, ?string $identifier = null): JsonResponse
     {
+        $identifier ??= (string) $request->query('kode_akses', '');
+        if ($identifier === '') {
+            return response()->json(['status' => 'error', 'message' => 'Kode akses wajib diisi'], 400);
+        }
+
         if (preg_match('/^\d{5}$/', $identifier)) {
             $token = ServiceAccessToken::with('service')
                 ->where('token_hash', $this->accessHash($identifier))
@@ -648,7 +655,7 @@ class ApiController extends Controller
             return $this->issueAccessCode($service);
         });
 
-        return response()->json(['status' => 'success', 'message' => 'Kode baru berhasil dibuat. Kode sebelumnya sudah tidak berlaku.', 'data' => ['service_id' => $service->id, 'customer_token' => $code]]);
+        return response()->json(['status' => 'success', 'message' => 'Kode baru berhasil dibuat. Kode sebelumnya sudah tidak berlaku.', 'data' => ['service_id' => $service->id, 'kode_akses' => $code, 'customer_token' => $code]]);
     }
 
     public function spareparts(Request $request): JsonResponse
