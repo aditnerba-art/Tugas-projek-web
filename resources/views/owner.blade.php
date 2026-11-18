@@ -22,17 +22,82 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/theme.css">
+    <style>
+        .owner-account-slot .account-bar {
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+        }
+        .owner-account-slot .account-name {
+            max-width: 180px;
+            overflow: hidden;
+            color: #0B1E3F;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .owner-account-slot .account-bar button {
+            border: 1px solid #D4AF37;
+            background: #0B1E3F;
+        }
+        .owner-account-slot .account-bar button.secondary {
+            background: #fff;
+            color: #0B1E3F;
+        }
+        @media (max-width: 640px) {
+            .owner-account-slot .account-bar { gap: 5px; }
+            .owner-account-slot .account-name { max-width: 82px; font-size: 11px; }
+            .owner-account-slot .account-bar button { padding: 7px; font-size: 11px; }
+        }
+    </style>
 </head>
 
-<body data-theme="dashboard" class="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-900">
-    <div class="app-topbar">
-        <a href="owner.html" class="app-nav-link">👑 Panel Owner</a>
-        <a href="/spareparts.html" class="app-nav-link">📦 Kelola Sparepart</a>
-    </div>
+<body data-theme="dashboard" class="min-h-screen flex bg-slate-50 font-sans text-slate-900">
+    <button id="ownerSidebarOverlay" type="button" class="fixed inset-0 z-40 hidden bg-slate-950/60 md:hidden" aria-label="Tutup menu"></button>
+
+    <aside id="ownerSidebar" class="fixed inset-y-0 left-0 z-50 flex h-screen w-64 -translate-x-full flex-col border-r-2 border-amber-400 bg-[#0B1E3F] text-white transition-transform duration-300 md:sticky md:top-0 md:translate-x-0">
+        <div class="border-b border-amber-400/40 px-6 py-6">
+            <a href="/owner.html" class="flex items-center gap-3 text-white no-underline">
+                <span class="grid h-11 w-11 place-items-center rounded-xl border border-amber-400/70 bg-[#153266] text-xl text-amber-300">👑</span>
+                <span>
+                    <strong class="block text-sm font-extrabold tracking-wide">TECKFO SERVICE</strong>
+                    <small class="mt-1 block text-[11px] text-slate-300">Owner Workspace</small>
+                </span>
+            </a>
+        </div>
+        <nav class="space-y-2 px-3 py-6" aria-label="Navigasi Owner">
+            <button type="button" data-owner-nav="dashboard" aria-current="page" class="flex w-full items-center gap-3 border-l-4 border-amber-400 bg-[#153266] px-4 py-3 text-left text-sm font-semibold text-amber-300 transition hover:bg-[#153266]">
+                <span aria-hidden="true">📊</span> Dashboard &amp; Laporan
+            </button>
+            <button type="button" data-owner-nav="staff" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">👥</span> Manajemen Staf
+            </button>
+            <button type="button" data-owner-nav="inventory" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">📦</span> Stok Sparepart
+            </button>
+        </nav>
+        <div class="mt-auto border-t border-amber-400/30 px-5 py-4 text-[11px] text-slate-400">
+            Manajemen servis &amp; inventaris
+        </div>
+    </aside>
+
+    <div id="ownerAppContent" class="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header class="owner-topbar sticky top-0 z-30 flex min-h-20 items-center gap-4 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+            <button id="ownerSidebarToggle" type="button" class="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-lg text-[#0B1E3F] shadow-sm md:hidden" aria-label="Buka menu" aria-expanded="false" aria-controls="ownerSidebar">
+                ☰
+            </button>
+            <div class="min-w-0 flex-1">
+                <p class="text-[10px] font-bold uppercase tracking-[.16em] text-amber-700">Panel Eksekutif</p>
+                <h1 id="activeSectionTitle" class="truncate text-base font-extrabold text-[#0B1E3F] sm:text-lg">Dashboard &amp; Laporan</h1>
+            </div>
+            <div id="ownerAccountSlot" class="owner-account-slot"></div>
+        </header>
 
     <!-- Main Content -->
     <main class="flex-1 p-4 sm:p-6 lg:p-8">
         <div class="max-w-7xl mx-auto space-y-8">
+            <div data-owner-panel="dashboard">
             <!-- Header Bar -->
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400">
                 <div>
@@ -53,9 +118,10 @@
                     </button>
                 </div>
             </div>
+            </div>
 
             <!-- Pengaturan akun staf, hanya tersedia untuk owner -->
-            <section class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-5">
+            <section data-owner-panel="staff" hidden class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3.5">
                         <span class="w-11 h-11 bg-[#0B1E3F] text-amber-400 border border-amber-400/50 rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">👥</span>
@@ -165,6 +231,7 @@
                 </div>
             </div>
 
+            <div data-owner-panel="dashboard">
             <!-- Summary KPI & Rekap Keuangan Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400 space-y-1.5 transition hover:shadow-md">
@@ -229,7 +296,42 @@
                     <!-- Diisi via JS -->
                 </div>
             </div>
+            </div>
 
+            <section data-owner-panel="inventory" hidden class="space-y-8">
+                <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-[#0B1E3F]">Inventaris Sparepart</h2>
+                        <p class="mt-1 text-sm text-slate-500">Pantau stok tersedia dan lanjutkan ke pengelolaan lengkap atau pencatatan barang masuk.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="/spareparts.html" class="inline-flex items-center justify-center rounded-xl border border-amber-400/80 bg-[#0B1E3F] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#132F63]">Kelola Sparepart</a>
+                        <button type="button" onclick="openModalPengadaan()" class="rounded-xl border border-amber-400 bg-amber-400 px-4 py-2.5 text-xs font-bold text-[#0B1E3F] transition hover:bg-amber-300">+ Catat Pengadaan</button>
+                    </div>
+                </div>
+
+                <div class="overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white shadow-sm">
+                    <div class="border-b border-slate-100 px-6 py-4">
+                        <h3 class="font-bold text-[#0B1E3F]">Stok Saat Ini</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="border-b-2 border-amber-400 bg-[#0B1E3F] text-xs uppercase tracking-wide text-white">
+                                <tr>
+                                    <th class="p-3.5">Kode Barang</th>
+                                    <th class="p-3.5">Nama Sparepart</th>
+                                    <th class="p-3.5 text-right">Stok</th>
+                                    <th class="p-3.5 text-right">Harga Beli</th>
+                                    <th class="p-3.5 text-right">Harga Jual</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ownerSparepartsRows" class="divide-y divide-slate-100 bg-white">
+                                <tr><td colspan="5" class="p-6 text-center text-slate-400">Memuat inventaris…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
             <!-- Riwayat Pengadaan Sparepart (Purchases & Purchase Details) -->
             <div class="bg-white p-7 sm:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
@@ -265,6 +367,7 @@
                     </table>
                 </div>
             </div>
+            </section>
         </div>
     </main>
 
@@ -343,6 +446,7 @@
                 </div>
             </form>
         </div>
+    </div>
     </div>
 
     <script>
@@ -464,12 +568,47 @@
         }
 
         // 3. Ambil Katalog Sparepart untuk Form Dropdown
+        function renderSparepartsCatalog() {
+            const tbody = document.getElementById('ownerSparepartsRows');
+            tbody.replaceChildren();
+
+            if (sparepartsList.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 5;
+                cell.className = 'p-6 text-center text-slate-400';
+                cell.textContent = 'Belum ada data sparepart.';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+                return;
+            }
+
+            sparepartsList.forEach(part => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-amber-50/40';
+                [
+                    part.kode_barang,
+                    part.nama_barang,
+                    part.stok,
+                    `Rp ${Number(part.harga_beli || 0).toLocaleString('id-ID')}`,
+                    `Rp ${Number(part.harga_jual || 0).toLocaleString('id-ID')}`
+                ].forEach((value, index) => {
+                    const cell = document.createElement('td');
+                    cell.className = `p-3.5 ${index >= 2 ? 'text-right tabular-nums' : ''}`;
+                    cell.textContent = value ?? '-';
+                    row.appendChild(cell);
+                });
+                tbody.appendChild(row);
+            });
+        }
+
         async function loadSparepartsCatalog() {
             try {
                 const res = await fetch('/api/spareparts');
                 const result = await res.json();
                 if (result.status === 'success') {
                     sparepartsList = result.data;
+                    renderSparepartsCatalog();
                 }
             } catch (err) {
                 console.error(err);
@@ -626,6 +765,57 @@
 
         // Inisialisasi
         loadAllData();
+    </script>
+    <script>
+        (() => {
+            const sidebar = document.getElementById('ownerSidebar');
+            const overlay = document.getElementById('ownerSidebarOverlay');
+            const toggle = document.getElementById('ownerSidebarToggle');
+            const title = document.getElementById('activeSectionTitle');
+            const labels = {
+                dashboard: 'Dashboard & Laporan',
+                staff: 'Manajemen Staf',
+                inventory: 'Stok Sparepart'
+            };
+
+            function setSidebarOpen(open) {
+                sidebar.classList.toggle('-translate-x-full', !open);
+                sidebar.classList.toggle('translate-x-0', open);
+                overlay.classList.toggle('hidden', !open);
+                toggle.setAttribute('aria-expanded', String(open));
+            }
+
+            function activateSection(section) {
+                document.querySelectorAll('[data-owner-panel]').forEach(panel => {
+                    panel.hidden = panel.dataset.ownerPanel !== section;
+                });
+                document.querySelectorAll('[data-owner-nav]').forEach(button => {
+                    const active = button.dataset.ownerNav === section;
+                    button.classList.toggle('bg-[#153266]', active);
+                    button.classList.toggle('border-amber-400', active);
+                    button.classList.toggle('text-amber-300', active);
+                    button.classList.toggle('font-semibold', active);
+                    button.classList.toggle('border-transparent', !active);
+                    button.classList.toggle('text-slate-200', !active);
+                    button.classList.toggle('font-medium', !active);
+                    button.setAttribute('aria-current', active ? 'page' : 'false');
+                });
+                title.textContent = labels[section];
+                if (window.innerWidth < 768) setSidebarOpen(false);
+            }
+
+            document.querySelectorAll('[data-owner-nav]').forEach(button => {
+                button.addEventListener('click', () => activateSection(button.dataset.ownerNav));
+            });
+            toggle.addEventListener('click', () => setSidebarOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+            overlay.addEventListener('click', () => setSidebarOpen(false));
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') setSidebarOpen(false);
+            });
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) setSidebarOpen(false);
+            });
+        })();
     </script>
     <script src="/owner-staff.js"></script>
     <script src="/account-menu.js" data-role="owner"></script>

@@ -43,10 +43,12 @@
         const logout = document.createElement('button');
         logout.type = 'button';
         logout.className = 'secondary';
-        logout.textContent = 'Keluar';
+        logout.textContent = user.role === 'owner' ? 'Logout' : 'Keluar';
         if (user.role === 'owner') bar.append(name, settings, logout);
         else bar.append(name, logout);
-        document.body.insertBefore(bar, document.body.firstChild);
+        const ownerAccountSlot = requiredRole === 'owner' && document.getElementById('ownerAccountSlot');
+        if (ownerAccountSlot) ownerAccountSlot.appendChild(bar);
+        else document.body.insertBefore(bar, document.body.firstChild);
 
         const overlay = document.createElement('div');
         overlay.className = 'account-overlay';
