@@ -76,7 +76,7 @@ Route::prefix('api')->group(function () {
     Route::post('/customer/logout', [ApiController::class, 'customerLogout']);
     Route::post('/customer/approval', [ApiController::class, 'customerApproval']);
     Route::post('/customer/persetujuan', [ApiController::class, 'customerApproval']);
-    Route::get('/customer/{identifier}', [ApiController::class, 'publicTracking']);
-    Route::get('/tracking/{identifier}', [ApiController::class, 'publicTracking']);
+    Route::get('/customer/{identifier}', [ApiController::class, 'publicTracking'])->middleware('throttle:10,1');
+    Route::get('/tracking/{identifier}', [ApiController::class, 'publicTracking'])->middleware('throttle:10,1');
     Route::post('/tracking/persetujuan', [ApiController::class, 'customerApproval']);
 });

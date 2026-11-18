@@ -516,6 +516,7 @@ class ApiController extends Controller
             'expires_at' => now()->addDays(7),
         ]);
         $request->session()->put('customer_service_id', $token->service_id);
+        $request->session()->put('customer_session_hash', hash('sha256', $session));
 
         return response()->json(['status' => 'success']);
     }
@@ -523,7 +524,11 @@ class ApiController extends Controller
     public function customerMe(Request $request): JsonResponse
     {
         $serviceId = $request->session()->get('customer_service_id');
-        if (!$serviceId) {
+        $customerSession = CustomerSession::with('accessToken')
+            ->where('session_hash', $request->session()->get('customer_session_hash'))
+            ->where('expires_at', '>', now())
+            ->first();
+        if (!$serviceId || !$customerSession || $customerSession->accessToken->revoked_at || $customerSession->accessToken->expires_at->isPast()) {
             return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
         }
         $service = Service::find($serviceId);
@@ -539,6 +544,7 @@ class ApiController extends Controller
     public function customerLogout(Request $request): JsonResponse
     {
         $request->session()->forget('customer_service_id');
+        $request->session()->forget('customer_session_hash');
 
         return response()->json(['status' => 'success']);
     }
@@ -549,13 +555,32 @@ class ApiController extends Controller
             'status_baru' => ['required', Rule::in(['setuju', 'batal', 'dikerjakan', 'batalkan'])],
             'service_id' => ['nullable', 'integer'],
             'no_nota' => ['nullable', 'string'],
+            'kode_akses' => ['nullable', 'regex:/^\d{5}$/'],
         ]);
-        $serviceId = $request->session()->get('customer_service_id') ?? ($data['service_id'] ?? null);
+        $customerSession = CustomerSession::with('accessToken')
+            ->where('session_hash', $request->session()->get('customer_session_hash'))
+            ->where('expires_at', '>', now())
+            ->first();
+        $sessionServiceId = $customerSession
+            && !$customerSession->accessToken->revoked_at
+            && !$customerSession->accessToken->expires_at->isPast()
+                ? $request->session()->get('customer_service_id')
+                : null;
+        $serviceId = $sessionServiceId;
+        if (!$serviceId && !empty($data['kode_akses'])) {
+            $token = ServiceAccessToken::where('token_hash', $this->accessHash($data['kode_akses']))
+                ->whereNull('revoked_at')->where('expires_at', '>', now())->first();
+            $serviceId = $token?->service_id;
+        }
+        if ($request->user() && in_array($request->user()->role, ['admin', 'teknisi'], true)) {
+            $serviceId = $data['service_id'] ?? $serviceId;
+        }
+        if ($sessionServiceId && !empty($data['service_id']) && (int) $data['service_id'] !== (int) $sessionServiceId) {
+            return response()->json(['status' => 'error', 'message' => 'Kode akses tidak sesuai dengan servis'], 403);
+        }
         $serviceQuery = Service::query();
         if ($serviceId) {
             $serviceQuery->whereKey($serviceId);
-        } elseif (!empty($data['no_nota'])) {
-            $serviceQuery->where('no_nota', $data['no_nota']);
         } else {
             return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
         }
@@ -578,7 +603,7 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Persetujuan pelanggan tersimpan', 'data' => ['service_id' => $service->id, 'status_baru' => $service->status]]);
     }
 
-    public function publicTracking(string $identifier): JsonResponse
+    public function publicTracking(Request $request, string $identifier): JsonResponse
     {
         if (preg_match('/^\d{5}$/', $identifier)) {
             $token = ServiceAccessToken::with('service')
@@ -586,7 +611,10 @@ class ApiController extends Controller
                 ->whereNull('revoked_at')->where('expires_at', '>', now())->first();
             $service = $token?->service;
         } else {
-            $service = Service::where('no_nota', $identifier)->first();
+            $serviceId = $request->session()->get('customer_service_id');
+            $service = $serviceId
+                ? Service::whereKey($serviceId)->where('no_nota', $identifier)->first()
+                : null;
         }
         if (!$service) {
             return response()->json(['status' => 'error', 'message' => 'Kode akses atau nomor nota tidak ditemukan'], 404);
