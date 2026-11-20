@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Events\ServiceStatusChanged;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
+use LogicException;
 
 class Service extends Model
 {
@@ -45,8 +48,62 @@ class Service extends Model
         return $this->hasMany(ServiceLog::class);
     }
 
+    public function statusLogs(): HasMany
+    {
+        return $this->hasMany(ServiceStatusLog::class)->orderBy('created_at');
+    }
+
     public function accessTokens(): HasMany
     {
         return $this->hasMany(ServiceAccessToken::class);
+    }
+
+    public function changeStatus(string $newStatus, ?User $actor, ?string $note = null): ?ServiceStatusLog
+    {
+        if (! $this->exists) {
+            throw new LogicException('A service must be saved before changing its status.');
+        }
+
+        return DB::transaction(function () use ($newStatus, $actor, $note): ?ServiceStatusLog {
+            $service = static::query()->lockForUpdate()->findOrFail($this->getKey());
+            $oldStatus = $service->status;
+            $hasHistory = $service->statusLogs()->exists();
+            if ($oldStatus === $newStatus && $hasHistory) {
+                $this->setRawAttributes($service->getAttributes(), true);
+
+                return null;
+            }
+
+            if ($oldStatus !== $newStatus) {
+                $service->status = $newStatus;
+                $service->save();
+            }
+
+            $statusLog = $service->statusLogs()->create([
+                'status_lama' => $oldStatus === $newStatus ? null : $oldStatus,
+                'status_baru' => $newStatus,
+                'catatan' => $note,
+                'user_id' => $actor?->id,
+                'created_at' => now(),
+            ]);
+            $this->setRawAttributes($service->getAttributes(), true);
+
+            event(new ServiceStatusChanged($statusLog));
+
+            return $statusLog;
+        });
+    }
+
+    public function customerStatusChannelKey(): ?string
+    {
+        $tokenHash = $this->accessTokens()
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->orderByDesc('id')
+            ->value('token_hash');
+
+        return $tokenHash
+            ? hash_hmac('sha256', 'customer-status:'.$tokenHash, (string) config('app.key'))
+            : null;
     }
 }

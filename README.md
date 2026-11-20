@@ -70,6 +70,69 @@ Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admi
 
 Database SQLite digunakan secara default; koneksi MySQL dapat diatur melalui variabel `DB_*` di `.env`.
 
+### Realtime dan notifikasi
+
+Status servis dicatat di timeline terpusat dan dikirim melalui Laravel Reverb saat `REALTIME_DRIVER=reverb`. Portal pelanggan memakai private channel yang diotorisasi berdasarkan sesi portal aktif; staf memakai channel private sesuai peran. Jika WebSocket tidak tersambung, frontend otomatis memakai polling JSON dengan ETag setiap 12 detik. Set `REALTIME_DRIVER=polling` untuk menonaktifkan Reverb dan menggunakan polling saja.
+
+Untuk pengembangan lokal, atur nilai Reverb lokal di `.env`, lalu jalankan:
+
+```sh
+npm install
+npm run build
+composer dev
+```
+
+`composer dev` menjalankan Laravel, queue worker, Pail, Vite, dan Reverb secara bersamaan. Untuk mencoba polling saja, ubah `REALTIME_DRIVER=polling` dan `VITE_REALTIME_DRIVER=polling`, lalu build ulang asset.
+
+Di produksi, gunakan kredensial rahasia berbeda dari nilai lokal pada `.env.production.example`. Pastikan `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`, dan `REVERB_ALLOWED_ORIGINS` sesuai domain publik; terminasi TLS/WSS sebaiknya dilakukan oleh reverse proxy dan port Reverb hanya dibuka secara internal. Jalankan `npm ci && npm run build`, kemudian jalankan proses Reverb dan queue secara persisten.
+
+Contoh Supervisor (sesuaikan direktori dan pengguna deployment):
+
+```ini
+[program:teckfo-reverb]
+directory=/var/www/teckfo
+command=php artisan reverb:start --host=0.0.0.0 --port=8080
+user=www-data
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+redirect_stderr=true
+stdout_logfile=/var/log/teckfo-reverb.log
+
+[program:teckfo-queue]
+directory=/var/www/teckfo
+command=php artisan queue:work --sleep=3 --tries=3 --timeout=90
+user=www-data
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+redirect_stderr=true
+stdout_logfile=/var/log/teckfo-queue.log
+```
+
+Alternatif `systemd` untuk Reverb (simpan sebagai `/etc/systemd/system/teckfo-reverb.service`):
+
+```ini
+[Unit]
+Description=TECKFO Laravel Reverb
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/teckfo
+ExecStart=/usr/bin/php artisan reverb:start --host=0.0.0.0 --port=8080
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Aktifkan dengan `sudo systemctl daemon-reload && sudo systemctl enable --now teckfo-reverb`. Jalankan queue worker sebagai service terpisah juga. Setelah deployment, gunakan `php artisan config:cache` dan `php artisan queue:restart`; verifikasi koneksi WebSocket melalui reverse proxy atau pilih `REALTIME_DRIVER=polling` sebagai fallback.
+
 ### Akun awal
 
 | Peran | Username | Kata sandi |

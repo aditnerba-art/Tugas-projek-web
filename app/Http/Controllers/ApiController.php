@@ -28,14 +28,17 @@ use App\Models\Service;
 use App\Models\ServiceAccessToken;
 use App\Models\ServiceItem;
 use App\Models\ServiceLog;
+use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
+use App\Notifications\ServicePanelNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 class ApiController extends Controller
 {
@@ -90,10 +93,11 @@ class ApiController extends Controller
 
     private function serviceDetails(Service $service): array
     {
-        $service->load(['customer', 'technician', 'items.sparepart', 'logs']);
+        $service->load(['customer', 'technician', 'items.sparepart', 'statusLogs.user']);
         $unit = $service->toArray();
         $unit['nama_pelanggan'] = $service->customer->nama;
         $unit['nama_teknisi'] = $service->technician?->nama;
+        $unit['status_channel_key'] = $service->customerStatusChannelKey();
         $items = $service->items->map(fn (ServiceItem $item) => [
             'id' => $item->id,
             'sparepart_id' => $item->sparepart_id,
@@ -103,10 +107,13 @@ class ApiController extends Controller
             'kode_barang' => $item->sparepart->kode_barang,
             'nama_barang' => $item->sparepart->nama_barang,
         ])->all();
-        $timeline = $service->logs->map(fn (ServiceLog $log) => [
+        $timeline = $service->statusLogs->map(fn ($log) => [
             'status_lama' => $log->status_lama,
             'status_baru' => $log->status_baru,
-            'catatan_teknis' => $log->catatan_teknis,
+            'catatan' => $log->catatan,
+            'catatan_teknis' => $log->catatan,
+            'user' => $log->user?->nama,
+            'user_role' => $log->user?->role,
             'created_at' => $log->created_at,
         ])->all();
 
@@ -190,6 +197,43 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'user' => $this->userData($user)]);
     }
 
+    public function notifications(Request $request): JsonResponse
+    {
+        $notifications = $request->user()->notifications()
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->map(fn ($notification) => [
+                'id' => $notification->id,
+                'data' => $notification->data,
+                'read_at' => $notification->read_at,
+                'created_at' => $notification->created_at,
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'unread_count' => $request->user()->unreadNotifications()->count(),
+            'data' => $notifications,
+        ]);
+    }
+
+    public function markNotificationRead(Request $request, string $notification): JsonResponse
+    {
+        $request->user()->notifications()->whereKey($notification)->firstOrFail()->markAsRead();
+
+        return response()->json([
+            'status' => 'success',
+            'unread_count' => $request->user()->unreadNotifications()->count(),
+        ]);
+    }
+
+    public function markAllNotificationsRead(Request $request): JsonResponse
+    {
+        $request->user()->unreadNotifications()->update(['read_at' => now()]);
+
+        return response()->json(['status' => 'success', 'unread_count' => 0]);
+    }
+
     public function staffIndex(): JsonResponse
     {
         $users = User::whereIn('role', ['admin', 'teknisi'])->orderBy('role')->orderBy('nama')->get(['id', 'nama', 'username', 'role']);
@@ -267,7 +311,7 @@ class ApiController extends Controller
     public function createService(CreateServiceRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $result = DB::transaction(function () use ($data): array {
+        $result = DB::transaction(function () use ($data, $request): array {
             $nama = preg_replace('/\s+/', ' ', trim($data['nama']));
             $noWa = trim($data['no_wa']);
             $customer = null;
@@ -300,7 +344,6 @@ class ApiController extends Controller
                 'no_seri' => $data['no_seri'] ?? null,
                 'keluhan' => $data['keluhan'],
                 'kelengkapan' => $data['kelengkapan'] ?? null,
-                'status' => 'masuk',
                 'status_pembayaran' => 'belum_bayar',
             ]);
             $code = $this->issueAccessCode($service);
@@ -308,7 +351,17 @@ class ApiController extends Controller
             if ($service->teknisi_id) {
                 $note .= ' dan ditugaskan kepada teknisi: '.User::find($service->teknisi_id)->nama;
             }
-            $service->logs()->create(['status_baru' => 'masuk', 'catatan_teknis' => $note]);
+            $service->changeStatus('masuk', $request->user(), $note);
+
+            if ($service->technician) {
+                $service->technician->notify(new ServicePanelNotification(
+                    'Servis baru ditugaskan',
+                    "Servis {$service->no_nota} baru ditugaskan kepada Anda.",
+                    'service_assigned',
+                    $service->id,
+                    $service->no_nota,
+                ));
+            }
 
             return [$service, $code, $customer];
         });
@@ -341,6 +394,15 @@ class ApiController extends Controller
             ['teknisi_id' => $service->teknisi_id]);
         $name = $service->technician?->nama ?? 'Belum Ditugaskan';
         $service->logs()->create(['status_lama' => $service->status, 'status_baru' => $service->status, 'catatan_teknis' => "Penugasan Teknisi PIC diperbarui: {$name}"]);
+        if ($service->teknisi_id && $service->teknisi_id !== $oldTechnicianId) {
+            $service->technician->notify(new ServicePanelNotification(
+                'Servis baru ditugaskan',
+                "Servis {$service->no_nota} baru ditugaskan kepada Anda.",
+                'service_assigned',
+                $service->id,
+                $service->no_nota,
+            ));
+        }
 
         return response()->json(['status' => 'success', 'message' => "Teknisi penanggung jawab berhasil ditugaskan: {$name}"]);
     }
@@ -387,13 +449,8 @@ class ApiController extends Controller
             $service->total_biaya = ! empty($data['total_biaya'])
                 ? $data['total_biaya']
                 : (float) $service->biaya_jasa + (float) $partsTotal;
-            $service->status = $data['status_baru'];
             $service->save();
-            $service->logs()->create([
-                'status_lama' => $oldStatus,
-                'status_baru' => $service->status,
-                'catatan_teknis' => $data['catatan_teknis'] ?? null,
-            ]);
+            $service->changeStatus($data['status_baru'], $request->user(), $data['catatan_teknis'] ?? null);
             $this->logActivity($request, 'ubah_status_servis', 'service:'.$service->id, $oldServiceData, [
                 'status' => $service->status,
                 'biaya_jasa' => $service->biaya_jasa,
@@ -460,7 +517,6 @@ class ApiController extends Controller
             $newStatus = (! empty($data['ambil_unit']) || ($isHandover || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true)))) ? 'diambil' : $oldStatus;
 
             $service->fill([
-                'status' => $newStatus,
                 'status_pembayaran' => $statusPayment,
                 'metode_pembayaran' => $method,
                 'nominal_dibayar' => $amount,
@@ -474,7 +530,9 @@ class ApiController extends Controller
             if ($newStatus === 'diambil') {
                 $note .= ' Unit telah diserahkan ke pelanggan.';
             }
-            $service->logs()->create(['status_lama' => $oldStatus, 'status_baru' => $newStatus, 'catatan_teknis' => $note]);
+            if ($newStatus !== $oldStatus) {
+                $service->changeStatus($newStatus, $request->user(), $note);
+            }
             $this->logActivity($request, 'pembayaran', 'service:'.$service->id, $oldPaymentData, [
                 'status_pembayaran' => $service->status_pembayaran,
                 'metode_pembayaran' => $service->metode_pembayaran,
@@ -514,6 +572,14 @@ class ApiController extends Controller
         $data['no_wa'] = $service->customer->no_wa;
         $data['alamat'] = $service->customer->alamat;
         $data['nama_teknisi'] = $service->technician?->nama;
+        $data['status_timeline'] = $service->statusLogs()->with('user:id,nama,role')->get()->map(fn ($log) => [
+            'status_lama' => $log->status_lama,
+            'status_baru' => $log->status_baru,
+            'catatan' => $log->catatan,
+            'user' => $log->user?->nama,
+            'user_role' => $log->user?->role,
+            'created_at' => $log->created_at,
+        ])->all();
         $data['onderdil'] = $service->items->map(fn (ServiceItem $item) => [
             'id' => $item->id, 'jumlah' => $item->jumlah, 'harga_satuan' => $item->harga_satuan,
             'subtotal' => $item->subtotal, 'nama_barang' => $item->sparepart->nama_barang,
@@ -653,6 +719,97 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $this->serviceDetails($service)]);
     }
 
+    public function customerStatusUpdates(Request $request): Response
+    {
+        $customerSession = CustomerSession::with('accessToken')
+            ->where('session_hash', $request->session()->get('customer_session_hash'))
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (! $customerSession || $customerSession->accessToken->revoked_at || $customerSession->accessToken->expires_at->isPast()) {
+            return response()->json(['status' => 'error', 'message' => 'Sesi pelanggan tidak berlaku lagi'], 401);
+        }
+
+        $service = Service::find($customerSession->accessToken->service_id);
+        if (! $service || (int) $request->session()->get('customer_service_id') !== $service->id) {
+            return response()->json(['status' => 'error', 'message' => 'Data servis tidak ditemukan'], 404);
+        }
+
+        $latestId = $service->statusLogs()->max('id') ?? 0;
+        $etag = '"'.hash('sha256', $service->id.'|'.$latestId).'"';
+        if ($response = $this->notModifiedResponse($request, $etag)) {
+            return $response;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->serviceDetails($service),
+        ])->setEtag($etag)->header('Cache-Control', 'private, no-cache');
+    }
+
+    public function serviceStatusUpdates(Request $request): Response
+    {
+        $user = $request->user();
+        $visibleServices = function ($query) use ($user): void {
+            if ($user->role === 'teknisi') {
+                $query->where('teknisi_id', $user->id);
+            } elseif ($user->role === 'admin') {
+                $query->whereHas('customer', fn ($customers) => $customers
+                    ->where('nama', '<>', 'Pelanggan dihapus')
+                    ->where('no_wa', 'not like', 'DIHAPUS-%'));
+            }
+        };
+        $logsQuery = ServiceStatusLog::query()->whereHas('service', $visibleServices);
+        $latestId = (clone $logsQuery)->max('id') ?? 0;
+        $statusQuery = Service::query();
+        $visibleServices($statusQuery);
+        $latestServiceUpdate = (clone $statusQuery)->max('updated_at');
+        $statusCounts = $statusQuery
+            ->select('status', DB::raw('COUNT(id) AS jumlah'))
+            ->groupBy('status')
+            ->orderBy('status')
+            ->get();
+        $etag = '"'.hash('sha256', $latestId.'|'.$latestServiceUpdate.'|'.$statusCounts->toJson()).'"';
+
+        if ($response = $this->notModifiedResponse($request, $etag)) {
+            return $response;
+        }
+
+        $logs = (clone $logsQuery)
+            ->with(['service:id,no_nota', 'user:id,nama,role'])
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(fn (ServiceStatusLog $log) => [
+                'service_id' => $log->service_id,
+                'no_nota' => $log->service->no_nota,
+                'status_lama' => $log->status_lama,
+                'status_baru' => $log->status_baru,
+                'catatan' => $log->catatan,
+                'user' => $log->user?->nama,
+                'user_role' => $log->user?->role,
+                'created_at' => $log->created_at,
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'status_counts' => $statusCounts,
+            'logs' => $logs,
+        ])->setEtag($etag)->header('Cache-Control', 'private, no-cache');
+    }
+
+    private function notModifiedResponse(Request $request, string $etag): ?Response
+    {
+        $validators = array_map('trim', explode(',', (string) $request->header('If-None-Match')));
+        if (! in_array($etag, $validators, true) && ! in_array('*', $validators, true)) {
+            return null;
+        }
+
+        return response()->noContent(304)
+            ->setEtag(trim($etag, '"'))
+            ->header('Cache-Control', 'private, no-cache');
+    }
+
     public function customerLogout(Request $request): JsonResponse
     {
         CustomerSession::where('session_hash', $request->session()->get('customer_session_hash'))->delete();
@@ -701,13 +858,22 @@ class ApiController extends Controller
             }
             $oldStatus = $service->status;
             $newStatus = in_array($data['status_baru'], ['batal', 'batalkan'], true) ? 'batal' : 'dikerjakan';
-            $service->update(['status' => $newStatus]);
             $note = $newStatus === 'dikerjakan'
                 ? 'Pelanggan menyetujui estimasi perbaikan sebesar Rp '.number_format((float) $service->total_biaya, 0, ',', '.').'.'
                 : 'Pelanggan membatalkan servis melalui portal pelanggan.';
-            $service->logs()->create(['status_lama' => $oldStatus, 'status_baru' => $newStatus, 'catatan_teknis' => $note]);
+            $service->changeStatus($newStatus, $request->user(), $note);
             $this->logActivity($request, 'ubah_status_servis', 'service:'.$service->id,
                 ['status' => $oldStatus], ['status' => $newStatus]);
+            if (! $request->user() && in_array($newStatus, ['dikerjakan', 'batal'], true)) {
+                $action = $newStatus === 'dikerjakan' ? 'menyetujui' : 'membatalkan';
+                User::where('role', 'admin')->get()->each(fn (User $admin) => $admin->notify(new ServicePanelNotification(
+                    $newStatus === 'dikerjakan' ? 'Pelanggan menyetujui servis' : 'Pelanggan membatalkan servis',
+                    "Pelanggan {$service->customer->nama} {$action} servis {$service->no_nota}.",
+                    'customer_approval',
+                    $service->id,
+                    $service->no_nota,
+                )));
+            }
 
             return $service;
         });

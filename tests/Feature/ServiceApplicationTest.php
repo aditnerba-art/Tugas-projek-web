@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\ServiceAccessToken;
 use App\Models\ServiceItem;
 use App\Models\ServiceLog;
+use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -242,6 +243,91 @@ class ServiceApplicationTest extends TestCase
             'aksi' => 'pembayaran',
             'user_id' => $admin->id,
             'subjek' => 'service:'.$service->id,
+        ]);
+        $this->assertDatabaseHas('service_status_logs', [
+            'service_id' => $service->id,
+            'status_lama' => 'selesai',
+            'status_baru' => 'diambil',
+            'user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_service_status_changes_are_logged_once_through_the_model_method_and_support_etag_polling(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Status',
+            'username' => 'admin_status',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $customer = Customer::create(['nama' => 'Pelanggan Status', 'no_wa' => '08123456789']);
+        $service = Service::create([
+            'no_nota' => 'SRV-STATUS-001',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop Status',
+            'keluhan' => 'Tidak menyala',
+        ]);
+
+        $service->changeStatus('masuk', $admin, 'Servis diterima');
+        $service->changeStatus('diperiksa', $admin, 'Pemeriksaan dimulai');
+        $service->changeStatus('diperiksa', $admin, 'Tidak membuat duplikat');
+
+        $this->assertSame(2, ServiceStatusLog::where('service_id', $service->id)->count());
+        $this->assertDatabaseHas('service_status_logs', [
+            'service_id' => $service->id,
+            'status_lama' => null,
+            'status_baru' => 'masuk',
+            'user_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('service_status_logs', [
+            'service_id' => $service->id,
+            'status_lama' => 'masuk',
+            'status_baru' => 'diperiksa',
+            'catatan' => 'Pemeriksaan dimulai',
+            'user_id' => $admin->id,
+        ]);
+
+        $this->actingAs($admin);
+        $firstResponse = $this->getJson('/api/services/status-updates')->assertOk();
+        $etag = $firstResponse->headers->get('ETag');
+        $this->assertNotEmpty($etag);
+        $this->getJson('/api/services/status-updates', ['If-None-Match' => $etag])->assertStatus(304);
+    }
+
+    public function test_customer_approval_creates_admin_notification(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Notifikasi',
+            'username' => 'admin_notification',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $customer = Customer::create(['nama' => 'Pelanggan Notifikasi', 'no_wa' => '08123456789']);
+        $service = Service::create([
+            'no_nota' => 'SRV-NOTIFY-001',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop',
+            'keluhan' => 'Tidak menyala',
+            'status' => 'menunggu_persetujuan',
+        ]);
+        ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', '61384', (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '61384',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/api/customer/approval', [
+            'service_id' => $service->id,
+            'status_baru' => 'setuju',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $admin->id,
+            'type' => \App\Notifications\ServicePanelNotification::class,
         ]);
     }
 

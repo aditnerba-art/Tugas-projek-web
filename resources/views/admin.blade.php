@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Admin - TECKFO Service</title>
+    @include('partials.realtime-scripts')
     <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -468,12 +469,16 @@
                                         class="inline-flex items-center gap-1.5 bg-[#0B1E3F] hover:bg-[#132F63] text-white px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-400/80 shadow-sm transition">
                                         💵 Pelunasan
                                     </button>
+                                    <button type="button" class="service-history-button inline-flex items-center gap-1 rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 transition hover:bg-blue-100">
+                                        Riwayat
+                                    </button>
                                     <button type="button" class="delete-service-button inline-flex items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100">
                                         🗑️ Hapus
                                     </button>
                                 </div>
                             </td>
                         `;
+                        tr.querySelector('.service-history-button').addEventListener('click', () => showServiceHistory(srv.no_nota));
                         tr.querySelector('.delete-service-button').addEventListener('click', () => hapusServis(srv.id, srv.no_nota));
                         const accessCodeCell = tr.cells[1];
                         const accessCode = sessionCustomerAccessCodes.get(String(srv.id));
@@ -505,6 +510,7 @@
                             } else {
                                 tandaiLinkWATidakTersedia(sendWhatsappLink, 'Nomor WhatsApp pelanggan tidak tersedia');
                             }
+
                         } else {
                             accessCodeCell.className += ' text-xs text-slate-500';
                             const unavailableCode = document.createElement('span');
@@ -536,6 +542,73 @@
                 console.error('Gagal memuat servis aktif', err);
                 document.getElementById('activeServicesTable').innerHTML =
                     '<tr><td colspan="7" class="p-8 text-center text-rose-600 text-sm">Daftar servis atau status kode akses gagal dimuat.</td></tr>';
+            }
+        }
+
+        async function showServiceHistory(noNota) {
+            let dialog = document.getElementById('serviceHistoryDialog');
+            if (!dialog) {
+                dialog = document.createElement('dialog');
+                dialog.id = 'serviceHistoryDialog';
+                dialog.className = 'w-[min(640px,calc(100%-2rem))] max-h-[85vh] rounded-2xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/50';
+                dialog.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-200 bg-[#0B1E3F] p-4 text-white">
+                        <h2 class="font-bold">Riwayat Status Servis</h2>
+                        <button type="button" class="close-history rounded-lg px-3 py-1 text-sm font-bold text-amber-300 hover:bg-white/10" aria-label="Tutup">Tutup</button>
+                    </div>
+                    <ol class="history-list max-h-[65vh] space-y-3 overflow-auto p-5"></ol>`;
+                dialog.querySelector('.close-history').addEventListener('click', () => dialog.close());
+                dialog.addEventListener('click', event => {
+                    if (event.target === dialog) dialog.close();
+                });
+                document.body.appendChild(dialog);
+            }
+
+            const list = dialog.querySelector('.history-list');
+            list.replaceChildren();
+            const loading = document.createElement('li');
+            loading.className = 'text-sm text-slate-500';
+            loading.textContent = 'Memuat riwayat...';
+            list.appendChild(loading);
+            if (!dialog.open) dialog.showModal();
+
+            try {
+                const response = await fetch(`/api/admin/nota/${encodeURIComponent(noNota)}`);
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error(result.message || 'Riwayat servis gagal dimuat.');
+                }
+
+                list.replaceChildren();
+                const logs = result.data.status_timeline || [];
+                if (!logs.length) {
+                    const empty = document.createElement('li');
+                    empty.className = 'text-sm italic text-slate-500';
+                    empty.textContent = 'Belum ada riwayat status.';
+                    list.appendChild(empty);
+                }
+                logs.forEach(log => {
+                    const item = document.createElement('li');
+                    item.className = 'border-l-2 border-amber-400 pl-4';
+                    const status = document.createElement('strong');
+                    status.className = 'block text-sm uppercase text-[#0B1E3F]';
+                    status.textContent = (log.status_baru || 'Update').replaceAll('_', ' ');
+                    const metadata = document.createElement('time');
+                    metadata.className = 'block text-xs text-slate-500';
+                    metadata.dateTime = log.created_at || '';
+                    metadata.textContent = `${log.user || 'Pelanggan / sistem'}${log.user_role ? ` · ${log.user_role}` : ''} · ${log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-'}`;
+                    const note = document.createElement('p');
+                    note.className = 'mt-1 whitespace-pre-wrap text-sm text-slate-700';
+                    note.textContent = log.catatan || 'Tidak ada catatan.';
+                    item.append(status, metadata, note);
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                list.replaceChildren();
+                const failure = document.createElement('li');
+                failure.className = 'text-sm text-rose-700';
+                failure.textContent = error.message || 'Riwayat servis gagal dimuat.';
+                list.appendChild(failure);
             }
         }
 
@@ -978,7 +1051,15 @@
         // Inisialisasi data saat halaman dibuka
         loadActiveServices();
         loadCustomers();
+        window.addEventListener('load', () => {
+            if (!window.ServiceRealtime) return;
+            window.ServiceRealtime.startStaff('admin', () => {
+                loadActiveServices();
+            });
+        });
+        window.addEventListener('panel-notification', () => loadActiveServices());
     </script>
+    <script src="/panel-notifications.js"></script>
     <script src="/account-menu.js" data-role="admin"></script>
 </body>
 

@@ -27,6 +27,10 @@ Route::prefix('api')->group(function () {
     Route::post('/auth/password', [ApiController::class, 'changePassword'])->middleware('auth');
     Route::middleware(['auth', 'password.changed', 'role:admin,teknisi,owner'])->group(function () {
         Route::get('/auth/me', [ApiController::class, 'me']);
+        Route::get('/services/status-updates', [ApiController::class, 'serviceStatusUpdates']);
+        Route::get('/notifications', [ApiController::class, 'notifications']);
+        Route::post('/notifications/read-all', [ApiController::class, 'markAllNotificationsRead']);
+        Route::post('/notifications/{notification}/read', [ApiController::class, 'markNotificationRead']);
     });
     Route::middleware(['auth', 'password.changed', 'role:owner'])->group(function () {
         Route::patch('/auth/account', [ApiController::class, 'updateAccount']);
@@ -71,6 +75,7 @@ Route::prefix('api')->group(function () {
 
     Route::post('/customer/login', [ApiController::class, 'customerLogin'])->middleware('throttle:customer-code');
     Route::get('/customer/me', [ApiController::class, 'customerMe']);
+    Route::get('/customer/status-updates', [ApiController::class, 'customerStatusUpdates']);
     Route::post('/customer/logout', [ApiController::class, 'customerLogout']);
     Route::post('/customer/approval', [ApiController::class, 'customerApproval'])->middleware('throttle:10,1');
     Route::post('/customer/persetujuan', [ApiController::class, 'customerApproval'])->middleware('throttle:10,1');

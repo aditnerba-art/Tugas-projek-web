@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Pelanggan - Login & Pelacakan Servis</title>
+    @include('partials.realtime-scripts')
     <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -700,6 +701,8 @@
         }
 
         async function doLogout() {
+            if (window.customerRealtimeStop) window.customerRealtimeStop();
+            window.customerRealtimeKey = null;
             try { await fetch('/api/customer/logout', { method: 'POST' }); } catch {}
             document.getElementById('resultPage').classList.add('hidden');
             document.getElementById('loginPage').classList.remove('hidden');
@@ -832,17 +835,49 @@
                 timeline.forEach(log => {
                     const item = document.createElement('li');
                     item.className = 'relative timeline-entry';
-                    item.innerHTML = `
-                        <div class="absolute -left-[27px] top-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900 ring-2 ring-blue-500/30"></div>
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-slate-100 uppercase tracking-wide text-xs">${(log.status_baru || 'UPDATE').replace('_', ' ')}</span>
-                            <span class="text-[10px] text-slate-400">${new Date(log.created_at).toLocaleString('id-ID')}</span>
-                        </div>
-                        <div class="mt-1 text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">${log.catatan_teknis || '-'}</div>`;
+                    const dot = document.createElement('div');
+                    dot.className = 'absolute -left-[27px] top-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900 ring-2 ring-blue-500/30';
+                    const heading = document.createElement('div');
+                    heading.className = 'flex items-center justify-between gap-3';
+                    const status = document.createElement('span');
+                    status.className = 'font-bold text-slate-100 uppercase tracking-wide text-xs';
+                    status.textContent = (log.status_baru || 'UPDATE').replaceAll('_', ' ');
+                    const timestamp = document.createElement('time');
+                    timestamp.className = 'text-[10px] text-slate-400';
+                    timestamp.dateTime = log.created_at || '';
+                    timestamp.textContent = log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-';
+                    heading.append(status, timestamp);
+
+                    const actor = document.createElement('div');
+                    actor.className = 'mt-1 text-[10px] text-blue-200';
+                    actor.textContent = log.user
+                        ? `${log.user}${log.user_role ? ` · ${log.user_role}` : ''}`
+                        : 'Pelanggan / sistem';
+                    const note = document.createElement('div');
+                    note.className = 'mt-1 text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60';
+                    note.textContent = log.catatan || log.catatan_teknis || '-';
+                    item.append(dot, heading, actor, note);
                     timelineList.appendChild(item);
                 });
             } else {
                 timelineList.innerHTML = '<li class="text-slate-500 italic">Belum ada riwayat pengerjaan tercatat.</li>';
+            }
+
+            if (unit.status_channel_key && window.ServiceRealtime && window.customerRealtimeKey !== unit.status_channel_key) {
+                if (window.customerRealtimeStop) window.customerRealtimeStop();
+                window.customerRealtimeKey = unit.status_channel_key;
+                window.customerRealtimeStop = window.ServiceRealtime.startCustomer(unit.status_channel_key, (update, source) => {
+                    if (update?.data?.unit) {
+                        tampilkanHasil(update.data);
+                    } else if (source === 'reverb') {
+                        fetch('/api/customer/me')
+                            .then(response => response.ok ? response.json() : null)
+                            .then(result => {
+                                if (result?.status === 'success') tampilkanHasil(result.data);
+                            })
+                            .catch(error => console.error('Gagal memperbarui status servis', error));
+                    }
+                });
             }
         }
 

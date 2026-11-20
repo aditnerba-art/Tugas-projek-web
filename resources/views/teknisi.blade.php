@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Teknisi - TECKFO Service</title>
+    @include('partials.realtime-scripts')
     <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -89,6 +90,11 @@
                     </div>
                 </div>
 
+                <section id="statusTimelineWrap" class="hidden rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="statusTimelineTitle">
+                    <h2 id="statusTimelineTitle" class="mb-3 text-sm font-extrabold text-[#0B1E3F]">Riwayat Status Servis</h2>
+                    <ol id="statusTimeline" class="space-y-3"></ol>
+                </section>
+
                 <form id="formUpdate" class="space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="md:col-span-1">
@@ -159,6 +165,38 @@
     <script>
         let servicesCache = [];
         let sparepartsCache = [];
+
+        function renderStatusTimeline(logs) {
+            const wrap = document.getElementById('statusTimelineWrap');
+            const timeline = document.getElementById('statusTimeline');
+            timeline.replaceChildren();
+            wrap.classList.remove('hidden');
+
+            if (!logs || logs.length === 0) {
+                const empty = document.createElement('li');
+                empty.className = 'text-xs italic text-slate-500';
+                empty.textContent = 'Belum ada riwayat status.';
+                timeline.appendChild(empty);
+                return;
+            }
+
+            logs.forEach(log => {
+                const item = document.createElement('li');
+                item.className = 'border-l-2 border-amber-400 pl-3';
+                const status = document.createElement('strong');
+                status.className = 'block text-xs uppercase text-[#0B1E3F]';
+                status.textContent = (log.status_baru || 'Update').replaceAll('_', ' ');
+                const metadata = document.createElement('time');
+                metadata.className = 'block text-[10px] text-slate-500';
+                metadata.dateTime = log.created_at || '';
+                metadata.textContent = `${log.user || 'Pelanggan / sistem'}${log.user_role ? ` · ${log.user_role}` : ''} · ${log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-'}`;
+                const note = document.createElement('p');
+                note.className = 'mt-1 whitespace-pre-wrap text-xs text-slate-700';
+                note.textContent = log.catatan || 'Tidak ada catatan.';
+                item.append(status, metadata, note);
+                timeline.appendChild(item);
+            });
+        }
 
         function toggleNavbarMenu() {
             const menu = document.getElementById('navMobileMenu');
@@ -257,8 +295,10 @@
                     } else {
                         listWrap.innerHTML = '<span class="text-slate-500 italic">Belum ada onderdil terpasang.</span>';
                     }
+                    renderStatusTimeline(notaRes.data?.status_timeline || []);
                 } catch (e) {
                     console.error(e);
+                    renderStatusTimeline([]);
                 }
             }
         }
@@ -307,11 +347,27 @@
             document.getElementById('total_biaya').value = newTotal;
         }
 
-        function initData() {
-            loadPendingServices();
-            loadSpareparts();
+        async function initData() {
+            const select = document.getElementById('service_id');
+            const selectedServiceId = select.value;
+            await Promise.all([loadPendingServices(), loadSpareparts()]);
+            if (servicesCache.some(service => String(service.id) === selectedServiceId)) {
+                select.value = selectedServiceId;
+                await onSelectService();
+            } else {
+                select.value = '';
+                document.getElementById('statusTimelineWrap').classList.add('hidden');
+            }
         }
         initData();
+
+        window.addEventListener('load', () => {
+            if (!window.ServiceRealtime) return;
+            window.ServiceRealtime.startStaff('teknisi', async () => {
+                await initData();
+            });
+        });
+        window.addEventListener('panel-notification', () => initData());
 
         async function submitUpdate() {
             const serviceId = document.getElementById('service_id').value;
@@ -372,6 +428,7 @@
             }
         }
     </script>
+    <script src="/panel-notifications.js"></script>
     <script src="/account-menu.js" data-role="teknisi"></script>
 </body>
 
