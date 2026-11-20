@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\CustomerSession;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -16,25 +15,3 @@ Broadcast::channel('staff.technician.{userId}', function (User $user, int $userI
     return $user->role === 'teknisi' && $user->id === $userId;
 });
 
-Broadcast::channel('customer-status.{channelKey}', function ($user, string $channelKey): bool {
-    $sessionHash = request()->session()->get('customer_session_hash');
-    if (! $sessionHash) {
-        return false;
-    }
-
-    $customerSession = CustomerSession::with('accessToken.service')
-        ->where('session_hash', $sessionHash)
-        ->where('expires_at', '>', now())
-        ->first();
-
-    if (! $customerSession
-        || $customerSession->accessToken->revoked_at
-        || ! $customerSession->accessToken->expires_at->isFuture()
-        || (int) request()->session()->get('customer_service_id') !== $customerSession->accessToken->service_id) {
-        return false;
-    }
-
-    $currentChannelKey = $customerSession->accessToken->service->customerStatusChannelKey();
-
-    return $currentChannelKey !== null && hash_equals($currentChannelKey, $channelKey);
-});

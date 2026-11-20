@@ -72,7 +72,7 @@ Database SQLite digunakan secara default; koneksi MySQL dapat diatur melalui var
 
 ### Realtime dan notifikasi
 
-Status servis dicatat di timeline terpusat dan dikirim melalui Laravel Reverb saat `REALTIME_DRIVER=reverb`. Portal pelanggan memakai private channel yang diotorisasi berdasarkan sesi portal aktif; staf memakai channel private sesuai peran. Jika WebSocket tidak tersambung, frontend otomatis memakai polling JSON dengan ETag setiap 12 detik. Set `REALTIME_DRIVER=polling` untuk menonaktifkan Reverb dan menggunakan polling saja.
+Status servis dicatat di timeline terpusat dan dikirim melalui Laravel Reverb saat `REALTIME_DRIVER=reverb`. Staf memakai private channel sesuai peran. Portal pelanggan menerima nama channel opaque berbasis HMAC hanya dari sesi portal yang sudah valid; endpoint polling tetap memverifikasi sesi dan token akses pelanggan. Jika WebSocket tidak tersambung, frontend otomatis memakai polling JSON dengan ETag setiap 12 detik. Set `REALTIME_DRIVER=polling` untuk menonaktifkan Reverb dan menggunakan polling saja.
 
 Untuk pengembangan lokal, atur nilai Reverb lokal di `.env`, lalu jalankan:
 

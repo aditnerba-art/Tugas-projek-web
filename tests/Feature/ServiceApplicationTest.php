@@ -332,11 +332,8 @@ class ServiceApplicationTest extends TestCase
         ]);
     }
 
-    public function test_customer_realtime_channel_requires_the_matching_active_portal_session(): void
+    public function test_customer_realtime_channel_key_is_only_disclosed_to_a_valid_portal_session(): void
     {
-        Broadcast::setDefaultDriver('reverb');
-        Broadcast::forgetDrivers();
-
         $customer = Customer::create(['nama' => 'Pelanggan Realtime', 'no_wa' => '08123456789']);
         $service = Service::create([
             'no_nota' => 'SRV-REALTIME-001',
@@ -352,29 +349,54 @@ class ServiceApplicationTest extends TestCase
         $channelKey = $service->fresh()->customerStatusChannelKey();
         $this->assertNotEmpty($channelKey);
 
-        $this->postJson('/broadcasting/auth', [
-            'socket_id' => '123.456',
-            'channel_name' => 'private-customer-status.'.$channelKey,
-        ])->assertForbidden();
+        $this->getJson('/api/tracking?kode_akses=74519')->assertOk()
+            ->assertJsonMissingPath('data.unit.status_channel_key');
 
         $this->postJson('/api/customer/login', [
             'kode_akses' => '74519',
             'customer_name' => $customer->nama,
         ])->assertOk();
-        $this->getJson('/api/customer/me')->assertOk();
-        $this->postJson('/broadcasting/auth', [
+        $this->getJson('/api/customer/me')->assertOk()
+            ->assertJsonPath('data.unit.status_channel_key', $channelKey);
+
+        $token->update(['revoked_at' => now()]);
+        $this->getJson('/api/customer/me')->assertUnauthorized();
+    }
+
+    public function test_staff_realtime_channels_are_role_scoped(): void
+    {
+        Broadcast::setDefaultDriver('reverb');
+        Broadcast::forgetDrivers();
+
+        $admin = User::create([
+            'nama' => 'Admin Channel',
+            'username' => 'admin_channel',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $technician = User::create([
+            'nama' => 'Teknisi Channel',
+            'username' => 'teknisi_channel',
+            'password' => Hash::make('password123'),
+            'role' => 'teknisi',
+        ]);
+
+        $this->actingAs($admin)->postJson('/broadcasting/auth', [
             'socket_id' => '123.456',
-            'channel_name' => 'private-customer-status.'.$channelKey,
+            'channel_name' => 'private-staff.services',
         ])->assertOk();
         $this->postJson('/broadcasting/auth', [
             'socket_id' => '123.456',
-            'channel_name' => 'private-customer-status.not-the-customer-key',
+            'channel_name' => 'private-staff.technician.'.$technician->id,
         ])->assertForbidden();
 
-        $token->update(['revoked_at' => now()]);
+        $this->actingAs($technician)->postJson('/broadcasting/auth', [
+            'socket_id' => '123.456',
+            'channel_name' => 'private-staff.technician.'.$technician->id,
+        ])->assertOk();
         $this->postJson('/broadcasting/auth', [
             'socket_id' => '123.456',
-            'channel_name' => 'private-customer-status.'.$channelKey,
+            'channel_name' => 'private-staff.services',
         ])->assertForbidden();
     }
 

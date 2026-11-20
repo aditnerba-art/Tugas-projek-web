@@ -91,13 +91,15 @@ class ApiController extends Controller
         return $code;
     }
 
-    private function serviceDetails(Service $service): array
+    private function serviceDetails(Service $service, bool $includeCustomerChannelKey = true): array
     {
         $service->load(['customer', 'technician', 'items.sparepart', 'statusLogs.user']);
         $unit = $service->toArray();
         $unit['nama_pelanggan'] = $service->customer->nama;
         $unit['nama_teknisi'] = $service->technician?->nama;
-        $unit['status_channel_key'] = $service->customerStatusChannelKey();
+        if ($includeCustomerChannelKey) {
+            $unit['status_channel_key'] = $service->customerStatusChannelKey();
+        }
         $items = $service->items->map(fn (ServiceItem $item) => [
             'id' => $item->id,
             'sparepart_id' => $item->sparepart_id,
@@ -904,7 +906,7 @@ class ApiController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Kode akses atau nomor nota tidak ditemukan'], 404);
         }
 
-        return response()->json(['status' => 'success', 'data' => $this->serviceDetails($service)]);
+        return response()->json(['status' => 'success', 'data' => $this->serviceDetails($service, false)]);
     }
 
     public function accessCodes(): JsonResponse

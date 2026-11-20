@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\ServiceStatusLog;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
@@ -50,7 +51,7 @@ class ServiceStatusChanged implements ShouldBroadcast, ShouldDispatchAfterCommit
         }
 
         if ($this->customerChannelKey) {
-            $channels[] = new PrivateChannel('customer-status.'.$this->customerChannelKey);
+            $channels[] = new Channel('customer-status.'.$this->customerChannelKey);
         }
 
         return $channels;

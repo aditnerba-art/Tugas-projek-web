@@ -89,7 +89,7 @@ window.ServiceRealtime = {
     },
 
     startCustomer(channelKey, onUpdate) {
-        const channel = channelKey ? window.Echo?.private(`customer-status.${channelKey}`) : null;
+        const channel = channelKey ? window.Echo?.channel(`customer-status.${channelKey}`) : null;
         return listen({ endpoint: '/api/customer/status-updates', channel, onUpdate });
     },
 };
