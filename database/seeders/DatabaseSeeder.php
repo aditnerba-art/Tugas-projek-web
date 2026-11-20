@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
                     'nama' => $account['nama'],
                     'password' => Hash::make($account['password']),
                     'role' => $account['role'],
+                    'must_change_password' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]
