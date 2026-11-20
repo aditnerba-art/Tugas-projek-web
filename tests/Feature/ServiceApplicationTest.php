@@ -367,6 +367,7 @@ class ServiceApplicationTest extends TestCase
     {
         Broadcast::setDefaultDriver('reverb');
         Broadcast::forgetDrivers();
+        require base_path('routes/channels.php');
 
         $admin = User::create([
             'nama' => 'Admin Channel',
