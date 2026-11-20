@@ -9,6 +9,7 @@ use App\Models\ServiceItem;
 use App\Models\ServiceLog;
 use App\Models\Sparepart;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -357,24 +358,20 @@ class ServiceApplicationTest extends TestCase
 
     public function test_seed_style_account_must_change_password_before_using_staff_routes(): void
     {
-        $user = User::create([
-            'nama' => 'Admin Seed',
-            'username' => 'admin_seed',
-            'password' => Hash::make('temporary-password'),
-            'role' => 'admin',
-            'must_change_password' => true,
-        ]);
+        $this->seed(DatabaseSeeder::class);
+        $user = User::where('username', 'admin')->firstOrFail();
+        $this->assertTrue($user->must_change_password);
 
         $this->postJson('/api/auth/login', [
-            'username' => 'admin_seed',
-            'password' => 'temporary-password',
+            'username' => 'admin',
+            'password' => 'admin123',
             'role' => 'admin',
         ])->assertOk()->assertJsonPath('user.must_change_password', true);
         $this->getJson('/api/admin/customers')->assertForbidden();
         $this->get('/password/change')->assertOk()->assertSee('Ubah Kata Sandi');
 
         $this->postJson('/api/auth/password', [
-            'current_password' => 'temporary-password',
+            'current_password' => 'admin123',
             'password' => 'a-new-password-123',
             'password_confirmation' => 'a-new-password-123',
         ])->assertOk()->assertJsonPath('user.must_change_password', false);
