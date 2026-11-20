@@ -79,6 +79,9 @@
             <button type="button" data-owner-nav="inventory" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
                 <span aria-hidden="true">📦</span> Stok Sparepart
             </button>
+            <a href="/owner/activity-logs" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-sm font-medium text-slate-200 no-underline transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">🧾</span> Log Aktivitas
+            </a>
         </nav>
         <div class="mt-auto border-t border-amber-400/30 px-5 py-4 text-[11px] text-slate-400">
             Manajemen servis &amp; inventaris

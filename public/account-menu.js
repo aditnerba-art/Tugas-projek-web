@@ -106,7 +106,8 @@
                     body: JSON.stringify({
                         currentPassword: currentPassword.value,
                         newUsername: newUsername.value.trim(),
-                        newPassword: newPassword.value
+                        newPassword: newPassword.value,
+                        newPassword_confirmation: confirmPassword.value
                     })
                 });
                 const data = await update.json();

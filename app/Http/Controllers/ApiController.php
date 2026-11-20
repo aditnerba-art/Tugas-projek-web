@@ -2,6 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AdminCustomersRequest;
+use App\Http\Requests\AssignTechnicianRequest;
+use App\Http\Requests\ChangePasswordRequest;
+use App\Http\Requests\CreatePurchaseRequest;
+use App\Http\Requests\CreateServiceRequest;
+use App\Http\Requests\CustomerApprovalRequest;
+use App\Http\Requests\CustomerLoginRequest;
+use App\Http\Requests\PaymentRequest;
+use App\Http\Requests\PublicTrackingRequest;
+use App\Http\Requests\SparepartRequest;
+use App\Http\Requests\SparepartsIndexRequest;
+use App\Http\Requests\StaffLoginRequest;
+use App\Http\Requests\StaffStoreRequest;
+use App\Http\Requests\StaffUpdateRequest;
+use App\Http\Requests\UpdateAccountRequest;
+use App\Http\Requests\UpdateCustomerRequest;
+use App\Http\Requests\UpdateServiceStatusRequest;
+use App\Models\ActivityLog;
 use App\Models\Customer;
 use App\Models\CustomerSession;
 use App\Models\Purchase;
@@ -18,13 +36,31 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class ApiController extends Controller
 {
     private function userData(User $user): array
     {
-        return ['id' => $user->id, 'nama' => $user->nama, 'username' => $user->username, 'role' => $user->role];
+        return [
+            'id' => $user->id,
+            'nama' => $user->nama,
+            'username' => $user->username,
+            'role' => $user->role,
+            'must_change_password' => $user->must_change_password,
+        ];
+    }
+
+    private function logActivity(Request $request, string $action, string $subject, ?array $old = null, ?array $new = null): void
+    {
+        ActivityLog::create([
+            'user_id' => $request->user()?->id,
+            'aksi' => $action,
+            'subjek' => $subject,
+            'data_lama' => $old,
+            'data_baru' => $new,
+            'ip' => $request->ip(),
+            'created_at' => now(),
+        ]);
     }
 
     private function accessHash(string $code): string
@@ -77,19 +113,19 @@ class ApiController extends Controller
         return ['unit' => $unit, 'onderdil' => $items, 'timeline' => $timeline];
     }
 
-    public function login(Request $request): JsonResponse
+    public function login(StaffLoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'username' => ['required', 'string', 'max:32'],
-            'password' => ['required', 'string', 'max:1024'],
-            'role' => ['required', Rule::in(['owner', 'admin', 'teknisi'])],
-        ]);
+        $data = $request->validated();
 
         if (! Auth::attempt(['username' => trim($data['username']), 'password' => $data['password'], 'role' => $data['role']])) {
             return response()->json(['status' => 'error', 'message' => 'Username atau kata sandi salah'], 401);
         }
 
         $request->session()->regenerate();
+        $this->logActivity($request, 'login', 'user:'.$request->user()->id, null, [
+            'username' => $request->user()->username,
+            'role' => $request->user()->role,
+        ]);
 
         return response()->json(['status' => 'success', 'user' => $this->userData($request->user())]);
     }
@@ -108,13 +144,9 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'user' => $this->userData($request->user())]);
     }
 
-    public function updateAccount(Request $request): JsonResponse
+    public function updateAccount(UpdateAccountRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'currentPassword' => ['required', 'string', 'max:1024'],
-            'newUsername' => ['nullable', 'string', 'regex:/^[a-zA-Z0-9_.-]{3,32}$/', Rule::unique('users', 'username')->ignore($request->user()->id)],
-            'newPassword' => ['nullable', 'string', 'min:10', 'max:1024'],
-        ]);
+        $data = $request->validated();
         $user = $request->user();
         if (! Hash::check($data['currentPassword'], $user->password)) {
             return response()->json(['status' => 'error', 'message' => 'Kata sandi saat ini salah'], 401);
@@ -130,8 +162,27 @@ class ApiController extends Controller
         }
         if ($password !== '') {
             $user->password = Hash::make($password);
+            $user->must_change_password = false;
         }
         $user->save();
+        DB::table('sessions')->where('user_id', $user->id)->where('id', '<>', $request->session()->getId())->delete();
+        $request->session()->regenerate();
+
+        return response()->json(['status' => 'success', 'user' => $this->userData($user)]);
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $user = $request->user();
+        if (! Hash::check($data['current_password'], $user->password)) {
+            return response()->json(['status' => 'error', 'message' => 'Kata sandi saat ini salah'], 401);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($data['password']),
+            'must_change_password' => false,
+        ])->save();
         DB::table('sessions')->where('user_id', $user->id)->where('id', '<>', $request->session()->getId())->delete();
         $request->session()->regenerate();
 
@@ -145,14 +196,9 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'users' => $users]);
     }
 
-    public function staffStore(Request $request): JsonResponse
+    public function staffStore(StaffStoreRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'nama' => ['required', 'string', 'min:2', 'max:100'],
-            'username' => ['required', 'regex:/^[a-zA-Z0-9_.-]{3,32}$/', 'unique:users,username'],
-            'password' => ['required', 'string', 'min:8', 'max:1024'],
-            'role' => ['required', Rule::in(['admin', 'teknisi'])],
-        ]);
+        $data = $request->validated();
         $user = User::create([...$data, 'nama' => trim($data['nama']), 'username' => trim($data['username'])]);
 
         return response()->json([
@@ -162,17 +208,10 @@ class ApiController extends Controller
         ], 201);
     }
 
-    public function staffUpdate(Request $request, User $staff): JsonResponse
+    public function staffUpdate(StaffUpdateRequest $request, User $staff): JsonResponse
     {
         abort_unless(in_array($staff->role, ['admin', 'teknisi'], true), 404);
-        $data = $request->validate([
-            'nama' => ['sometimes', 'string', 'min:2', 'max:100'],
-            'name' => ['sometimes', 'string', 'min:2', 'max:100'],
-            'username' => ['sometimes', 'string', 'regex:/^[a-zA-Z0-9_.-]{3,32}$/', Rule::unique('users', 'username')->ignore($staff->id)],
-            'newUsername' => ['sometimes', 'string', 'regex:/^[a-zA-Z0-9_.-]{3,32}$/', Rule::unique('users', 'username')->ignore($staff->id)],
-            'password' => ['sometimes', 'nullable', 'string', 'min:8', 'max:1024'],
-            'newPassword' => ['sometimes', 'nullable', 'string', 'min:8', 'max:1024'],
-        ]);
+        $data = $request->validated();
         $name = $data['nama'] ?? $data['name'] ?? null;
         $username = $data['username'] ?? $data['newUsername'] ?? null;
         $password = $data['password'] ?? $data['newPassword'] ?? null;
@@ -184,6 +223,7 @@ class ApiController extends Controller
         }
         if ($password) {
             $staff->password = Hash::make($password);
+            $staff->must_change_password = true;
         }
         $staff->save();
         if ($password) {
@@ -220,20 +260,9 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => User::orderBy('role')->orderBy('nama')->get(['id', 'nama', 'username', 'role', 'created_at'])]);
     }
 
-    public function createService(Request $request): JsonResponse
+    public function createService(CreateServiceRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'customer_id' => ['nullable', 'integer'],
-            'nama' => ['required', 'string', 'min:1', 'max:100'],
-            'no_wa' => ['required', 'string', 'max:20'],
-            'alamat' => ['nullable', 'string'],
-            'jenis_unit' => ['nullable', 'string', 'max:100'],
-            'merek_tipe' => ['required', 'string', 'max:150'],
-            'no_seri' => ['nullable', 'string', 'max:150'],
-            'keluhan' => ['required', 'string'],
-            'kelengkapan' => ['nullable', 'string'],
-            'teknisi_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', 'teknisi')],
-        ]);
+        $data = $request->validated();
         $result = DB::transaction(function () use ($data): array {
             $nama = preg_replace('/\s+/', ' ', trim($data['nama']));
             $noWa = trim($data['no_wa']);
@@ -280,7 +309,7 @@ class ApiController extends Controller
             return [$service, $code, $customer];
         });
         [$service, $code, $customer] = $result;
-        $customerLink = url('/index.html');
+        $customerLink = url('/lacak');
 
         return response()->json([
             'status' => 'success',
@@ -296,12 +325,9 @@ class ApiController extends Controller
         ]);
     }
 
-    public function assignTechnician(Request $request): JsonResponse
+    public function assignTechnician(AssignTechnicianRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'service_id' => ['required', 'integer', 'exists:services,id'],
-            'teknisi_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', 'teknisi')],
-        ]);
+        $data = $request->validated();
         $service = Service::findOrFail($data['service_id']);
         $service->teknisi_id = $data['teknisi_id'] ?? null;
         $service->save();
@@ -311,17 +337,9 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => "Teknisi penanggung jawab berhasil ditugaskan: {$name}"]);
     }
 
-    public function updateServiceStatus(Request $request): JsonResponse
+    public function updateServiceStatus(UpdateServiceStatusRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'service_id' => ['required', 'integer', 'exists:services,id'],
-            'status_baru' => ['required', 'string', 'max:40'],
-            'catatan_teknis' => ['nullable', 'string'],
-            'biaya_jasa' => ['nullable', 'numeric', 'min:0'],
-            'total_biaya' => ['nullable', 'numeric', 'min:0'],
-            'sparepart_id' => ['nullable', 'integer', 'exists:spareparts,id'],
-            'jumlah_sparepart' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $data = $request->validated();
         $service = DB::transaction(function () use ($request, $data): Service {
             $query = Service::whereKey($data['service_id']);
             if ($request->user()->role === 'teknisi') {
@@ -329,6 +347,11 @@ class ApiController extends Controller
             }
             $service = $query->lockForUpdate()->firstOrFail();
             $oldStatus = $service->status;
+            $oldServiceData = [
+                'status' => $oldStatus,
+                'biaya_jasa' => $service->biaya_jasa,
+                'total_biaya' => $service->total_biaya,
+            ];
 
             if (! empty($data['sparepart_id'])) {
                 $sparepart = Sparepart::whereKey($data['sparepart_id'])->lockForUpdate()->firstOrFail();
@@ -339,7 +362,10 @@ class ApiController extends Controller
                 if ($sparepart->stok < $quantity) {
                     abort(422, "Stok sparepart \"{$sparepart->nama_barang}\" tidak mencukupi (sisa: {$sparepart->stok})");
                 }
+                $oldStock = $sparepart->stok;
                 $sparepart->decrement('stok', $quantity);
+                $this->logActivity($request, 'ubah_stok', 'sparepart:'.$sparepart->id,
+                    ['stok' => $oldStock], ['stok' => $sparepart->fresh()->stok]);
                 $service->items()->create([
                     'sparepart_id' => $sparepart->id,
                     'jumlah' => $quantity,
@@ -359,6 +385,11 @@ class ApiController extends Controller
                 'status_lama' => $oldStatus,
                 'status_baru' => $service->status,
                 'catatan_teknis' => $data['catatan_teknis'] ?? null,
+            ]);
+            $this->logActivity($request, 'ubah_status_servis', 'service:'.$service->id, $oldServiceData, [
+                'status' => $service->status,
+                'biaya_jasa' => $service->biaya_jasa,
+                'total_biaya' => $service->total_biaya,
             ]);
 
             return $service;
@@ -395,30 +426,30 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $services]);
     }
 
-    public function payment(Request $request): JsonResponse
+    public function payment(PaymentRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'service_id' => ['required', 'integer', 'exists:services,id'],
-            'status_pembayaran' => ['nullable', Rule::in(['belum_bayar', 'dp', 'lunas'])],
-            'metode_pembayaran' => ['nullable', 'string', 'max:30'],
-            'nominal_dibayar' => ['nullable', 'numeric', 'min:0'],
-            'dp_dibayar' => ['nullable', 'numeric', 'min:0'],
-            'kembalian' => ['nullable', 'numeric', 'min:0'],
-            'catatan' => ['nullable', 'string'],
-            'ambil_unit' => ['nullable', 'boolean'],
-        ]);
+        $data = $request->validated();
 
-        $result = DB::transaction(function () use ($data): array {
+        $isHandover = $request->is('api/admin/service/pelunasan');
+        $result = DB::transaction(function () use ($data, $request, $isHandover): array {
             $service = Service::whereKey($data['service_id'])->lockForUpdate()->firstOrFail();
             $oldStatus = $service->status;
-            $statusPayment = $data['status_pembayaran'] ?? 'belum_bayar';
+            $oldPaymentData = [
+                'status_pembayaran' => $service->status_pembayaran,
+                'metode_pembayaran' => $service->metode_pembayaran,
+                'nominal_dibayar' => $service->nominal_dibayar,
+                'dp_dibayar' => $service->dp_dibayar,
+                'kembalian' => $service->kembalian,
+                'status' => $service->status,
+            ];
+            $statusPayment = $data['status_pembayaran'] ?? ($isHandover ? 'lunas' : 'belum_bayar');
             $method = $data['metode_pembayaran'] ?? 'Cash';
-            $amount = (float) ($data['nominal_dibayar'] ?? 0);
+            $amount = (float) ($data['nominal_dibayar'] ?? ($isHandover ? $service->total_biaya : 0));
             $dp = $statusPayment === 'dp' ? (float) ($data['dp_dibayar'] ?? $amount) : 0;
             $change = isset($data['kembalian'])
                 ? (float) $data['kembalian']
                 : ($statusPayment === 'lunas' ? max(0, $amount - (float) $service->total_biaya) : ($statusPayment === 'dp' ? max(0, $amount - $dp) : 0));
-            $newStatus = (! empty($data['ambil_unit']) || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true))) ? 'diambil' : $oldStatus;
+            $newStatus = (! empty($data['ambil_unit']) || ($isHandover || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true)))) ? 'diambil' : $oldStatus;
 
             $service->fill([
                 'status' => $newStatus,
@@ -436,6 +467,14 @@ class ApiController extends Controller
                 $note .= ' Unit telah diserahkan ke pelanggan.';
             }
             $service->logs()->create(['status_lama' => $oldStatus, 'status_baru' => $newStatus, 'catatan_teknis' => $note]);
+            $this->logActivity($request, 'pembayaran', 'service:'.$service->id, $oldPaymentData, [
+                'status_pembayaran' => $service->status_pembayaran,
+                'metode_pembayaran' => $service->metode_pembayaran,
+                'nominal_dibayar' => $service->nominal_dibayar,
+                'dp_dibayar' => $service->dp_dibayar,
+                'kembalian' => $service->kembalian,
+                'status' => $service->status,
+            ]);
 
             return [$service, $statusPayment, $method, $amount, $change, $newStatus];
         });
@@ -476,9 +515,10 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $data]);
     }
 
-    public function adminCustomers(Request $request): JsonResponse
+    public function adminCustomers(AdminCustomersRequest $request): JsonResponse
     {
-        $queryText = trim((string) $request->query('q', ''));
+        $filters = $request->validated();
+        $queryText = trim((string) ($filters['q'] ?? ''));
         $customersQuery = Customer::with([
             'services' => fn ($services) => $services->with(['items.sparepart', 'accessTokens'])
                 ->latest()->limit(100),
@@ -507,7 +547,7 @@ class ApiController extends Controller
             });
         }
 
-        $limit = min(max((int) $request->query('limit', 100), 1), 200);
+        $limit = (int) ($filters['limit'] ?? 100);
         $customers = $customersQuery->limit($limit)->get();
 
         return response()->json(['status' => 'success', 'data' => $customers->map(fn (Customer $customer) => [
@@ -531,39 +571,37 @@ class ApiController extends Controller
         ])]);
     }
 
-    public function updateCustomer(Request $request, Customer $customer): JsonResponse
+    public function updateCustomer(UpdateCustomerRequest $request, Customer $customer): JsonResponse
     {
-        $data = $request->validate([
-            'nama' => ['required', 'string', 'max:100'],
-            'no_wa' => ['required', 'string', 'max:20'],
-            'alamat' => ['nullable', 'string', 'max:10000'],
-        ]);
+        $data = $request->validated();
         $customer->update(['nama' => preg_replace('/\s+/', ' ', trim($data['nama'])), 'no_wa' => trim($data['no_wa']), 'alamat' => $data['alamat'] ?? null]);
 
         return response()->json(['status' => 'success', 'message' => 'Data pelanggan berhasil diperbarui']);
     }
 
-    public function deleteCustomer(Customer $customer): JsonResponse
+    public function deleteCustomer(Request $request, Customer $customer): JsonResponse
     {
+        $this->logActivity($request, 'hapus_data', 'customer:'.$customer->id, [
+            'nama' => $customer->nama, 'no_wa' => $customer->no_wa, 'alamat' => $customer->alamat,
+        ]);
         $customer->delete();
 
         return response()->json(['success' => true, 'message' => 'Pelanggan dipindahkan ke arsip. Riwayat servis tetap aman dan dapat dipulihkan.']);
     }
 
-    public function deleteService(Service $service): JsonResponse
+    public function deleteService(Request $request, Service $service): JsonResponse
     {
+        $this->logActivity($request, 'hapus_data', 'service:'.$service->id, [
+            'no_nota' => $service->no_nota, 'status' => $service->status,
+        ]);
         $service->delete();
 
         return response()->json(['success' => true, 'message' => 'Data servis berhasil dihapus']);
     }
 
-    public function customerLogin(Request $request): JsonResponse
+    public function customerLogin(CustomerLoginRequest $request): JsonResponse
     {
-        $request->merge(['token' => $request->input('kode_akses', $request->input('token'))]);
-        $data = $request->validate([
-            'token' => ['required', 'regex:/^\d{5}$/'],
-            'customer_name' => ['required', 'string', 'max:100'],
-        ]);
+        $data = $request->validated();
         $token = ServiceAccessToken::with('service.customer')
             ->where('token_hash', $this->accessHash($data['token']))
             ->whereNull('revoked_at')->where('expires_at', '>', now())->first();
@@ -572,6 +610,7 @@ class ApiController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Nama pelanggan atau kode akses tidak cocok'], 401);
         }
         $session = Str::random(64);
+        $request->session()->regenerate();
         $token->customerSessions()->create([
             'session_hash' => hash('sha256', $session),
             'expires_at' => now()->addDays(7),
@@ -611,14 +650,9 @@ class ApiController extends Controller
         return response()->json(['status' => 'success']);
     }
 
-    public function customerApproval(Request $request): JsonResponse
+    public function customerApproval(CustomerApprovalRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'status_baru' => ['required', Rule::in(['setuju', 'batal', 'dikerjakan', 'batalkan'])],
-            'service_id' => ['nullable', 'integer'],
-            'no_nota' => ['nullable', 'string'],
-            'kode_akses' => ['nullable', 'regex:/^\d{5}$/'],
-        ]);
+        $data = $request->validated();
         $customerSession = CustomerSession::with('accessToken')
             ->where('session_hash', $request->session()->get('customer_session_hash'))
             ->where('expires_at', '>', now())
@@ -628,23 +662,25 @@ class ApiController extends Controller
             && ! $customerSession->accessToken->expires_at->isPast()
                 ? $request->session()->get('customer_service_id')
                 : null;
-        $serviceId = $sessionServiceId;
-        if (! $serviceId && ! empty($data['kode_akses'])) {
-            $token = ServiceAccessToken::where('token_hash', $this->accessHash($data['kode_akses']))
-                ->whereNull('revoked_at')->where('expires_at', '>', now())->first();
-            $serviceId = $token?->service_id;
+        $user = $request->user();
+        $isStaff = $user && in_array($user->role, ['admin', 'teknisi'], true);
+        if ($user && ! $isStaff) {
+            abort(403);
         }
-        if ($request->user() && in_array($request->user()->role, ['admin', 'teknisi'], true)) {
-            $serviceId = $data['service_id'] ?? $serviceId;
+
+        $serviceId = $isStaff ? ($data['service_id'] ?? null) : $sessionServiceId;
+        if (! $serviceId) {
+            return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
         }
         if ($sessionServiceId && ! empty($data['service_id']) && (int) $data['service_id'] !== (int) $sessionServiceId) {
             return response()->json(['status' => 'error', 'message' => 'Kode akses tidak sesuai dengan servis'], 403);
         }
+        if ($user?->role === 'teknisi' && ! Service::whereKey($serviceId)->where('teknisi_id', $user->id)->exists()) {
+            abort(403, 'Teknisi hanya dapat mengubah persetujuan servis yang ditugaskan kepadanya.');
+        }
         $serviceQuery = Service::query();
         if ($serviceId) {
             $serviceQuery->whereKey($serviceId);
-        } else {
-            return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
         }
         $service = DB::transaction(function () use ($serviceQuery, $data): Service {
             $service = (clone $serviceQuery)->lockForUpdate()->firstOrFail();
@@ -665,9 +701,10 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Persetujuan pelanggan tersimpan', 'data' => ['service_id' => $service->id, 'status_baru' => $service->status]]);
     }
 
-    public function publicTracking(Request $request, ?string $identifier = null): JsonResponse
+    public function publicTracking(PublicTrackingRequest $request, ?string $identifier = null): JsonResponse
     {
-        $identifier ??= (string) $request->query('kode_akses', '');
+        $filters = $request->validated();
+        $identifier ??= (string) ($filters['kode_akses'] ?? '');
         if ($identifier === '') {
             return response()->json(['status' => 'error', 'message' => 'Kode akses wajib diisi'], 400);
         }
@@ -717,10 +754,10 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Kode baru berhasil dibuat. Kode sebelumnya sudah tidak berlaku.', 'data' => ['service_id' => $service->id, 'kode_akses' => $code, 'customer_token' => $code]]);
     }
 
-    public function spareparts(Request $request): JsonResponse
+    public function spareparts(SparepartsIndexRequest $request): JsonResponse
     {
         $query = Sparepart::query();
-        if ($search = $request->query('search')) {
+        if ($search = $request->validated('search')) {
             $query->where(fn ($parts) => $parts->where('kode_barang', 'like', "%{$search}%")->orWhere('nama_barang', 'like', "%{$search}%"));
         }
 
@@ -732,30 +769,27 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $sparepart]);
     }
 
-    public function createSparepart(Request $request): JsonResponse
+    public function createSparepart(SparepartRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'kode_barang' => ['required', 'string', 'max:50', 'unique:spareparts,kode_barang'],
-            'nama_barang' => ['required', 'string', 'max:150'],
-            'stok' => ['nullable', 'integer', 'min:0'],
-            'harga_beli' => ['nullable', 'numeric', 'min:0'],
-            'harga_jual' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $data = $request->validated();
         $part = Sparepart::create([...$data, 'stok' => $data['stok'] ?? 0, 'harga_beli' => $data['harga_beli'] ?? 0, 'harga_jual' => $data['harga_jual'] ?? 0]);
+        $this->logActivity($request, 'ubah_stok', 'sparepart:'.$part->id, null, [
+            'stok' => $part->stok, 'kode_barang' => $part->kode_barang,
+        ]);
 
         return response()->json(['status' => 'success', 'message' => 'Sparepart baru berhasil ditambahkan', 'data' => $part]);
     }
 
-    public function updateSparepart(Request $request, Sparepart $sparepart): JsonResponse
+    public function updateSparepart(SparepartRequest $request, Sparepart $sparepart): JsonResponse
     {
-        $data = $request->validate([
-            'kode_barang' => ['required', 'string', 'max:50', Rule::unique('spareparts', 'kode_barang')->ignore($sparepart->id)],
-            'nama_barang' => ['required', 'string', 'max:150'],
-            'stok' => ['nullable', 'integer', 'min:0'],
-            'harga_beli' => ['nullable', 'numeric', 'min:0'],
-            'harga_jual' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $data = $request->validated();
+        $old = ['stok' => $sparepart->stok, 'kode_barang' => $sparepart->kode_barang];
         $sparepart->update([...$data, 'stok' => $data['stok'] ?? 0, 'harga_beli' => $data['harga_beli'] ?? 0, 'harga_jual' => $data['harga_jual'] ?? 0]);
+        if ((int) $old['stok'] !== (int) $sparepart->stok) {
+            $this->logActivity($request, 'ubah_stok', 'sparepart:'.$sparepart->id, $old, [
+                'stok' => $sparepart->stok, 'kode_barang' => $sparepart->kode_barang,
+            ]);
+        }
 
         return response()->json(['status' => 'success', 'message' => 'Data sparepart berhasil diperbarui']);
     }
@@ -808,21 +842,9 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $purchases]);
     }
 
-    public function createPurchase(Request $request): JsonResponse
+    public function createPurchase(CreatePurchaseRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'supplier' => ['required', 'string', 'max:100'],
-            'tanggal_pembelian' => ['required', 'date'],
-            'keterangan' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.jumlah' => ['required', 'integer', 'min:1'],
-            'items.*.harga_beli_satuan' => ['required', 'numeric', 'min:0'],
-            'items.*.sparepart_id' => ['nullable', 'integer'],
-            'items.*.is_new' => ['nullable', 'boolean'],
-            'items.*.kode_barang' => ['required_if:items.*.is_new,true', 'nullable', 'string', 'max:50'],
-            'items.*.nama_barang' => ['required_if:items.*.is_new,true', 'nullable', 'string', 'max:150'],
-            'items.*.harga_jual' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $data = $request->validated();
         $purchase = DB::transaction(function () use ($data, $request): Purchase {
             $dateCode = str_replace('-', '', $data['tanggal_pembelian']);
             do {
@@ -853,6 +875,7 @@ class ApiController extends Controller
                 }
                 $quantity = (int) $item['jumlah'];
                 $price = (float) $item['harga_beli_satuan'];
+                $oldStock = $part->stok;
                 $subtotal = $quantity * $price;
                 $purchase->items()->create([
                     'sparepart_id' => $part->id, 'jumlah' => $quantity,
@@ -860,9 +883,16 @@ class ApiController extends Controller
                 ]);
                 $part->increment('stok', $quantity);
                 $part->update(['harga_beli' => $price]);
+                $this->logActivity($request, 'ubah_stok', 'sparepart:'.$part->id, [
+                    'stok' => $oldStock,
+                ], ['stok' => $part->fresh()->stok]);
                 $total += $subtotal;
             }
             $purchase->update(['total_biaya' => $total]);
+            $this->logActivity($request, 'pengadaan', 'purchase:'.$purchase->id, null, [
+                'no_pembelian' => $purchase->no_pembelian,
+                'total_biaya' => $purchase->total_biaya,
+            ]);
 
             return $purchase;
         });

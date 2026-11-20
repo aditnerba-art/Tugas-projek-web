@@ -7,6 +7,7 @@
     fetch('/api/auth/me').then(async response => {
         if (!response.ok) return;
         const { user } = await response.json();
+        if (user?.must_change_password) return window.location.replace('/password/change');
         if (user?.role === role) window.location.replace(`/${role}.html`);
         else if (['admin', 'teknisi', 'owner'].includes(user?.role)) window.location.replace(`/${user.role}.html`);
     }).catch(() => {});
@@ -30,6 +31,10 @@
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'Login gagal.');
             if (result.user?.role !== role) throw new Error('Akun ini tidak memiliki akses halaman tersebut.');
+            if (result.user?.must_change_password) {
+                window.location.assign('/password/change');
+                return;
+            }
             window.location.assign(`/${role}.html`);
         } catch (error) {
             message.textContent = error.message || `Tidak dapat login sebagai ${labels[role] || 'staf'}.`;
