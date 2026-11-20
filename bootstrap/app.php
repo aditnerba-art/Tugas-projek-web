@@ -9,7 +9,6 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(function (Request $request): ?string {
+            return match ($request->path()) {
+                'admin.html' => '/admin-login.html',
+                'teknisi.html' => '/teknisi-login.html',
+                'owner.html' => '/owner-login.html',
+                'spareparts.html' => '/login.html',
+                default => $request->is('api/*') ? null : '/login.html',
+            };
+        });
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'password.changed' => EnsurePasswordChanged::class,
@@ -25,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (Throwable $exception, Request $request) {
+        $exceptions->render(function (\Throwable $exception, Request $request) {
             if ($request->expectsJson()) {
                 return null;
             }

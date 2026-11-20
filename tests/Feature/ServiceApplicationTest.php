@@ -146,7 +146,8 @@ class ServiceApplicationTest extends TestCase
             'role' => 'teknisi',
         ]);
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
-        $this->get('/index.html')->assertOk()->assertSee('name="csrf-token"', false);
+        $this->get('/index.html')->assertStatus(301)->assertRedirect('/');
+        $this->get('/')->assertOk()->assertSee('name="csrf-token"', false);
         auth()->logout();
         $this->get('/admin.html')->assertRedirect('/admin-login.html');
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
@@ -227,5 +228,98 @@ class ServiceApplicationTest extends TestCase
             'status_pembayaran' => 'lunas',
             'kembalian' => 25000,
         ]);
+    }
+
+    public function test_customer_access_code_attempts_are_locked_per_ip_and_return_a_clear_message(): void
+    {
+        $ip = '203.0.113.71';
+        $this->withServerVariables(['REMOTE_ADDR' => $ip]);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/customer/login', [
+                'kode_akses' => (string) (51000 + $attempt),
+                'customer_name' => 'Nama tidak cocok',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '51999',
+            'customer_name' => 'Nama tidak cocok',
+        ])->assertTooManyRequests()
+            ->assertJsonPath('message', 'Terlalu banyak percobaan kode akses. Coba kembali dalam 10 menit.');
+    }
+
+    public function test_customer_access_code_attempts_are_locked_per_code_across_ips(): void
+    {
+        $code = '58321';
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.'.(80 + $attempt)])
+                ->postJson('/api/customer/login', [
+                    'kode_akses' => $code,
+                    'customer_name' => 'Nama tidak cocok',
+                ])->assertUnauthorized();
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.90'])
+            ->postJson('/api/customer/login', [
+                'kode_akses' => $code,
+                'customer_name' => 'Nama tidak cocok',
+            ])->assertTooManyRequests();
+    }
+
+    public function test_staff_login_is_limited_per_username_and_ip(): void
+    {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.101']);
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/auth/login', [
+                'username' => 'rate_limit_user',
+                'password' => 'wrong-password',
+                'role' => 'admin',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/auth/login', [
+            'username' => 'rate_limit_user',
+            'password' => 'wrong-password',
+            'role' => 'admin',
+        ])->assertTooManyRequests()
+            ->assertJsonPath('message', 'Terlalu banyak percobaan login. Coba kembali dalam satu menit.');
+    }
+
+    public function test_customer_approval_requires_session_and_technicians_can_only_approve_assigned_services(): void
+    {
+        $customer = Customer::create(['nama' => 'Pelanggan Uji', 'no_wa' => '08123456789']);
+        $service = Service::create([
+            'no_nota' => 'SRV-APPROVAL-001',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop Uji',
+            'keluhan' => 'Tidak menyala',
+            'status' => 'menunggu_persetujuan',
+        ]);
+        $token = ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', '54321', (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
+        $technician = User::create([
+            'nama' => 'Teknisi Uji',
+            'username' => 'teknisi_unassigned',
+            'password' => Hash::make('password123'),
+            'role' => 'teknisi',
+        ]);
+
+        $this->postJson('/api/customer/approval', [
+            'service_id' => $service->id,
+            'kode_akses' => '54321',
+            'status_baru' => 'dikerjakan',
+        ])->assertUnauthorized();
+
+        $this->actingAs($technician)->postJson('/api/admin/service/persetujuan', [
+            'service_id' => $service->id,
+            'status_baru' => 'dikerjakan',
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'menunggu_persetujuan']);
+        $this->assertDatabaseHas('service_access_tokens', ['id' => $token->id]);
     }
 }
