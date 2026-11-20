@@ -28,6 +28,7 @@ class ServiceApplicationTest extends TestCase
             'password' => Hash::make('password123'),
             'role' => 'admin',
         ]);
+        $this->actingAs($admin)->get('/admin.html')->assertOk()->assertSee('Daftar Unit Servis Aktif');
         $this->actingAs($admin)->postJson('/api/admin/service', [
             'nama' => 'Pelanggan Tes',
             'no_wa' => '08123456789',
@@ -148,6 +149,7 @@ class ServiceApplicationTest extends TestCase
             'password' => Hash::make('password123'),
             'role' => 'teknisi',
         ]);
+        $this->actingAs($technician)->get('/teknisi.html')->assertOk()->assertSee('Riwayat Status Servis');
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
         $this->get('/index.html')->assertStatus(301)->assertRedirect('/');
         $this->get('/')->assertOk()->assertSee('name="csrf-token"', false)
@@ -169,6 +171,7 @@ class ServiceApplicationTest extends TestCase
             'role' => 'owner',
         ]);
         $this->actingAs($owner);
+        $this->get('/owner.html')->assertOk()->assertSee('Distribusi Status Servis');
         $this->get('/owner/activity-logs')->assertOk()->assertSee('Log Aktivitas');
 
         $staffResponse = $this->postJson('/api/owner/staff', [
