@@ -331,6 +331,47 @@ class ServiceApplicationTest extends TestCase
         ]);
     }
 
+    public function test_customer_realtime_channel_requires_the_matching_active_portal_session(): void
+    {
+        $customer = Customer::create(['nama' => 'Pelanggan Realtime', 'no_wa' => '08123456789']);
+        $service = Service::create([
+            'no_nota' => 'SRV-REALTIME-001',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop',
+            'keluhan' => 'Tidak menyala',
+        ]);
+        $token = ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', '74519', (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
+        $channelKey = $service->fresh()->customerStatusChannelKey();
+
+        $this->postJson('/broadcasting/auth', [
+            'socket_id' => '123.456',
+            'channel_name' => 'private-customer-status.'.$channelKey,
+        ])->assertForbidden();
+
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '74519',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/broadcasting/auth', [
+            'socket_id' => '123.456',
+            'channel_name' => 'private-customer-status.'.$channelKey,
+        ])->assertOk();
+        $this->postJson('/broadcasting/auth', [
+            'socket_id' => '123.456',
+            'channel_name' => 'private-customer-status.not-the-customer-key',
+        ])->assertForbidden();
+
+        $token->update(['revoked_at' => now()]);
+        $this->postJson('/broadcasting/auth', [
+            'socket_id' => '123.456',
+            'channel_name' => 'private-customer-status.'.$channelKey,
+        ])->assertForbidden();
+    }
+
     public function test_customer_access_code_attempts_are_locked_per_ip_and_return_a_clear_message(): void
     {
         $ip = '203.0.113.71';
