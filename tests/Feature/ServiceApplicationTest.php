@@ -12,6 +12,7 @@ use App\Models\Sparepart;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -333,6 +334,9 @@ class ServiceApplicationTest extends TestCase
 
     public function test_customer_realtime_channel_requires_the_matching_active_portal_session(): void
     {
+        Broadcast::setDefaultDriver('reverb');
+        Broadcast::forgetDrivers();
+
         $customer = Customer::create(['nama' => 'Pelanggan Realtime', 'no_wa' => '08123456789']);
         $service = Service::create([
             'no_nota' => 'SRV-REALTIME-001',
@@ -346,6 +350,7 @@ class ServiceApplicationTest extends TestCase
             'expires_at' => now()->addDay(),
         ]);
         $channelKey = $service->fresh()->customerStatusChannelKey();
+        $this->assertNotEmpty($channelKey);
 
         $this->postJson('/broadcasting/auth', [
             'socket_id' => '123.456',
@@ -356,6 +361,7 @@ class ServiceApplicationTest extends TestCase
             'kode_akses' => '74519',
             'customer_name' => $customer->nama,
         ])->assertOk();
+        $this->getJson('/api/customer/me')->assertOk();
         $this->postJson('/broadcasting/auth', [
             'socket_id' => '123.456',
             'channel_name' => 'private-customer-status.'.$channelKey,
