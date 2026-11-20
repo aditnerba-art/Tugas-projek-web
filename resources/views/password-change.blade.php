@@ -40,11 +40,14 @@
         try {
             const response = await fetch('/api/auth/password', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
                 body: JSON.stringify({
-                    current_password: form.current_password.value,
-                    password: form.password.value,
-                    password_confirmation: form.password_confirmation.value
+                current_password: document.getElementById('currentPassword').value,
+                password: document.getElementById('newPassword').value,
+                password_confirmation: document.getElementById('passwordConfirmation').value
                 })
             });
             const result = await response.json();

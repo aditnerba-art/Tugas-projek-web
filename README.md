@@ -80,6 +80,8 @@ Database SQLite digunakan secara default; koneksi MySQL dapat diatur melalui var
 
 Ganti kata sandi awal sebelum aplikasi digunakan di lingkungan produksi.
 
-Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal publik tersedia di `/index.html`; persetujuan servis menggunakan pilihan setuju atau batal. Rute dashboard staf dilindungi autentikasi sesi dan middleware role.
+Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal publik tersedia di `/` dan `/lacak`; alamat lama `/index.html` dialihkan permanen ke beranda. Percobaan kode akses dan login staf dibatasi, dan persetujuan pelanggan memerlukan sesi portal yang sah.
 
-Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `fetch()` menyertakan token CSRF Laravel. Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.
+Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `fetch()` menyertakan token CSRF Laravel. Akun seed wajib mengganti kata sandi saat login pertama. Owner dapat mengatur kata sandi staf dan melihat log aktivitas di `/owner/activity-logs`.
+
+Untuk produksi, gunakan `.env.production.example` sebagai acuan, isi `APP_KEY` dan kredensial database dengan nilai rahasia milik deployment, lalu pastikan `APP_DEBUG=false`. Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.

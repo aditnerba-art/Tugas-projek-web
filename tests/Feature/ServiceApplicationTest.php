@@ -147,7 +147,10 @@ class ServiceApplicationTest extends TestCase
         ]);
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
         $this->get('/index.html')->assertStatus(301)->assertRedirect('/');
-        $this->get('/')->assertOk()->assertSee('name="csrf-token"', false);
+        $this->get('/')->assertOk()->assertSee('name="csrf-token"', false)
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->get('/lacak')->assertOk();
+        $this->get('/missing-page')->assertNotFound()->assertSee('Halaman Tidak Ditemukan');
         auth()->logout();
         $this->get('/admin.html')->assertRedirect('/admin-login.html');
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
@@ -162,6 +165,7 @@ class ServiceApplicationTest extends TestCase
             'role' => 'owner',
         ]);
         $this->actingAs($owner);
+        $this->get('/owner/activity-logs')->assertOk()->assertSee('Log Aktivitas');
 
         $staffResponse = $this->postJson('/api/owner/staff', [
             'nama' => 'Teknisi Baru',
@@ -172,6 +176,9 @@ class ServiceApplicationTest extends TestCase
         $staffId = $staffResponse->json('user.id');
         $this->patchJson('/api/owner/staff/'.$staffId, ['nama' => 'Teknisi Diperbarui'])
             ->assertOk()->assertJsonPath('user.nama', 'Teknisi Diperbarui');
+        $this->patchJson('/api/owner/staff/'.$staffId, ['newPassword' => 'reset-password-123'])
+            ->assertOk();
+        $this->assertDatabaseHas('users', ['id' => $staffId, 'must_change_password' => true]);
 
         $partResponse = $this->postJson('/api/spareparts', [
             'kode_barang' => 'RAM-8GB',
@@ -192,6 +199,7 @@ class ServiceApplicationTest extends TestCase
         ])->assertOk()->assertJsonPath('data.total_items', 1);
 
         $this->assertDatabaseHas('spareparts', ['id' => $partId, 'stok' => 5, 'harga_beli' => 310000]);
+        $this->assertDatabaseHas('activity_logs', ['aksi' => 'ubah_stok', 'user_id' => $owner->id]);
         $this->getJson('/api/owner/dashboard')->assertOk()
             ->assertJsonPath('data.purchases.total_transaksi_pengadaan', 1);
         $this->deleteJson('/api/owner/staff/'.$staffId)->assertOk();
@@ -227,6 +235,11 @@ class ServiceApplicationTest extends TestCase
             'status' => 'diambil',
             'status_pembayaran' => 'lunas',
             'kembalian' => 25000,
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'aksi' => 'pembayaran',
+            'user_id' => $admin->id,
+            'subjek' => 'service:'.$service->id,
         ]);
     }
 
@@ -321,5 +334,36 @@ class ServiceApplicationTest extends TestCase
 
         $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'menunggu_persetujuan']);
         $this->assertDatabaseHas('service_access_tokens', ['id' => $token->id]);
+    }
+
+    public function test_seed_style_account_must_change_password_before_using_staff_routes(): void
+    {
+        User::create([
+            'nama' => 'Admin Seed',
+            'username' => 'admin_seed',
+            'password' => Hash::make('temporary-password'),
+            'role' => 'admin',
+            'must_change_password' => true,
+        ]);
+
+        $this->postJson('/api/auth/login', [
+            'username' => 'admin_seed',
+            'password' => 'temporary-password',
+            'role' => 'admin',
+        ])->assertOk()->assertJsonPath('user.must_change_password', true);
+        $this->getJson('/api/admin/customers')->assertForbidden();
+        $this->get('/password/change')->assertOk()->assertSee('Ubah Kata Sandi');
+
+        $this->postJson('/api/auth/password', [
+            'current_password' => 'temporary-password',
+            'password' => 'a-new-password-123',
+            'password_confirmation' => 'a-new-password-123',
+        ])->assertOk()->assertJsonPath('user.must_change_password', false);
+        $this->getJson('/api/admin/customers')->assertOk();
+        $this->assertDatabaseHas('activity_logs', [
+            'aksi' => 'login',
+            'subjek' => 'user:1',
+            'ip' => '127.0.0.1',
+        ]);
     }
 }

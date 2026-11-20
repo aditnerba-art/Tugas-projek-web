@@ -240,10 +240,13 @@ class ApiController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Anda tidak dapat menghapus akun Anda sendiri'], 400);
         }
 
-        DB::transaction(function () use ($staff): void {
+        DB::transaction(function () use ($staff, $request): void {
             DB::table('sessions')->where('user_id', $staff->id)->delete();
             $staff->assignedServices()->update(['teknisi_id' => null]);
             Purchase::where('created_by', $staff->id)->update(['created_by' => null]);
+            $this->logActivity($request, 'hapus_data', 'user:'.$staff->id, [
+                'nama' => $staff->nama, 'username' => $staff->username, 'role' => $staff->role,
+            ]);
             $staff->delete();
         });
 
@@ -329,8 +332,12 @@ class ApiController extends Controller
     {
         $data = $request->validated();
         $service = Service::findOrFail($data['service_id']);
+        $oldTechnicianId = $service->teknisi_id;
         $service->teknisi_id = $data['teknisi_id'] ?? null;
         $service->save();
+        $this->logActivity($request, 'assign_teknisi', 'service:'.$service->id,
+            ['teknisi_id' => $oldTechnicianId],
+            ['teknisi_id' => $service->teknisi_id]);
         $name = $service->technician?->nama ?? 'Belum Ditugaskan';
         $service->logs()->create(['status_lama' => $service->status, 'status_baru' => $service->status, 'catatan_teknis' => "Penugasan Teknisi PIC diperbarui: {$name}"]);
 
@@ -581,20 +588,24 @@ class ApiController extends Controller
 
     public function deleteCustomer(Request $request, Customer $customer): JsonResponse
     {
-        $this->logActivity($request, 'hapus_data', 'customer:'.$customer->id, [
-            'nama' => $customer->nama, 'no_wa' => $customer->no_wa, 'alamat' => $customer->alamat,
-        ]);
-        $customer->delete();
+        DB::transaction(function () use ($request, $customer): void {
+            $this->logActivity($request, 'hapus_data', 'customer:'.$customer->id, [
+                'nama' => $customer->nama, 'no_wa' => $customer->no_wa, 'alamat' => $customer->alamat,
+            ]);
+            $customer->delete();
+        });
 
         return response()->json(['success' => true, 'message' => 'Pelanggan dipindahkan ke arsip. Riwayat servis tetap aman dan dapat dipulihkan.']);
     }
 
     public function deleteService(Request $request, Service $service): JsonResponse
     {
-        $this->logActivity($request, 'hapus_data', 'service:'.$service->id, [
-            'no_nota' => $service->no_nota, 'status' => $service->status,
-        ]);
-        $service->delete();
+        DB::transaction(function () use ($request, $service): void {
+            $this->logActivity($request, 'hapus_data', 'service:'.$service->id, [
+                'no_nota' => $service->no_nota, 'status' => $service->status,
+            ]);
+            $service->delete();
+        });
 
         return response()->json(['success' => true, 'message' => 'Data servis berhasil dihapus']);
     }
@@ -682,7 +693,7 @@ class ApiController extends Controller
         if ($serviceId) {
             $serviceQuery->whereKey($serviceId);
         }
-        $service = DB::transaction(function () use ($serviceQuery, $data): Service {
+        $service = DB::transaction(function () use ($serviceQuery, $data, $request): Service {
             $service = (clone $serviceQuery)->lockForUpdate()->firstOrFail();
             if (! in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true)) {
                 abort(409, 'Servis tidak sedang menunggu persetujuan');
@@ -694,6 +705,8 @@ class ApiController extends Controller
                 ? 'Pelanggan menyetujui estimasi perbaikan sebesar Rp '.number_format((float) $service->total_biaya, 0, ',', '.').'.'
                 : 'Pelanggan membatalkan servis melalui portal pelanggan.';
             $service->logs()->create(['status_lama' => $oldStatus, 'status_baru' => $newStatus, 'catatan_teknis' => $note]);
+            $this->logActivity($request, 'ubah_status_servis', 'service:'.$service->id,
+                ['status' => $oldStatus], ['status' => $newStatus]);
 
             return $service;
         });
@@ -794,12 +807,19 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Data sparepart berhasil diperbarui']);
     }
 
-    public function deleteSparepart(Sparepart $sparepart): JsonResponse
+    public function deleteSparepart(Request $request, Sparepart $sparepart): JsonResponse
     {
         if ($sparepart->serviceItems()->exists() || $sparepart->purchaseDetails()->exists()) {
             return response()->json(['status' => 'error', 'message' => "Sparepart \"{$sparepart->nama_barang}\" tidak dapat dihapus karena tercatat dalam riwayat servis atau pengadaan."], 400);
         }
-        $sparepart->delete();
+        DB::transaction(function () use ($request, $sparepart): void {
+            $this->logActivity($request, 'hapus_data', 'sparepart:'.$sparepart->id, [
+                'kode_barang' => $sparepart->kode_barang,
+                'nama_barang' => $sparepart->nama_barang,
+                'stok' => $sparepart->stok,
+            ]);
+            $sparepart->delete();
+        });
 
         return response()->json(['status' => 'success', 'message' => "Sparepart \"{$sparepart->nama_barang}\" berhasil dihapus"]);
     }
