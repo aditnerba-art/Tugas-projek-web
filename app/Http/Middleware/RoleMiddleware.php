@@ -26,7 +26,7 @@ class RoleMiddleware
                 return response()->json(['status' => 'error', 'message' => 'Akses tidak diizinkan untuk peran ini'], 403);
             }
 
-            return redirect('/'.$user->role.'.html');
+            abort(403);
         }
 
         return $next($request);

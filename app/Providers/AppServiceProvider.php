@@ -42,7 +42,7 @@ class AppServiceProvider extends ServiceProvider
             $key = hash('sha256', $username.'|'.$request->ip());
 
             return Limit::perMinute(5)->by('staff-login:'.$key)->response(
-                fn (Request $request, array $headers) => $request->expectsJson()
+                fn (Request $request, array $headers) => $request->expectsJson() || $request->is('api/*')
                     ? response()->json(['status' => 'error', 'message' => 'Terlalu banyak percobaan login. Coba kembali dalam satu menit.'], 429, $headers)
                     : response()->view('errors.429', [], 429, $headers)
             );

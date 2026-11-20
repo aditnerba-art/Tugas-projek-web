@@ -151,6 +151,7 @@ class ServiceApplicationTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->get('/lacak')->assertOk();
         $this->get('/missing-page')->assertNotFound()->assertSee('Halaman Tidak Ditemukan');
+        $this->get('/owner/activity-logs')->assertForbidden()->assertSee('Akses Ditolak');
         auth()->logout();
         $this->get('/admin.html')->assertRedirect('/admin-login.html');
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
@@ -334,11 +335,22 @@ class ServiceApplicationTest extends TestCase
 
         $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'menunggu_persetujuan']);
         $this->assertDatabaseHas('service_access_tokens', ['id' => $token->id]);
+        $service->update(['teknisi_id' => $technician->id]);
+        $this->postJson('/api/admin/service/persetujuan', [
+            'service_id' => $service->id,
+            'status_baru' => 'dikerjakan',
+        ])->assertOk();
+        $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'dikerjakan']);
+        $this->assertDatabaseHas('activity_logs', [
+            'aksi' => 'ubah_status_servis',
+            'subjek' => 'service:'.$service->id,
+            'user_id' => $technician->id,
+        ]);
     }
 
     public function test_seed_style_account_must_change_password_before_using_staff_routes(): void
     {
-        User::create([
+        $user = User::create([
             'nama' => 'Admin Seed',
             'username' => 'admin_seed',
             'password' => Hash::make('temporary-password'),
@@ -362,7 +374,7 @@ class ServiceApplicationTest extends TestCase
         $this->getJson('/api/admin/customers')->assertOk();
         $this->assertDatabaseHas('activity_logs', [
             'aksi' => 'login',
-            'subjek' => 'user:1',
+            'subjek' => 'user:'.$user->id,
             'ip' => '127.0.0.1',
         ]);
     }

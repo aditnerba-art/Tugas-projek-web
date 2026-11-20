@@ -14,9 +14,10 @@ class PaymentRequest extends FormRequest
             return;
         }
 
-        $defaults = ['status_pembayaran' => 'lunas', 'ambil_unit' => true, 'kembalian' => 0];
+        $defaults = ['status_pembayaran' => 'lunas', 'ambil_unit' => true];
         if (! $this->filled('nominal_dibayar') && $this->integer('service_id') > 0) {
             $defaults['nominal_dibayar'] = Service::whereKey($this->integer('service_id'))->value('total_biaya') ?? 0;
+            $defaults['kembalian'] = 0;
         }
         $this->merge($defaults);
     }
