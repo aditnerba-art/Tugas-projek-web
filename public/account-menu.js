@@ -40,12 +40,16 @@
         const settings = document.createElement('button');
         settings.type = 'button';
         settings.textContent = 'Akun & keamanan';
+        const changePassword = document.createElement('button');
+        changePassword.type = 'button';
+        changePassword.textContent = 'Ubah kata sandi';
+        changePassword.addEventListener('click', () => window.location.assign('/password/change'));
         const logout = document.createElement('button');
         logout.type = 'button';
         logout.className = 'secondary';
         logout.textContent = user.role === 'owner' ? 'Logout' : 'Keluar';
-        if (user.role === 'owner') bar.append(name, settings, logout);
-        else bar.append(name, logout);
+        if (user.role === 'owner') bar.append(name, settings, changePassword, logout);
+        else bar.append(name, changePassword, logout);
         const ownerAccountSlot = requiredRole === 'owner' && document.getElementById('ownerAccountSlot');
         if (ownerAccountSlot) ownerAccountSlot.appendChild(bar);
         else document.body.insertBefore(bar, document.body.firstChild);

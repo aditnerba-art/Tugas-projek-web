@@ -183,6 +183,7 @@ class ApiController extends Controller
             'password' => Hash::make($data['password']),
             'must_change_password' => false,
         ])->save();
+        $this->logActivity($request, 'ubah_kata_sandi', 'user:'.$user->id);
         DB::table('sessions')->where('user_id', $user->id)->where('id', '<>', $request->session()->getId())->delete();
         $request->session()->regenerate();
 

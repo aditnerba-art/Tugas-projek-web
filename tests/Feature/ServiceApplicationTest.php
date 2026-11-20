@@ -261,6 +261,13 @@ class ServiceApplicationTest extends TestCase
             'customer_name' => 'Nama tidak cocok',
         ])->assertTooManyRequests()
             ->assertJsonPath('message', 'Terlalu banyak percobaan kode akses. Coba kembali dalam 10 menit.');
+
+        $this->travel(11)->minutes();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '51999',
+            'customer_name' => 'Nama tidak cocok',
+        ])->assertUnauthorized();
+        $this->travelBack();
     }
 
     public function test_customer_access_code_attempts_are_locked_per_code_across_ips(): void
