@@ -8,10 +8,10 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 Broadcast::channel('staff.services', function (User $user): bool {
-    return in_array($user->role, ['admin', 'owner'], true);
+    return ! $user->must_change_password && in_array($user->role, ['admin', 'owner'], true);
 });
 
 Broadcast::channel('staff.technician.{userId}', function (User $user, int $userId): bool {
-    return $user->role === 'teknisi' && $user->id === $userId;
+    return ! $user->must_change_password && $user->role === 'teknisi' && $user->id === $userId;
 });
 

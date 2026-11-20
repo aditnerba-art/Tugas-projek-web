@@ -66,7 +66,10 @@
     async function refresh() {
         try {
             const response = await fetch('/api/notifications');
-            if (!response.ok) return;
+            if (!response.ok) {
+                console.error(`Gagal memuat notifikasi panel: HTTP ${response.status}`);
+                return;
+            }
             const result = await response.json();
             const count = Number(result.unread_count || 0);
             if (previousUnreadCount !== null && count > previousUnreadCount) {

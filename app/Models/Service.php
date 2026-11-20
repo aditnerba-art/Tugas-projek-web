@@ -50,7 +50,7 @@ class Service extends Model
 
     public function statusLogs(): HasMany
     {
-        return $this->hasMany(ServiceStatusLog::class)->orderBy('created_at');
+        return $this->hasMany(ServiceStatusLog::class)->orderBy('created_at')->orderBy('id');
     }
 
     public function accessTokens(): HasMany

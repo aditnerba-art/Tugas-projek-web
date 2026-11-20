@@ -389,6 +389,12 @@ class ServiceApplicationTest extends TestCase
             'socket_id' => '123.456',
             'channel_name' => 'private-staff.services',
         ])->assertOk();
+        $admin->forceFill(['must_change_password' => true])->save();
+        $this->actingAs($admin)->postJson('/broadcasting/auth', [
+            'socket_id' => '123.456',
+            'channel_name' => 'private-staff.services',
+        ])->assertForbidden();
+        $admin->forceFill(['must_change_password' => false])->save();
         $this->postJson('/broadcasting/auth', [
             'socket_id' => '123.456',
             'channel_name' => 'private-staff.technician.'.$technician->id,

@@ -29,7 +29,11 @@ function listen({ endpoint, channel, onUpdate }) {
 
         try {
             const response = await fetch(endpoint, { headers });
-            if (response.status === 304 || !response.ok) return;
+            if (response.status === 304) return;
+            if (!response.ok) {
+                console.error(`Realtime polling gagal dengan HTTP ${response.status}`);
+                return;
+            }
 
             etag = response.headers.get('ETag') || etag;
             onUpdate(await response.json(), 'polling');

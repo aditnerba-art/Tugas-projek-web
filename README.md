@@ -66,7 +66,7 @@ Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admi
 1. Salin `.env.example` menjadi `.env`, lalu atur koneksi database.
 2. Jalankan `php artisan key:generate`.
 3. Jalankan `php artisan migrate --seed`.
-4. Jalankan `php artisan serve` dari folder `laravel-app/`.
+4. Jalankan `php artisan serve` dari root proyek.
 
 Database SQLite digunakan secara default; koneksi MySQL dapat diatur melalui variabel `DB_*` di `.env`.
 
@@ -111,6 +111,8 @@ killasgroup=true
 redirect_stderr=true
 stdout_logfile=/var/log/teckfo-queue.log
 ```
+
+Simpan konfigurasi Supervisor pada `/etc/supervisor/conf.d/teckfo.conf`, lalu jalankan `sudo supervisorctl reread`, `sudo supervisorctl update`, dan `sudo supervisorctl status`.
 
 Alternatif `systemd` untuk Reverb (simpan sebagai `/etc/systemd/system/teckfo-reverb.service`):
 
