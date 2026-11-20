@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Owner - TECKFO Service</title>
+    <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -59,7 +60,9 @@
     <aside id="ownerSidebar" class="fixed inset-y-0 left-0 z-50 flex h-screen w-64 -translate-x-full flex-col border-r-2 border-amber-400 bg-[#0B1E3F] text-white transition-transform duration-300 md:sticky md:top-0 md:translate-x-0">
         <div class="border-b border-amber-400/40 px-6 py-6">
             <a href="/owner.html" class="flex items-center gap-3 text-white no-underline">
-                <span class="grid h-11 w-11 place-items-center rounded-xl border border-amber-400/70 bg-[#153266] text-xl text-amber-300">👑</span>
+                <span class="grid h-11 w-11 place-items-center rounded-xl border border-amber-400/70 bg-white">
+                    <img src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer" class="h-9 w-9 rounded-lg object-contain">
+                </span>
                 <span>
                     <strong class="block text-sm font-extrabold tracking-wide">TECKFO SERVICE</strong>
                     <small class="mt-1 block text-[11px] text-slate-300">Owner Workspace</small>
@@ -102,7 +105,8 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400">
                 <div>
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0B1E3F] text-amber-400 mb-2 border border-amber-400/40">
-                        👑 Executive Dashboard & Oversight
+                        <img src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer" class="h-5 w-5 rounded object-contain">
+                        Executive Dashboard &amp; Oversight
                     </span>
                     <h1 class="text-2xl font-extrabold text-[#0B1E3F] tracking-tight">Panel Eksekutif Owner</h1>
                     <p class="text-xs text-slate-500 mt-1">Pantau analitik servis, omzet pendapatan, kelola akun staf, dan catat pengadaan sparepart supplier</p>

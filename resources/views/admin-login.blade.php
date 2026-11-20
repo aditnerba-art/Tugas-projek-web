@@ -16,6 +16,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Login Admin - TECKFO Service</title>
+    <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,7 +24,7 @@
 </head>
 <body data-role="admin">
 <main class="card">
-    <div class="mark"><i></i> Panel Administrasi</div>
+    <div class="mark"><img src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer"> Panel Administrasi</div>
     <h1>Masuk sebagai Admin</h1>
     <p>Masukkan kredensial akun admin Anda untuk mengelola servis baru, kasir, dan pelanggan.</p>
     <form id="loginForm" autocomplete="on">

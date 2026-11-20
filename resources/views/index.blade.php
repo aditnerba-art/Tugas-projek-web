@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Pelanggan - Login & Pelacakan Servis</title>
+    <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
@@ -443,7 +444,7 @@
 
     <header class="portal-nav">
         <a class="portal-brand" href="index.html" aria-label="TECKFO Service - Portal Pelanggan">
-            <img class="portal-brand-logo" src="/teckfo-logo.png" alt="TECKFO Computer logo">
+            <img class="portal-brand-logo" src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer">
             <span>Servis Komputer<small>Portal Pelanggan</small></span>
         </a>
     </header>

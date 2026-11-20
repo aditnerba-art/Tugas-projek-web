@@ -223,6 +223,7 @@ class ApiController extends Controller
     public function createService(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'customer_id' => ['nullable', 'integer'],
             'nama' => ['required', 'string', 'min:1', 'max:100'],
             'no_wa' => ['required', 'string', 'max:20'],
             'alamat' => ['nullable', 'string'],
@@ -234,11 +235,26 @@ class ApiController extends Controller
             'teknisi_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', 'teknisi')],
         ]);
         $result = DB::transaction(function () use ($data): array {
-            $customer = Customer::create([
-                'nama' => trim($data['nama']),
-                'no_wa' => trim($data['no_wa']),
-                'alamat' => $data['alamat'] ?? null,
-            ]);
+            $nama = preg_replace('/\s+/', ' ', trim($data['nama']));
+            $noWa = trim($data['no_wa']);
+            $customer = null;
+
+            if (! empty($data['customer_id'])) {
+                $customer = Customer::whereKey($data['customer_id'])->first();
+                if (! $customer) {
+                    abort(422, 'Pelanggan lama tidak ditemukan atau sudah tidak aktif.');
+                }
+            } else {
+                $customer = Customer::where('no_wa', $noWa)->first();
+            }
+
+            if (! $customer) {
+                $customer = Customer::create([
+                    'nama' => $nama,
+                    'no_wa' => $noWa,
+                    'alamat' => $data['alamat'] ?? null,
+                ]);
+            }
             do {
                 $noNota = 'SRV-'.now()->format('ymd').'-'.strtoupper(Str::random(3));
             } while (Service::where('no_nota', $noNota)->exists());
@@ -460,15 +476,58 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $data]);
     }
 
-    public function adminCustomers(): JsonResponse
+    public function adminCustomers(Request $request): JsonResponse
     {
-        $customers = Customer::withCount('services')->where('nama', '<>', 'Pelanggan dihapus')
-            ->where('no_wa', 'not like', 'DIHAPUS-%')->orderBy('nama')->get();
+        $queryText = trim((string) $request->query('q', ''));
+        $customersQuery = Customer::with([
+            'services' => fn ($services) => $services->with(['items.sparepart', 'accessTokens'])
+                ->latest()->limit(100),
+        ])->withCount('services')->orderBy('nama');
+
+        if ($queryText !== '') {
+            $matchingServiceIds = [];
+            $accessToken = null;
+            if (preg_match('/^\d{5}$/', $queryText)) {
+                $accessToken = ServiceAccessToken::where('token_hash', $this->accessHash($queryText))
+                    ->first();
+            }
+            if ($accessToken) {
+                $matchingServiceIds[] = $accessToken->service_id;
+            }
+
+            $customersQuery->where(function ($query) use ($queryText, $matchingServiceIds) {
+                $query->where('nama', 'like', '%'.$queryText.'%')
+                    ->orWhere('no_wa', 'like', '%'.$queryText.'%')
+                    ->orWhereHas('services', function ($services) use ($queryText, $matchingServiceIds) {
+                        $services->where('no_nota', 'like', '%'.$queryText.'%');
+                        if ($matchingServiceIds !== []) {
+                            $services->orWhereIn('id', $matchingServiceIds);
+                        }
+                    });
+            });
+        }
+
+        $limit = min(max((int) $request->query('limit', 100), 1), 200);
+        $customers = $customersQuery->limit($limit)->get();
 
         return response()->json(['status' => 'success', 'data' => $customers->map(fn (Customer $customer) => [
             'id' => $customer->id, 'nama' => $customer->nama, 'no_wa' => $customer->no_wa,
             'alamat' => $customer->alamat, 'created_at' => $customer->created_at,
             'jumlah_servis' => $customer->services_count,
+            'riwayat_servis' => $customer->services->map(fn (Service $service) => [
+                'id' => $service->id,
+                'no_nota' => $service->no_nota,
+                'jenis_unit' => $service->jenis_unit,
+                'merek_tipe' => $service->merek_tipe,
+                'no_seri' => $service->no_seri,
+                'keluhan' => $service->keluhan,
+                'kelengkapan' => $service->kelengkapan,
+                'status' => $service->status,
+                'biaya_jasa' => $service->biaya_jasa,
+                'total_biaya' => $service->total_biaya,
+                'status_pembayaran' => $service->status_pembayaran,
+                'created_at' => $service->created_at,
+            ]),
         ])]);
     }
 
@@ -488,7 +547,7 @@ class ApiController extends Controller
     {
         $customer->delete();
 
-        return response()->json(['success' => true, 'message' => 'Data pelanggan berhasil dihapus']);
+        return response()->json(['success' => true, 'message' => 'Pelanggan dipindahkan ke arsip. Riwayat servis tetap aman dan dapat dipulihkan.']);
     }
 
     public function deleteService(Service $service): JsonResponse

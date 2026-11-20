@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Admin - TECKFO Service</title>
+    <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -55,6 +56,17 @@
                 </div>
 
                 <form id="formPendaftaran" class="space-y-5">
+                    <div class="relative rounded-xl border border-amber-300 bg-amber-50/60 p-4">
+                        <input type="hidden" id="customer_id">
+                        <label for="cariPelangganLama" class="block text-xs font-bold uppercase tracking-wider text-[#0B1E3F] mb-1.5">
+                            Cari Pelanggan Lama (Nama / No. WhatsApp)
+                        </label>
+                        <input type="text" id="cariPelangganLama" autocomplete="off" placeholder="Ketik nama atau nomor WhatsApp..."
+                            class="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition bg-white">
+                        <div id="hasilPencarianPelanggan"
+                            class="absolute left-4 right-4 z-40 mt-1 hidden max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"></div>
+                    </div>
+
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Nama Lengkap Pelanggan <span class="text-rose-500">*</span></label>
                         <input type="text" id="nama" required placeholder="Contoh: Budi Prasetyo"
@@ -166,7 +178,15 @@
                 </div>
                 <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs leading-relaxed text-blue-900 flex items-start gap-2.5">
                     <span class="text-base flex-shrink-0">🔒</span>
-                    <span>Penghapusan pelanggan akan menghapus permanen seluruh riwayat servis, detail sparepart, log teknisi, dan kode akses terkait. Jumlah servis serta pendapatan historis ikut berubah dan data tidak dapat dipulihkan.</span>
+                    <span>Pelanggan yang dihapus dipindahkan ke arsip, bukan dihapus permanen. Riwayat servis, detail unit, dan kode akses tetap tersimpan aman di database.</span>
+                </div>
+                <div class="relative">
+                    <label for="cariPelanggan" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Cari Pelanggan
+                    </label>
+                    <input type="search" id="cariPelanggan" autocomplete="off"
+                        placeholder="Nama, nomor WhatsApp, kode servis, atau kode akses..."
+                        class="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                 </div>
                 <p id="customersMessage" class="text-sm text-slate-600 font-semibold" role="status" aria-live="polite"></p>
                 <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
@@ -218,6 +238,22 @@
                     </a>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal Riwayat Servis Pelanggan -->
+    <div id="modalRiwayatPelanggan" class="fixed inset-0 z-[58] hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="riwayatPelangganTitle">
+        <div class="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white shadow-2xl">
+            <div class="flex items-start justify-between gap-4 bg-[#0B1E3F] px-6 py-4 text-white">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-amber-300">Riwayat servis</p>
+                    <h2 id="riwayatPelangganTitle" class="mt-1 text-lg font-extrabold"></h2>
+                    <p id="riwayatPelangganKontak" class="mt-1 text-xs text-slate-300"></p>
+                </div>
+                <button type="button" onclick="closeRiwayatPelanggan()" aria-label="Tutup"
+                    class="rounded-lg p-1 text-2xl leading-none text-slate-300 hover:bg-white/10 hover:text-white">&times;</button>
+            </div>
+            <div id="riwayatPelangganIsi" class="max-h-[68vh] space-y-3 overflow-y-auto p-5"></div>
         </div>
     </div>
 
@@ -647,6 +683,7 @@
 
         async function simpanServis() {
             const payload = {
+                customer_id: document.getElementById('customer_id').value || null,
                 nama: document.getElementById('nama').value,
                 no_wa: document.getElementById('no_wa').value,
                 jenis_unit: document.getElementById('jenis_unit').value,
@@ -672,6 +709,9 @@
                     sessionCustomerAccessCodes.set(String(data.service_id), data.customer_token);
                 }
                 document.getElementById('formPendaftaran').reset();
+                document.getElementById('customer_id').value = '';
+                document.getElementById('cariPelangganLama').value = '';
+                document.getElementById('hasilPencarianPelanggan').classList.add('hidden');
                 await Promise.all([loadActiveServices(), loadCustomers()]);
                 showServiceSuccessModal(data, payload);
             } else {
@@ -680,13 +720,16 @@
         }
 
         async function loadCustomers() {
+            const q = document.getElementById('cariPelanggan')?.value.trim() || '';
             const tbody = document.getElementById('customersTable');
             const message = document.getElementById('customersMessage');
             tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">Memuat data pelanggan…</td></tr>';
             message.textContent = '';
 
             try {
-                const response = await fetch('/api/admin/customers');
+                const params = new URLSearchParams();
+                if (q) params.set('q', q);
+                const response = await fetch(`/api/admin/customers${params.size ? `?${params}` : ''}`);
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Daftar pelanggan gagal dimuat.');
 
@@ -723,6 +766,13 @@
                     const actionCell = addCell('', 'p-3.5 text-right whitespace-nowrap');
                     const actions = document.createElement('div');
                     actions.className = 'flex flex-wrap items-center justify-end gap-2';
+                    const historyButton = document.createElement('button');
+                    historyButton.type = 'button';
+                    historyButton.className = 'inline-flex min-h-9 items-center justify-center rounded-xl border border-amber-400/80 bg-amber-50 px-3.5 py-1.5 text-xs font-bold text-[#0B1E3F] transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400';
+                    historyButton.textContent = '📋 Riwayat Servis';
+                    historyButton.addEventListener('click', () => openRiwayatPelanggan(customer));
+                    actions.appendChild(historyButton);
+
                     const editButton = document.createElement('button');
                     editButton.type = 'button';
                     editButton.className = 'inline-flex min-h-9 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-400';
@@ -762,6 +812,47 @@
             document.getElementById('editPelangganError').textContent = '';
         }
 
+        function openRiwayatPelanggan(customer) {
+            document.getElementById('riwayatPelangganTitle').textContent = customer.nama || 'Pelanggan';
+            document.getElementById('riwayatPelangganKontak').textContent = `WhatsApp: ${customer.no_wa || '-'} • ${Number(customer.jumlah_servis) || 0} riwayat servis`;
+            const container = document.getElementById('riwayatPelangganIsi');
+            container.replaceChildren();
+            const history = Array.isArray(customer.riwayat_servis) ? customer.riwayat_servis : [];
+            if (!history.length) {
+                container.innerHTML = '<div class="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Belum ada riwayat servis.</div>';
+            } else {
+                history.forEach(service => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-xl border border-slate-200 p-4 text-sm';
+                    const unit = [service.jenis_unit, service.merek_tipe].filter(Boolean).join(' • ');
+                    const biaya = Number(service.total_biaya || 0).toLocaleString('id-ID');
+                    card.innerHTML = `
+                        <div class="flex flex-col justify-between gap-2 border-b border-slate-100 pb-3 sm:flex-row">
+                            <div>
+                                <p class="font-mono font-bold text-[#0B1E3F]">${service.no_nota || '-'}</p>
+                                <p class="mt-1 font-bold text-slate-800">${unit || '-'}</p>
+                            </div>
+                            <div class="text-left sm:text-right">
+                                <p class="font-extrabold text-[#0B1E3F]">Rp ${biaya}</p>
+                                <p class="mt-1 text-xs font-bold uppercase text-slate-500">${service.status || '-'} • ${service.status_pembayaran || '-'}</p>
+                            </div>
+                        </div>
+                        <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                            <div><dt class="font-bold text-slate-500">Nomor Seri</dt><dd class="mt-1 text-slate-700">${service.no_seri || '-'}</dd></div>
+                            <div><dt class="font-bold text-slate-500">Keluhan</dt><dd class="mt-1 text-slate-700">${service.keluhan || '-'}</dd></div>
+                        </dl>`;
+                    container.appendChild(card);
+                });
+            }
+            document.getElementById('modalRiwayatPelanggan').classList.remove('hidden');
+            document.getElementById('modalRiwayatPelanggan').classList.add('flex');
+        }
+
+        function closeRiwayatPelanggan() {
+            document.getElementById('modalRiwayatPelanggan').classList.add('hidden');
+            document.getElementById('modalRiwayatPelanggan').classList.remove('flex');
+        }
+
         async function simpanEditPelanggan(event) {
             event.preventDefault();
             const id = document.getElementById('editPelangganId').value;
@@ -796,7 +887,7 @@
         }
 
         async function hapusPelanggan(id) {
-            const konfirmasi = confirm('Yakin ingin menghapus permanen data pelanggan beserta seluruh riwayat servisnya?');
+            const konfirmasi = confirm('Hapus pelanggan dari daftar aktif? Riwayat servis akan tetap aman dan dapat dipulihkan.');
             if (!konfirmasi) return;
 
             const message = document.getElementById('customersMessage');
@@ -830,6 +921,59 @@
                 alert(error.message || 'Terjadi kesalahan saat menghapus data servis.');
             }
         }
+
+        let pencarianPelangganTimeout;
+        document.getElementById('cariPelangganLama').addEventListener('input', event => {
+            clearTimeout(pencarianPelangganTimeout);
+            const query = event.target.value.trim();
+            if (query.length < 2) {
+                document.getElementById('hasilPencarianPelanggan').classList.add('hidden');
+                return;
+            }
+            pencarianPelangganTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/admin/customers?q=${encodeURIComponent(query)}&limit=20`);
+                    const result = await response.json();
+                    const container = document.getElementById('hasilPencarianPelanggan');
+                    container.replaceChildren();
+                    if (!response.ok || result.status !== 'success' || !result.data.length) {
+                        container.innerHTML = '<div class="p-3 text-sm text-slate-500">Pelanggan belum ditemukan.</div>';
+                        container.classList.remove('hidden');
+                        return;
+                    }
+                    result.data.forEach(customer => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3.5 py-3 text-left text-sm transition last:border-0 hover:bg-amber-50';
+                        button.innerHTML = `<span><strong class="block text-[#0B1E3F]">${customer.nama}</strong><span class="text-xs text-slate-500">${customer.no_wa || '-'}</span></span><span class="text-xs font-bold text-slate-500">${customer.jumlah_servis || 0} servis</span>`;
+                        button.addEventListener('click', () => {
+                            document.getElementById('customer_id').value = customer.id;
+                            document.getElementById('nama').value = customer.nama || '';
+                            document.getElementById('no_wa').value = customer.no_wa || '';
+                            document.getElementById('cariPelangganLama').value = `${customer.nama} • ${customer.no_wa || '-'}`;
+                            container.classList.add('hidden');
+                        });
+                        container.appendChild(button);
+                    });
+                    container.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Pencarian pelanggan gagal', error);
+                }
+            }, 250);
+        });
+
+        document.getElementById('nama').addEventListener('input', () => {
+            document.getElementById('customer_id').value = '';
+        });
+        document.getElementById('no_wa').addEventListener('input', () => {
+            document.getElementById('customer_id').value = '';
+        });
+
+        let pencarianDaftarTimeout;
+        document.getElementById('cariPelanggan').addEventListener('input', () => {
+            clearTimeout(pencarianDaftarTimeout);
+            pencarianDaftarTimeout = setTimeout(loadCustomers, 250);
+        });
 
         // Inisialisasi data saat halaman dibuka
         loadActiveServices();

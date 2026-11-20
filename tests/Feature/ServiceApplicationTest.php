@@ -65,7 +65,41 @@ class ServiceApplicationTest extends TestCase
         $this->getJson('/api/customer/me')->assertUnauthorized();
     }
 
-    public function test_customer_deletion_cascades_through_service_history_and_access_sessions(): void
+    public function test_admin_reuses_existing_customer_when_customer_id_is_selected(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Lama',
+            'username' => 'admin_lama',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $customer = Customer::create([
+            'nama' => 'Pelanggan Lama',
+            'no_wa' => '08123450000',
+        ]);
+
+        $this->actingAs($admin)->postJson('/api/admin/service', [
+            'customer_id' => $customer->id,
+            'nama' => 'Pelanggan Lama',
+            'no_wa' => '08123450000',
+            'jenis_unit' => 'Laptop',
+            'merek_tipe' => 'Lenovo Lama',
+            'keluhan' => 'Servis kedua',
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertDatabaseCount('customers', 1);
+        $this->assertDatabaseHas('services', [
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Lenovo Lama',
+        ]);
+
+        $this->getJson('/api/admin/customers?q=Pelanggan Lama')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $customer->id)
+            ->assertJsonPath('data.0.jumlah_servis', 1);
+    }
+
+    public function test_customer_deletion_uses_soft_delete_and_preserves_service_history(): void
     {
         $customer = Customer::create(['nama' => 'Pelanggan Hapus', 'no_wa' => '08123456789']);
         $part = Sparepart::create(['kode_barang' => 'RAM-1', 'nama_barang' => 'RAM', 'stok' => 3]);
@@ -95,11 +129,12 @@ class ServiceApplicationTest extends TestCase
 
         $customer->delete();
 
-        $this->assertDatabaseMissing('services', ['id' => $service->id]);
-        $this->assertDatabaseMissing('service_items', ['id' => $item->id]);
-        $this->assertDatabaseMissing('service_logs', ['id' => $log->id]);
-        $this->assertDatabaseMissing('service_access_tokens', ['id' => $token->id]);
-        $this->assertDatabaseCount('customer_sessions', 0);
+        $this->assertSoftDeleted('customers', ['id' => $customer->id]);
+        $this->assertDatabaseHas('services', ['id' => $service->id, 'customer_id' => $customer->id]);
+        $this->assertDatabaseHas('service_items', ['id' => $item->id]);
+        $this->assertDatabaseHas('service_logs', ['id' => $log->id]);
+        $this->assertDatabaseHas('service_access_tokens', ['id' => $token->id]);
+        $this->assertDatabaseCount('customer_sessions', 1);
     }
 
     public function test_role_middleware_blocks_other_roles_and_laravel_views_include_csrf_support(): void
