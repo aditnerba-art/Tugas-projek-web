@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 use Symfony\Component\Process\Process;
-use Throwable;
+
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
