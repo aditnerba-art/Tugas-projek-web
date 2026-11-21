@@ -828,7 +828,7 @@ class ApiController extends Controller
                     }
                     $savedPaths[] = $path;
                     if (! $disk->put($thumbnailPath, $processed['thumbnail'])) {
-                        throw new RuntimeException('Thumbnail gagal disimpan pada disk public.');
+                        throw new RuntimeException('Thumbnail gagal disimpan pada disk privat.');
                     }
                     $savedPaths[] = $thumbnailPath;
 
