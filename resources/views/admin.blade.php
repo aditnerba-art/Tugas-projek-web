@@ -204,10 +204,11 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-6">
+                <div class="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-7">
                     <input id="serviceSearch" type="search" placeholder="Cari nota, pelanggan, unit..." class="rounded-lg border border-slate-300 px-3 py-2 text-sm lg:col-span-2">
+                    <input id="serviceCustomerFilter" type="search" placeholder="Filter nama pelanggan" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
                     <select id="serviceStatusFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                        <option value="">Semua status</option>
+                        <option value="">Semua status</option><option value="masuk">Masuk</option>
                         <option value="diperiksa">Diperiksa</option><option value="menunggu_persetujuan">Menunggu persetujuan</option>
                         <option value="dikerjakan">Dikerjakan</option><option value="menunggu_sparepart">Menunggu sparepart</option>
                         <option value="selesai">Selesai</option><option value="diambil">Diambil</option><option value="batal">Batal</option>
@@ -546,11 +547,13 @@
                     direction: document.getElementById('serviceSort').value.split(':')[1],
                 });
                 const search = document.getElementById('serviceSearch').value.trim();
+                const customer = document.getElementById('serviceCustomerFilter').value.trim();
                 const status = document.getElementById('serviceStatusFilter').value;
                 const technicianId = document.getElementById('serviceTechnicianFilter').value;
                 const dateFrom = document.getElementById('serviceDateFrom').value;
                 const dateTo = document.getElementById('serviceDateTo').value;
                 if (search) params.set('search', search);
+                if (customer) params.set('customer', customer);
                 if (status) params.set('status', status);
                 if (technicianId) params.set('teknisi_id', technicianId);
                 if (dateFrom) params.set('date_from', dateFrom);
@@ -1259,7 +1262,7 @@
             clearTimeout(pencarianDaftarTimeout);
             pencarianDaftarTimeout = setTimeout(() => loadCustomers(1), 250);
         });
-        ['serviceSearch', 'serviceStatusFilter', 'serviceTechnicianFilter', 'serviceDateFrom', 'serviceDateTo', 'serviceSort']
+        ['serviceSearch', 'serviceCustomerFilter', 'serviceStatusFilter', 'serviceTechnicianFilter', 'serviceDateFrom', 'serviceDateTo', 'serviceSort']
             .forEach(id => document.getElementById(id).addEventListener('input', () => loadActiveServices(1)));
         ['customerStatusFilter', 'customerTechnicianFilter', 'customerDateFrom', 'customerDateTo', 'customerSort']
             .forEach(id => document.getElementById(id).addEventListener('change', () => loadCustomers(1)));

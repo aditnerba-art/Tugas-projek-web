@@ -385,7 +385,16 @@
                     <div class="border-b border-slate-100 px-6 py-4">
                         <h3 class="font-bold text-[#0B1E3F]">Stok Saat Ini</h3>
                     </div>
-                    <div class="p-3"><input id="ownerPartsSearch" type="search" placeholder="Cari kode atau nama sparepart" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></div>
+                    <div class="grid grid-cols-1 gap-2 p-3 sm:grid-cols-3">
+                        <input id="ownerPartsSearch" type="search" placeholder="Cari kode atau nama sparepart" class="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-3">
+                        <select id="ownerPartsStockFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <option value="">Semua stok</option><option value="low">Stok minimum / rendah</option><option value="available">Tersedia</option><option value="out">Habis</option>
+                        </select>
+                        <select id="ownerPartsSort" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm sm:col-span-2">
+                            <option value="nama_barang:asc">Nama A–Z</option><option value="nama_barang:desc">Nama Z–A</option>
+                            <option value="stok:asc">Stok terendah</option><option value="harga_jual:desc">Harga jual tertinggi</option>
+                        </select>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm">
                             <thead class="border-b-2 border-amber-400 bg-[#0B1E3F] text-xs uppercase tracking-wide text-white">
@@ -758,8 +767,16 @@
         async function loadOwnerParts(page = 1) {
             ownerPartsPage = page;
             const search = document.getElementById('ownerPartsSearch').value.trim();
-            const params = new URLSearchParams({ page: String(page), per_page: '20' });
+            const sort = document.getElementById('ownerPartsSort').value.split(':');
+            const params = new URLSearchParams({
+                page: String(page),
+                per_page: '20',
+                sort: sort[0],
+                direction: sort[1],
+            });
+            const stock = document.getElementById('ownerPartsStockFilter').value;
             if (search) params.set('search', search);
+            if (stock) params.set('stock', stock);
             try {
                 const response = await fetch(`/api/spareparts?${params}`);
                 const result = await response.json();
@@ -1057,6 +1074,9 @@
             document.getElementById(id).addEventListener(id === 'purchaseSearch' ? 'input' : 'change', () => loadPurchases(1));
         });
         document.getElementById('ownerPartsSearch').addEventListener('input', () => loadOwnerParts(1));
+        ['ownerPartsStockFilter', 'ownerPartsSort'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => loadOwnerParts(1));
+        });
         loadAllData();
         window.addEventListener('load', () => {
             if (!window.ServiceRealtime) return;

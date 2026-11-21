@@ -56,8 +56,9 @@
                 <div>
                     <div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <input id="serviceSearchFilter" type="search" placeholder="Cari nota, pelanggan, unit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        <input id="serviceCustomerFilter" type="search" placeholder="Filter nama pelanggan" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
                         <select id="serviceStatusFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                            <option value="">Semua status</option><option value="diperiksa">Diperiksa</option>
+                            <option value="">Semua status</option><option value="masuk">Masuk</option><option value="diperiksa">Diperiksa</option>
                             <option value="menunggu_persetujuan">Menunggu persetujuan</option><option value="dikerjakan">Dikerjakan</option>
                             <option value="menunggu_sparepart">Menunggu sparepart</option><option value="selesai">Selesai</option><option value="batal">Batal</option>
                         </select>
@@ -271,10 +272,12 @@
                     direction: document.getElementById('serviceSortFilter').value.split(':')[1],
                 });
                 const search = document.getElementById('serviceSearchFilter').value.trim();
+                const customer = document.getElementById('serviceCustomerFilter').value.trim();
                 const status = document.getElementById('serviceStatusFilter').value;
                 const dateFrom = document.getElementById('serviceDateFromFilter').value;
                 const dateTo = document.getElementById('serviceDateToFilter').value;
                 if (search) params.set('search', search);
+                if (customer) params.set('customer', customer);
                 if (status) params.set('status', status);
                 if (dateFrom) params.set('date_from', dateFrom);
                 if (dateTo) params.set('date_to', dateTo);
@@ -440,7 +443,7 @@
         }
         initData();
         let serviceFilterTimer;
-        ['serviceSearchFilter', 'serviceStatusFilter', 'serviceDateFromFilter', 'serviceDateToFilter', 'serviceSortFilter'].forEach(id => {
+        ['serviceSearchFilter', 'serviceCustomerFilter', 'serviceStatusFilter', 'serviceDateFromFilter', 'serviceDateToFilter', 'serviceSortFilter'].forEach(id => {
             document.getElementById(id).addEventListener(id === 'serviceSearchFilter' ? 'input' : 'change', () => {
                 clearTimeout(serviceFilterTimer);
                 serviceFilterTimer = setTimeout(() => loadPendingServices(1), id === 'serviceSearchFilter' ? 250 : 0);

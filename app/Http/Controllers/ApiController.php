@@ -613,7 +613,8 @@ class ApiController extends Controller
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', Rule::in(['diperiksa', 'menunggu_persetujuan', 'dikerjakan', 'menunggu_sparepart', 'selesai', 'diambil', 'batal'])],
+            'customer' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['masuk', 'diperiksa', 'menunggu_persetujuan', 'dikerjakan', 'menunggu_sparepart', 'selesai', 'diambil', 'batal'])],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'teknisi_id' => ['nullable', 'integer', 'exists:users,id'],
@@ -633,6 +634,10 @@ class ApiController extends Controller
                 ->orWhere('merek_tipe', 'like', "%{$search}%")
                 ->orWhereHas('customer', fn ($customers) => $customers->where('nama', 'like', "%{$search}%")
                     ->orWhere('no_wa', 'like', "%{$search}%")));
+        }
+        if (! empty($filters['customer'])) {
+            $customer = trim($filters['customer']);
+            $query->whereHas('customer', fn ($customers) => $customers->where('nama', 'like', "%{$customer}%"));
         }
         foreach (['status', 'teknisi_id', 'customer_id'] as $field) {
             if (isset($filters[$field])) {
