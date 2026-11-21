@@ -250,6 +250,13 @@ class ServiceApplicationTest extends TestCase
             'status_pembayaran' => 'lunas',
             'kembalian' => 25000,
         ]);
+        $this->assertDatabaseHas('payments', [
+            'service_id' => $service->id,
+            'amount' => 100000,
+            'method' => 'tunai',
+            'received_by' => $admin->id,
+            'type' => 'payment',
+        ]);
         $this->assertDatabaseHas('activity_logs', [
             'aksi' => 'pembayaran',
             'user_id' => $admin->id,

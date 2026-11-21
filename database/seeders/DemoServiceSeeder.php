@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Customer;
+use App\Models\Payment;
 use App\Models\Service;
 use App\Models\ServiceItem;
 use App\Models\ServiceStatusLog;
@@ -42,11 +43,20 @@ class DemoServiceSeeder extends Seeder
                 'keluhan' => 'Data demonstrasi untuk status '.str_replace('_', ' ', $status),
                 'status' => $status,
                 'total_biaya' => $index >= 3 && $index <= 6 ? 150000 : 0,
-                'status_pembayaran' => $index === 6 ? 'lunas' : ($index === 5 ? 'dp' : 'belum_bayar'),
-                'dp_dibayar' => $index === 5 ? 50000 : 0,
                 'created_at' => now()->subDays($index),
                 'updated_at' => now()->subDays(max(0, $index - 1)),
             ]);
+
+            if ($index === 5 || $index === 6) {
+                $service->payments()->create([
+                    'amount' => $index === 5 ? 50000 : (int) $service->total_biaya,
+                    'method' => 'tunai',
+                    'paid_at' => $service->updated_at,
+                    'note' => 'Pembayaran data demo',
+                    'type' => 'payment',
+                ]);
+                $service->syncPaymentSummary();
+            }
 
             ServiceStatusLog::create([
                 'service_id' => $service->id,

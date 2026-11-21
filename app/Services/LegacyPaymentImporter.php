@@ -22,15 +22,19 @@ class LegacyPaymentImporter
                     }
 
                     $status = (string) $lockedService->getRawOriginal('status_pembayaran');
+                    $legacyTotal = max(0, (int) round((float) $lockedService->total_biaya));
                     $paidAmount = match ($status) {
-                        'lunas' => max(0, (int) round((float) $lockedService->total_biaya)),
-                        'dp', 'sebagian' => max(
-                            (int) round((float) $lockedService->dp_dibayar),
-                            (int) round((float) $lockedService->nominal_dibayar),
-                        ),
+                        'lunas' => $legacyTotal > 0
+                            ? $legacyTotal
+                            : max(0, (int) round((float) $lockedService->nominal_dibayar)),
+                        'dp', 'sebagian' => (int) round((float) (
+                            $lockedService->dp_dibayar > 0
+                                ? $lockedService->dp_dibayar
+                                : $lockedService->nominal_dibayar
+                        )),
                         default => max(0, (int) round((float) $lockedService->dp_dibayar)),
                     };
-                    $invoiceAmount = max(0, (int) round((float) $lockedService->total_biaya));
+                    $invoiceAmount = $legacyTotal;
                     if ($invoiceAmount > 0) {
                         $paidAmount = min($paidAmount, $invoiceAmount);
                     }
@@ -53,7 +57,6 @@ class LegacyPaymentImporter
                             'note' => 'migrasi data lama',
                             'type' => 'payment',
                         ]);
-                        $imported++;
                     }
 
                     $lockedService->syncPaymentSummary();

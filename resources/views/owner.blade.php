@@ -321,7 +321,7 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 id="reportTitle" class="text-lg font-extrabold text-[#0B1E3F]">Laporan Owner</h2>
-                        <p class="mt-1 text-xs text-slate-500">Omzet tagihan berdasarkan tanggal servis, bukan tanggal transaksi pembayaran.</p>
+                        <p class="mt-1 text-xs text-slate-500">Omzet mengikuti tanggal pembayaran; refund mengurangi omzet. Laba mengakui modal sparepart secara proporsional.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button id="reportCsv" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold">Ekspor CSV</button>
@@ -357,6 +357,13 @@
                         <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Sparepart terlaris</h3>
                         <table class="w-full text-left text-xs"><thead class="bg-slate-100"><tr><th class="p-2">Sparepart</th><th class="p-2 text-right">Terjual</th></tr></thead><tbody id="reportPartsRows"></tbody></table>
                     </div>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Rekonsiliasi kas harian per kasir</h3>
+                    <table class="w-full min-w-[760px] text-left text-xs">
+                        <thead class="bg-slate-100"><tr><th class="p-3">Tanggal</th><th class="p-3">Kasir</th><th class="p-3 text-right">Tunai bersih</th><th class="p-3 text-right">Non-tunai bersih</th><th class="p-3 text-right">Total bersih</th><th class="p-3 text-right">Transaksi</th></tr></thead>
+                        <tbody id="reportCashSummaryRows"></tbody>
+                    </table>
                 </div>
                 <div class="overflow-x-auto rounded-xl border border-slate-200">
                     <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Piutang / belum lunas</h3>
@@ -896,6 +903,14 @@
                 renderReportRows('reportPartsRows', report.top_parts.map(item => [
                     item.nama_barang, item.jumlah_terjual,
                 ]), ['Sparepart', 'Terjual'], 'Belum ada sparepart terpakai.');
+                renderReportRows('reportCashSummaryRows', report.cash_summary.map(item => [
+                    item.tanggal,
+                    item.kasir,
+                    currency(item.tunai),
+                    currency(item.non_tunai),
+                    currency(item.total_bersih),
+                    item.jumlah_transaksi,
+                ]), ['Tanggal', 'Kasir', 'Tunai', 'Non-tunai', 'Total', 'Transaksi'], 'Tidak ada transaksi pembayaran pada periode ini.');
                 renderReportRows('reportReceivableRows', report.receivables.map(item => [
                     item.no_nota,
                     `${item.nama_pelanggan}${item.no_wa ? ` · ${item.no_wa}` : ''}`,

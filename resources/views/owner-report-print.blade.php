@@ -22,7 +22,7 @@
     <header>
         <div>
             <h1>Laporan Operasional TECKFO Service</h1>
-            <p>Periode {{ $report['date_from'] }} sampai {{ $report['date_to'] }} · Omzet berdasarkan tanggal servis</p>
+            <p>Periode pembayaran {{ $report['date_from'] }} sampai {{ $report['date_to'] }} · Refund mengurangi omzet bersih</p>
         </div>
         <button class="toolbar" type="button" onclick="window.print()">Cetak / Simpan sebagai PDF</button>
     </header>
@@ -32,9 +32,10 @@
         <div><strong>Laba kotor</strong><br>Rp {{ number_format($report['summary']['laba_kotor'], 0, ',', '.') }}</div>
         <div><strong>Jumlah servis</strong><br>{{ number_format($report['summary']['jumlah_servis'], 0, ',', '.') }}</div>
     </section>
+    <p>Laba kotor mengakui modal sparepart secara proporsional terhadap pembayaran bersih, termasuk pembalikan proporsional saat refund.</p>
     <h2>Ringkasan {{ $report['period'] === 'month' ? 'bulanan' : 'harian' }}</h2>
     <table>
-        <thead><tr><th>Periode</th><th class="number">Servis</th><th class="number">Omzet</th><th class="number">Modal</th><th class="number">Laba kotor</th></tr></thead>
+        <thead><tr><th>Periode</th><th class="number">Servis terdaftar</th><th class="number">Omzet bersih</th><th class="number">Modal proporsional</th><th class="number">Laba kotor</th></tr></thead>
         <tbody>
             @forelse ($report['series'] as $row)
                 <tr><td>{{ $row['label'] }}</td><td class="number">{{ $row['jumlah_servis'] }}</td><td class="number">Rp {{ number_format($row['omzet'], 0, ',', '.') }}</td><td class="number">Rp {{ number_format($row['modal'], 0, ',', '.') }}</td><td class="number">Rp {{ number_format($row['laba_kotor'], 0, ',', '.') }}</td></tr>
@@ -61,6 +62,21 @@
             <tr><td>{{ $part['nama_barang'] }}</td><td class="number">{{ $part['jumlah_terjual'] }}</td><td class="number">Rp {{ number_format($part['nilai_jual'], 0, ',', '.') }}</td><td class="number">Rp {{ number_format($part['modal'], 0, ',', '.') }}</td></tr>
         @endforeach
     </tbody></table>
+    <h2>Rekonsiliasi kas harian per kasir</h2>
+    <table><thead><tr><th>Tanggal</th><th>Kasir</th><th class="number">Tunai bersih</th><th class="number">Non-tunai bersih</th><th class="number">Total bersih</th><th class="number">Transaksi</th></tr></thead><tbody>
+        @forelse ($report['cash_summary'] as $cash)
+            <tr>
+                <td>{{ $cash['tanggal'] }}</td>
+                <td>{{ $cash['kasir'] }}</td>
+                <td class="number">Rp {{ number_format($cash['tunai'], 0, ',', '.') }}</td>
+                <td class="number">Rp {{ number_format($cash['non_tunai'], 0, ',', '.') }}</td>
+                <td class="number">Rp {{ number_format($cash['total_bersih'], 0, ',', '.') }}</td>
+                <td class="number">{{ $cash['jumlah_transaksi'] }}</td>
+            </tr>
+        @empty
+            <tr><td colspan="6">Tidak ada transaksi pembayaran pada periode ini.</td></tr>
+        @endforelse
+    </tbody></table>
     <h2>Piutang / belum lunas</h2>
     <table><thead><tr><th>Nota</th><th>Pelanggan</th><th>Tanggal</th><th>Status bayar</th><th class="number">Tagihan</th><th class="number">Piutang</th></tr></thead><tbody>
         @forelse ($receivables as $service)
@@ -70,7 +86,7 @@
                 <td>{{ $service->created_at?->format('d-m-Y') }}</td>
                 <td>{{ $service->status_pembayaran }}</td>
                 <td class="number">Rp {{ number_format((float) $service->total_biaya, 0, ',', '.') }}</td>
-                <td class="number">Rp {{ number_format(max(0, (float) $service->total_biaya - ($service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0)), 0, ',', '.') }}</td>
+                <td class="number">Rp {{ number_format((int) $service->piutang, 0, ',', '.') }}</td>
             </tr>
         @empty
             <tr><td colspan="6">Tidak ada piutang pada periode ini.</td></tr>

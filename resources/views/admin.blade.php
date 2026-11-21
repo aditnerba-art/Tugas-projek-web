@@ -384,7 +384,7 @@
             <div class="bg-[#0B1E3F] text-white px-6 py-4 flex justify-between items-center border-b-2 border-amber-400">
                 <div class="flex items-center gap-2.5">
                     <span class="p-1.5 bg-amber-500 text-slate-950 rounded-lg text-sm font-bold">💵</span>
-                    <h3 class="text-base font-bold">Kasir: Pelunasan & Ambil Unit</h3>
+                    <h3 class="text-base font-bold">Kasir: Pembayaran dan Refund</h3>
                 </div>
                 <button type="button" onclick="closeModalPelunasan()"
                     class="text-slate-300 hover:text-white text-2xl font-bold leading-none">&times;</button>
@@ -418,14 +418,30 @@
                     </div>
                 </div>
 
-                <!-- Opsi Metode Pembayaran -->
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Metode Pembayaran (Pelunasan)</label>
+                    <label for="modal_payment_type" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Jenis transaksi</label>
+                    <select id="modal_payment_type" onchange="updatePaymentModalAction()"
+                        class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800">
+                        <option value="payment">Pembayaran / cicilan</option>
+                        <option value="refund">Refund</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="modal_payment_amount" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Nominal transaksi (rupiah)</label>
+                    <input id="modal_payment_amount" type="number" min="1" step="1" required oninput="updatePaymentModalAction()"
+                        class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800">
+                    <p id="modal_payment_hint" class="mt-1 text-xs text-slate-500"></p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Metode pembayaran</label>
                     <select id="modal_metode_pembayaran" required
                         class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 font-medium">
-                        <option value="Cash">💵 Cash (Tunai)</option>
-                        <option value="QRIS">📱 QRIS</option>
-                        <option value="Transfer">💳 Transfer Bank</option>
+                        <option value="tunai">Tunai</option>
+                        <option value="transfer">Transfer Bank</option>
+                        <option value="qris">QRIS</option>
+                        <option value="lainnya">Lainnya</option>
                     </select>
                 </div>
 
@@ -438,8 +454,8 @@
                 </div>
 
                 <div class="p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 space-y-1">
-                    <p class="font-bold flex items-center gap-1.5"><span>⚠️</span> Informasi Pelunasan:</p>
-                    <p>Status pembayaran akan diubah menjadi <strong class="text-emerald-700">Lunas</strong> dan status unit servis akan diubah menjadi <strong class="text-[#0B1E3F]">Diambil</strong>.</p>
+                    <p class="font-bold flex items-center gap-1.5"><span>ℹ️</span> Informasi transaksi:</p>
+                    <p id="modal_payment_info">Pembayaran sebesar sisa tagihan akan melunasi pembayaran dan menyerahkan unit.</p>
                 </div>
 
                 <!-- Tombol Aksi Modal -->
@@ -450,7 +466,7 @@
                     </button>
                     <button type="submit"
                         class="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-xl transition shadow-md border border-amber-600">
-                        Konfirmasi & Ambil Unit
+                        Catat Transaksi
                     </button>
                 </div>
             </form>
@@ -570,8 +586,8 @@
                         let badgeBayar = '';
                         if (srv.status_pembayaran === 'lunas') {
                             badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Lunas</span>';
-                        } else if (srv.status_pembayaran === 'dp') {
-                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">⏳ DP</span>';
+                        } else if (srv.status_pembayaran === 'sebagian') {
+                            badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">⏳ Sebagian</span>';
                         } else {
                             badgeBayar = '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ Belum Bayar</span>';
                         }
@@ -603,7 +619,7 @@
                                         </select>
                                         <button type="button" class="assign-service rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold">Simpan penugasan</button>
                                     </div>
-                                    <button onclick="openModalPelunasan(${srv.id}, '${srv.no_nota}', '${encodeURIComponent(srv.nama_pelanggan)}', '${encodeURIComponent(srv.merek_tipe)}', ${srv.total_biaya || 0}, '${srv.status_pembayaran}')"
+                                    <button onclick="openModalPelunasan(${srv.id}, '${srv.no_nota}', '${encodeURIComponent(srv.nama_pelanggan)}', '${encodeURIComponent(srv.merek_tipe)}', ${srv.total_biaya || 0}, ${srv.nominal_dibayar || 0}, '${srv.status_pembayaran}')"
                                         class="inline-flex items-center gap-1.5 bg-[#0B1E3F] hover:bg-[#132F63] text-white px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-400/80 shadow-sm transition">
                                         💵 Pelunasan
                                     </button>
@@ -848,9 +864,10 @@
         }
 
         // Modal Pelunasan Handler
-        function openModalPelunasan(id, noNota, encNama, encUnit, totalBiaya, statusBayar) {
+        function openModalPelunasan(id, noNota, encNama, encUnit, totalBiaya, totalTerbayar, statusBayar) {
             const nama = decodeURIComponent(encNama);
             const unit = decodeURIComponent(encUnit);
+            const remaining = Math.max(0, Number(totalBiaya || 0) - Number(totalTerbayar || 0));
 
             document.getElementById('modal_service_id').value = id;
             document.getElementById('modal_no_nota').innerText = noNota;
@@ -858,20 +875,47 @@
             document.getElementById('modal_unit').innerText = unit;
             document.getElementById('modal_total_biaya').innerText = `Rp ${Number(totalBiaya).toLocaleString('id-ID')}`;
             document.getElementById('modal_catatan').value = '';
+            document.getElementById('modal_payment_type').value = 'payment';
+            document.getElementById('modal_payment_amount').value = remaining;
+            document.getElementById('modal_payment_amount').dataset.remaining = remaining;
 
             const badgeSpan = document.getElementById('modal_status_bayar_badge');
             if (statusBayar === 'lunas') {
                 badgeSpan.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
                 badgeSpan.innerText = 'Lunas';
-            } else if (statusBayar === 'dp') {
+            } else if (statusBayar === 'sebagian') {
                 badgeSpan.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300';
-                badgeSpan.innerText = 'DP';
+                badgeSpan.innerText = 'Sebagian';
             } else {
                 badgeSpan.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300';
                 badgeSpan.innerText = 'Belum Bayar';
             }
 
+            updatePaymentModalAction();
             document.getElementById('modalPelunasan').classList.remove('hidden');
+        }
+
+        function updatePaymentModalAction() {
+            const type = document.getElementById('modal_payment_type').value;
+            const amount = Number(document.getElementById('modal_payment_amount').value || 0);
+            const remaining = Number(document.getElementById('modal_payment_amount').dataset.remaining || 0);
+            const button = document.querySelector('#formPelunasan button[type="submit"]');
+            const hint = document.getElementById('modal_payment_hint');
+            const info = document.getElementById('modal_payment_info');
+
+            if (type === 'refund') {
+                button.textContent = 'Catat Refund';
+                hint.textContent = 'Nominal refund tidak boleh melebihi pembayaran bersih servis.';
+                info.textContent = 'Refund mengurangi pembayaran bersih dan tidak menyerahkan unit.';
+            } else if (remaining > 0 && amount >= remaining) {
+                button.textContent = 'Lunasi & Ambil Unit';
+                hint.textContent = `Sisa tagihan: Rp ${remaining.toLocaleString('id-ID')}.`;
+                info.textContent = 'Pelunasan penuh akan mencatat transaksi dan menyerahkan unit.';
+            } else {
+                button.textContent = 'Catat Cicilan';
+                hint.textContent = `Sisa tagihan: Rp ${remaining.toLocaleString('id-ID')}.`;
+                info.textContent = 'Pembayaran sebagian dicatat sebagai cicilan; unit belum diserahkan.';
+            }
         }
 
         function closeModalPelunasan() {
@@ -883,15 +927,21 @@
             const serviceId = document.getElementById('modal_service_id').value;
             const metode = document.getElementById('modal_metode_pembayaran').value;
             const catatan = document.getElementById('modal_catatan').value;
+            const type = document.getElementById('modal_payment_type').value;
+            const amount = Number(document.getElementById('modal_payment_amount').value);
+            const remaining = Number(document.getElementById('modal_payment_amount').dataset.remaining || 0);
+            const isHandover = type === 'payment' && remaining > 0 && amount >= remaining;
 
             try {
-                const res = await fetch('/api/admin/service/pelunasan', {
-                    method: 'PUT',
+                const res = await fetch(isHandover ? '/api/admin/service/pelunasan' : '/api/admin/service/payments', {
+                    method: isHandover ? 'PUT' : 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         service_id: serviceId,
-                        metode_pembayaran: metode,
-                        catatan: catatan
+                        type,
+                        amount,
+                        method: metode,
+                        note: catatan
                     })
                 });
 

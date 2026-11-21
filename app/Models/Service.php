@@ -110,11 +110,20 @@ class Service extends Model
             ->orderByDesc('paid_at')
             ->orderByDesc('id')
             ->value('method');
+        $partialAmount = $status === 'sebagian' ? $paidAmount : 0;
+        if (
+            $this->status_pembayaran === $status
+            && $this->metode_pembayaran === $lastMethod
+            && (int) round((float) $this->dp_dibayar) === $partialAmount
+            && (int) round((float) $this->nominal_dibayar) === $paidAmount
+        ) {
+            return;
+        }
 
         $this->forceFill([
             'status_pembayaran' => $status,
             'metode_pembayaran' => $lastMethod,
-            'dp_dibayar' => $status === 'sebagian' ? $paidAmount : 0,
+            'dp_dibayar' => $partialAmount,
             'nominal_dibayar' => $paidAmount,
         ])->save();
     }

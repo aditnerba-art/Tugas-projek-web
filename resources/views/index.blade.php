@@ -866,9 +866,9 @@
                     rowKembalian.classList.remove('hidden');
                     document.getElementById('resKembalian').innerText = `Rp ${parseFloat(unit.kembalian).toLocaleString('id-ID')}`;
                 }
-            } else if (unit.status_pembayaran === 'dp') {
+            } else if (unit.status_pembayaran === 'sebagian') {
                 payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30';
-                payBadge.innerText = '⏳ Uang Muka (DP)';
+                payBadge.innerText = '⏳ Dibayar Sebagian';
                 rowDp.classList.remove('hidden'); rowSisa.classList.remove('hidden');
                 const dp = parseFloat(unit.dp_dibayar || 0);
                 const sisa = Math.max(0, totalBiaya - dp);

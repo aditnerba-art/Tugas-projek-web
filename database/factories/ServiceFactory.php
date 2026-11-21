@@ -21,7 +21,6 @@ class ServiceFactory extends Factory
             'keluhan' => fake()->sentence(),
             'status' => 'masuk',
             'total_biaya' => 0,
-            'status_pembayaran' => 'belum_bayar',
         ];
     }
 }

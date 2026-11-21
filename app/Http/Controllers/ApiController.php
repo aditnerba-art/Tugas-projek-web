@@ -436,7 +436,7 @@ class ApiController extends Controller
                 'estimated_completion_at' => $data['estimated_completion_at'] ?? null,
                 'warranty_days' => $data['warranty_days'] ?? 0,
                 'priority' => $data['priority'] ?? 'normal',
-                'status_pembayaran' => 'belum_bayar',
+
             ]);
             $code = $this->issueAccessCode($service);
             $note = 'Unit berhasil didaftarkan di sistem';
@@ -575,6 +575,7 @@ class ApiController extends Controller
                 $service->warranty_days = $data['warranty_days'];
             }
             $service->save();
+            $service->syncPaymentSummary();
             $service->changeStatus($data['status_baru'], $request->user(), $data['catatan_teknis'] ?? null);
             $estimateChanged = $oldEstimate['total_biaya'] !== (float) $service->total_biaya
                 || $oldEstimate['estimated_completion_at'] !== $service->estimated_completion_at?->toDateString();
@@ -715,6 +716,7 @@ class ApiController extends Controller
             $method = $data['method'];
             $note = $data['note'] ?? null;
             $change = 0;
+            $transactionRecorded = false;
 
             if ($type === 'refund') {
                 if ($amount < 1) {
@@ -731,9 +733,18 @@ class ApiController extends Controller
                     'note' => $note,
                     'type' => 'refund',
                 ]);
+                $transactionRecorded = true;
             } else {
-                $change = max(0, $amount - $service->balanceDue());
-                $appliedAmount = min($amount, $service->balanceDue());
+                $balanceDue = $service->balanceDue();
+                if (! $isHandover && ($amount < 1 || $balanceDue === 0)) {
+                    throw ValidationException::withMessages([
+                        'amount' => $balanceDue === 0
+                            ? 'Tidak ada tagihan tersisa; gunakan refund jika perlu mengembalikan dana.'
+                            : 'Nominal pembayaran harus lebih dari nol.',
+                    ]);
+                }
+                $change = max(0, $amount - $balanceDue);
+                $appliedAmount = min($amount, $balanceDue);
                 if ($appliedAmount > 0) {
                     $service->payments()->create([
                         'amount' => $appliedAmount,
@@ -743,13 +754,17 @@ class ApiController extends Controller
                         'note' => $note,
                         'type' => 'payment',
                     ]);
+                    $transactionRecorded = true;
                 }
             }
 
             $paidAmount = $service->paidAmount();
             $statusPayment = $service->paymentStatus($paidAmount);
+            $methodToStore = $transactionRecorded
+                ? $method
+                : $service->payments()->orderByDesc('paid_at')->orderByDesc('id')->value('method');
             $isTakingUnit = $isHandover || (bool) ($data['ambil_unit'] ?? false);
-            if ($isTakingUnit && $statusPayment !== 'lunas') {
+            if ($isTakingUnit && $service->balanceDue() > 0 && $statusPayment !== 'lunas') {
                 throw ValidationException::withMessages([
                     'amount' => 'Pelunasan penuh diperlukan sebelum unit diserahkan.',
                 ]);
@@ -759,9 +774,9 @@ class ApiController extends Controller
                 ? now(config('app.timezone'))->addDays($service->warranty_days)->toDateString()
                 : $service->warranty_expires_at?->toDateString();
 
-            $service->fill([
+            $service->forceFill([
                 'status_pembayaran' => $statusPayment,
-                'metode_pembayaran' => $method,
+                'metode_pembayaran' => $methodToStore,
                 'nominal_dibayar' => $paidAmount,
                 'dp_dibayar' => $statusPayment === 'sebagian' ? $paidAmount : 0,
                 'kembalian' => $change,
@@ -776,7 +791,7 @@ class ApiController extends Controller
             }
             if ($newStatus !== $oldStatus) {
                 $service->changeStatus($newStatus, $request->user(), $timelineNote);
-            } elseif ($type === 'payment' || $type === 'refund') {
+            } elseif ($transactionRecorded) {
                 $service->recordTimelineEvent($timelineNote, $request->user());
             }
             $this->logActivity($request, 'pembayaran', 'service:'.$service->id, $oldPaymentData, [
@@ -788,7 +803,7 @@ class ApiController extends Controller
                 'status' => $service->status,
             ]);
 
-            return [$service, $statusPayment, $method, $amount, $paidAmount, $change, $newStatus, $type];
+            return [$service, $statusPayment, $methodToStore, $amount, $paidAmount, $change, $newStatus, $type];
         });
         [$service, $statusPayment, $method, $amount, $paidAmount, $change, $newStatus, $type] = $result;
 
@@ -1383,19 +1398,87 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => "Sparepart \"{$sparepart->nama_barang}\" berhasil dihapus"]);
     }
 
+    private function paymentRecognitionBaseQuery(?Carbon $from = null, ?Carbon $to = null)
+    {
+        $serviceCosts = DB::table('service_items')
+            ->select('service_id')
+            ->selectRaw('SUM(jumlah * harga_modal) as modal')
+            ->groupBy('service_id');
+        $signedAmount = "CASE WHEN p.type = 'refund' THEN -p.amount ELSE p.amount END";
+        $modalShare = "CASE WHEN s.total_biaya > 0 THEN ({$signedAmount}) * COALESCE(service_costs.modal, 0) / s.total_biaya ELSE 0 END";
+        $query = DB::table('payments as p')
+            ->join('services as s', 's.id', '=', 'p.service_id')
+            ->leftJoinSub($serviceCosts, 'service_costs', 'service_costs.service_id', '=', 's.id')
+            ->select([
+                'p.service_id',
+                'p.paid_at',
+                'p.received_by',
+                'p.method',
+                's.teknisi_id as technician_id',
+            ])
+            ->selectRaw("{$signedAmount} as signed_amount")
+            ->selectRaw("{$modalShare} as modal_share");
+        if ($from !== null && $to !== null) {
+            $query->whereBetween('p.paid_at', [$from, $to]);
+        }
+
+        return $query;
+    }
+
+    private function paymentTotalsSubquery()
+    {
+        return DB::table('payments')
+            ->select('service_id')
+            ->selectRaw("SUM(CASE WHEN type = 'refund' THEN -amount ELSE amount END) as net_paid")
+            ->groupBy('service_id');
+    }
+
+    private function cashSummaryQuery(Carbon $from, Carbon $to)
+    {
+        return DB::table('payments as p')
+            ->leftJoin('users as cashiers', 'cashiers.id', '=', 'p.received_by')
+            ->whereBetween('p.paid_at', [$from, $to])
+            ->selectRaw("DATE(p.paid_at) as tanggal, p.received_by, COALESCE(cashiers.nama, 'Kasir tidak diketahui') as kasir")
+            ->selectRaw("SUM(CASE WHEN p.method = 'tunai' THEN CASE WHEN p.type = 'refund' THEN -p.amount ELSE p.amount END ELSE 0 END) as tunai")
+            ->selectRaw("SUM(CASE WHEN p.method <> 'tunai' THEN CASE WHEN p.type = 'refund' THEN -p.amount ELSE p.amount END ELSE 0 END) as non_tunai")
+            ->selectRaw("SUM(CASE WHEN p.type = 'refund' THEN -p.amount ELSE p.amount END) as total_bersih")
+            ->selectRaw('COUNT(p.id) as jumlah_transaksi')
+            ->groupByRaw('DATE(p.paid_at), p.received_by, cashiers.nama')
+            ->orderBy('tanggal')
+            ->orderBy('kasir')
+            ->get()
+            ->map(fn (object $row) => [
+                'tanggal' => $row->tanggal,
+                'kasir_id' => $row->received_by,
+                'kasir' => $row->kasir,
+                'tunai' => (int) $row->tunai,
+                'non_tunai' => (int) $row->non_tunai,
+                'total_bersih' => (int) $row->total_bersih,
+                'jumlah_transaksi' => (int) $row->jumlah_transaksi,
+            ]);
+    }
+
     public function ownerDashboard(): JsonResponse
     {
         $services = Service::query();
-        $billed = (float) (clone $services)->sum('total_biaya');
-        $partCost = (float) DB::table('service_items')->sum(DB::raw('jumlah * harga_modal'));
+        $recognizedPayments = DB::query()->fromSub($this->paymentRecognitionBaseQuery(), 'recognized_payments');
+        $revenue = (float) $recognizedPayments->sum('signed_amount');
+        $recognizedPartCost = (float) $recognizedPayments->sum('modal_share');
+        $paymentTotals = $this->paymentTotalsSubquery();
+        $serviceBalances = Service::query()
+            ->leftJoinSub($paymentTotals, 'payment_totals', 'payment_totals.service_id', '=', 'services.id');
         $summary = [
             'total_unit' => (clone $services)->count(),
             'unit_selesai' => (clone $services)->whereIn('status', ['selesai', 'diambil'])->count(),
-            'total_pendapatan' => (clone $services)->where('status_pembayaran', 'lunas')->sum('total_biaya'),
-            'total_dp' => (clone $services)->where('status_pembayaran', 'dp')->sum('dp_dibayar'),
-            'laba_kotor' => $billed - $partCost,
-            'total_piutang' => (float) (clone $services)->where('status_pembayaran', '<>', 'lunas')
-                ->sum(DB::raw("total_biaya - CASE WHEN status_pembayaran = 'dp' THEN dp_dibayar ELSE 0 END")),
+            'total_pendapatan' => $revenue,
+            'total_dp' => (float) (clone $serviceBalances)
+                ->whereRaw('COALESCE(payment_totals.net_paid, 0) > 0')
+                ->whereRaw('COALESCE(payment_totals.net_paid, 0) < services.total_biaya')
+                ->sum('payment_totals.net_paid'),
+            'laba_kotor' => $revenue - $recognizedPartCost,
+            'total_piutang' => (float) (clone $serviceBalances)
+                ->whereRaw('services.total_biaya > COALESCE(payment_totals.net_paid, 0)')
+                ->sum(DB::raw('services.total_biaya - COALESCE(payment_totals.net_paid, 0)')),
         ];
         $statusCounts = Service::select('status', DB::raw('COUNT(id) AS jumlah'))->groupBy('status')->get();
 
@@ -1431,46 +1514,58 @@ class ApiController extends Controller
     private function ownerReportMetrics(Carbon $from, Carbon $to, string $period): array
     {
         $services = Service::query()->whereBetween('services.created_at', [$from, $to]);
-        $billed = (float) (clone $services)->sum('total_biaya');
-        $partCost = (float) DB::table('service_items')
-            ->join('services', 'services.id', '=', 'service_items.service_id')
-            ->whereBetween('services.created_at', [$from, $to])
-            ->sum(DB::raw('service_items.jumlah * service_items.harga_modal'));
-        $daily = (clone $services)
-            ->selectRaw('DATE(created_at) as period, SUM(total_biaya) as omzet, COUNT(*) as jumlah_servis')
-            ->groupByRaw('DATE(created_at)')
-            ->orderBy('period')
-            ->get()
-            ->keyBy('period');
-        $dailyCosts = DB::table('service_items')
-            ->join('services', 'services.id', '=', 'service_items.service_id')
-            ->whereBetween('services.created_at', [$from, $to])
-            ->selectRaw('DATE(services.created_at) as period, SUM(service_items.jumlah * service_items.harga_modal) as modal')
+        $paymentRows = DB::query()->fromSub($this->paymentRecognitionBaseQuery($from, $to), 'recognized_payments')
+            ->selectRaw('DATE(paid_at) as paid_date, service_id')
+            ->selectRaw('SUM(signed_amount) as omzet')
+            ->selectRaw('SUM(signed_amount - modal_share) as laba_kotor')
+            ->groupByRaw('DATE(paid_at), service_id')
+            ->orderBy('paid_date')
+            ->get();
+        $periodStats = [];
+        $billed = 0;
+        $partCost = 0;
+        $grossProfit = 0;
+        foreach ($paymentRows as $row) {
+            $date = Carbon::parse($row->paid_date, config('app.timezone'));
+            $key = $period === 'month' ? $date->format('Y-m') : $date->toDateString();
+            $periodStats[$key] ??= [
+                'omzet' => 0,
+                'modal' => 0,
+                'laba_kotor' => 0,
+            ];
+            $revenue = (float) $row->omzet;
+            $profit = (float) $row->laba_kotor;
+            $modal = $revenue - $profit;
+            $periodStats[$key]['omzet'] += $revenue;
+            $periodStats[$key]['modal'] += $modal;
+            $periodStats[$key]['laba_kotor'] += $profit;
+            $billed += $revenue;
+            $partCost += $modal;
+            $grossProfit += $profit;
+        }
+        $serviceCounts = [];
+        foreach ((clone $services)
+            ->selectRaw('DATE(services.created_at) as service_date, COUNT(*) as jumlah_servis')
             ->groupByRaw('DATE(services.created_at)')
-            ->get()
-            ->keyBy('period');
+            ->get() as $row) {
+            $date = Carbon::parse($row->service_date, config('app.timezone'));
+            $key = $period === 'month' ? $date->format('Y-m') : $date->toDateString();
+            $serviceCounts[$key] = ($serviceCounts[$key] ?? 0) + (int) $row->jumlah_servis;
+        }
         $series = [];
         $cursor = $from->copy()->startOfDay();
         while ($cursor->lte($to)) {
             $key = $period === 'month' ? $cursor->format('Y-m') : $cursor->toDateString();
-            $record = $daily->get($cursor->toDateString());
-            $omzet = (float) ($record->omzet ?? 0);
-            $modal = (float) ($dailyCosts->get($cursor->toDateString())->modal ?? 0);
+            $record = $periodStats[$key] ?? [];
+            $series[$key] = [
+                'label' => $period === 'month' ? $cursor->copy()->startOfMonth()->format('M Y') : $cursor->format('d M'),
+                'omzet' => (float) ($record['omzet'] ?? 0),
+                'modal' => (float) ($record['modal'] ?? 0),
+                'laba_kotor' => (float) ($record['laba_kotor'] ?? 0),
+                'jumlah_servis' => $serviceCounts[$key] ?? 0,
+            ];
             if ($period === 'month') {
-                $series[$key] ??= ['label' => $cursor->format('M Y'), 'omzet' => 0, 'modal' => 0, 'laba_kotor' => 0, 'jumlah_servis' => 0];
-                $series[$key]['omzet'] += $omzet;
-                $series[$key]['modal'] += $modal;
-                $series[$key]['laba_kotor'] += $omzet - $modal;
-                $series[$key]['jumlah_servis'] += (int) ($record->jumlah_servis ?? 0);
-            } elseif ($period === 'day') {
-                $omzet = (float) ($record->omzet ?? 0);
-                $series[$key] = [
-                    'label' => $cursor->format('d M'),
-                    'omzet' => $omzet,
-                    'modal' => $modal,
-                    'laba_kotor' => $omzet - $modal,
-                    'jumlah_servis' => (int) ($record->jumlah_servis ?? 0),
-                ];
+                $cursor->endOfMonth();
             }
             $cursor->addDay();
         }
@@ -1478,10 +1573,32 @@ class ApiController extends Controller
             ->groupBy('status')->orderBy('status')->get();
         $technicianCounts = (clone $services)
             ->leftJoin('users as technicians', 'technicians.id', '=', 'services.teknisi_id')
-            ->selectRaw("COALESCE(technicians.nama, 'Belum ditugaskan') as teknisi, COUNT(services.id) as jumlah_servis, SUM(services.total_biaya) as omzet")
+            ->selectRaw('technicians.id as teknisi_id')
+            ->selectRaw("COALESCE(technicians.nama, 'Belum ditugaskan') as teknisi, COUNT(services.id) as jumlah_servis, 0 as omzet")
             ->groupBy('technicians.id', 'technicians.nama')
             ->orderByDesc('jumlah_servis')
+            ->get()
+            ->keyBy('teknisi_id');
+        $technicianPayments = DB::query()->fromSub($this->paymentRecognitionBaseQuery($from, $to), 'recognized_payments')
+            ->leftJoin('users as technicians', 'technicians.id', '=', 'recognized_payments.technician_id')
+            ->selectRaw('recognized_payments.technician_id as teknisi_id')
+            ->selectRaw("COALESCE(technicians.nama, 'Belum ditugaskan') as teknisi, SUM(recognized_payments.signed_amount) as omzet")
+            ->groupBy('recognized_payments.technician_id', 'technicians.nama')
             ->get();
+        foreach ($technicianPayments as $paymentSummary) {
+            $technician = $technicianCounts->get($paymentSummary->teknisi_id);
+            if ($technician === null) {
+                $technician = (object) [
+                    'teknisi_id' => $paymentSummary->teknisi_id,
+                    'teknisi' => $paymentSummary->teknisi,
+                    'jumlah_servis' => 0,
+                    'omzet' => 0,
+                ];
+                $technicianCounts->put($paymentSummary->teknisi_id, $technician);
+            }
+            $technician->omzet = (float) $paymentSummary->omzet;
+        }
+        $technicianCounts = $technicianCounts->sortByDesc('jumlah_servis')->values();
         $topParts = DB::table('service_items')
             ->join('services', 'services.id', '=', 'service_items.service_id')
             ->leftJoin('spareparts', 'spareparts.id', '=', 'service_items.sparepart_id')
@@ -1497,8 +1614,10 @@ class ApiController extends Controller
                 'nilai_jual' => (float) $part->nilai_jual,
                 'modal' => (float) $part->modal,
             ]);
-        $receivableTotal = (float) $this->receivablesQuery($from, $to)
-            ->sum(DB::raw("total_biaya - CASE WHEN status_pembayaran = 'dp' THEN dp_dibayar ELSE 0 END"));
+        $receivableTotal = (float) DB::query()
+            ->fromSub($this->receivablesQuery($from, $to), 'receivables')
+            ->sum('receivables.piutang');
+        $cashSummary = $this->cashSummaryQuery($from, $to);
 
         return [
             'period' => $period,
@@ -1507,7 +1626,7 @@ class ApiController extends Controller
             'summary' => [
                 'omzet' => $billed,
                 'modal_sparepart' => $partCost,
-                'laba_kotor' => $billed - $partCost,
+                'laba_kotor' => $grossProfit,
                 'jumlah_servis' => (clone $services)->count(),
                 'piutang' => $receivableTotal,
             ],
@@ -1515,15 +1634,20 @@ class ApiController extends Controller
             'status_counts' => $statusCounts,
             'technician_counts' => $technicianCounts,
             'top_parts' => $topParts,
+            'cash_summary' => $cashSummary,
         ];
     }
 
     private function receivablesQuery(Carbon $from, Carbon $to): Builder
     {
-        return Service::with('customer:id,nama,no_wa')
-            ->whereBetween('created_at', [$from, $to])
-            ->where('status_pembayaran', '<>', 'lunas')
-            ->whereRaw('(total_biaya - CASE WHEN status_pembayaran = ? THEN dp_dibayar ELSE 0 END) > 0', ['dp']);
+        return Service::query()
+            ->leftJoinSub($this->paymentTotalsSubquery(), 'payment_totals', 'payment_totals.service_id', '=', 'services.id')
+            ->with('customer:id,nama,no_wa')
+            ->select('services.*')
+            ->selectRaw('COALESCE(payment_totals.net_paid, 0) as total_terbayar')
+            ->selectRaw('CASE WHEN services.total_biaya > COALESCE(payment_totals.net_paid, 0) THEN services.total_biaya - COALESCE(payment_totals.net_paid, 0) ELSE 0 END as piutang')
+            ->whereBetween('services.created_at', [$from, $to])
+            ->whereRaw('services.total_biaya > COALESCE(payment_totals.net_paid, 0)');
     }
 
     public function ownerReport(Request $request): JsonResponse
@@ -1543,8 +1667,8 @@ class ApiController extends Controller
             'no_wa' => $service->customer?->no_wa,
             'status_pembayaran' => $service->status_pembayaran,
             'total_biaya' => (float) $service->total_biaya,
-            'terbayar' => $service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0,
-            'piutang' => max(0, (float) $service->total_biaya - ($service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0)),
+            'terbayar' => (int) $service->total_terbayar,
+            'piutang' => (int) $service->piutang,
             'tanggal' => $service->created_at?->toDateString(),
         ]);
         $report['receivable_meta'] = $this->paginationMeta($receivables);
@@ -1561,7 +1685,7 @@ class ApiController extends Controller
         return response()->streamDownload(function () use ($report, $from, $to): void {
             $output = fopen('php://output', 'w');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Periode', 'Omzet tagihan servis', 'Modal sparepart', 'Laba kotor', 'Jumlah servis']);
+            fputcsv($output, ['Periode pembayaran', 'Omzet pembayaran bersih', 'Modal sparepart proporsional', 'Laba kotor', 'Servis terdaftar']);
             foreach ($report['series'] as $row) {
                 fputcsv($output, [
                     $row['label'],
@@ -1587,19 +1711,31 @@ class ApiController extends Controller
                 fputcsv($output, [$part['nama_barang'], $part['jumlah_terjual'], $part['nilai_jual'], $part['modal']]);
             }
             fputcsv($output, []);
+            fputcsv($output, ['Rekonsiliasi kas harian per kasir']);
+            fputcsv($output, ['Tanggal', 'Kasir', 'Tunai bersih', 'Non-tunai bersih', 'Total bersih', 'Jumlah transaksi']);
+            foreach ($report['cash_summary'] as $cash) {
+                fputcsv($output, [
+                    $cash['tanggal'],
+                    $cash['kasir'],
+                    $cash['tunai'],
+                    $cash['non_tunai'],
+                    $cash['total_bersih'],
+                    $cash['jumlah_transaksi'],
+                ]);
+            }
+            fputcsv($output, []);
             fputcsv($output, ['Piutang / belum lunas']);
             fputcsv($output, ['Nota', 'Pelanggan', 'Tanggal servis', 'Status pembayaran', 'Tagihan', 'Piutang']);
             $this->receivablesQuery($from, $to)->with('customer:id,nama')->orderBy('created_at')
                 ->chunk(500, function ($services) use ($output): void {
                     foreach ($services as $service) {
-                        $paid = $service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0;
                         fputcsv($output, [
                             $service->no_nota,
                             $service->customer?->nama ?? '-',
                             $service->created_at?->toDateString(),
                             $service->status_pembayaran,
                             $service->total_biaya,
-                            max(0, (float) $service->total_biaya - $paid),
+                            $service->piutang,
                         ]);
                     }
                 });

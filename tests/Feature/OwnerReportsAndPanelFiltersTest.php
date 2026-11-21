@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\Payment;
 use App\Models\Service;
 use App\Models\ServiceItem;
 use App\Models\Sparepart;
@@ -86,9 +87,16 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             'keluhan' => 'Tidak menyala',
             'status' => 'dikerjakan',
             'total_biaya' => 1000,
-            'status_pembayaran' => 'dp',
-            'dp_dibayar' => 250,
         ]);
+        Payment::create([
+            'service_id' => $service->id,
+            'amount' => 250,
+            'method' => 'tunai',
+            'paid_at' => now(),
+            'received_by' => $owner->id,
+            'type' => 'payment',
+        ]);
+        $service->syncPaymentSummary();
         ServiceItem::create([
             'service_id' => $service->id,
             'sparepart_id' => $part->id,
@@ -107,21 +115,26 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
 
         $this->getJson('/api/owner/reports'.$filters)
             ->assertOk()
-            ->assertJsonPath('data.summary.omzet', 1000)
-            ->assertJsonPath('data.summary.modal_sparepart', 400)
-            ->assertJsonPath('data.summary.laba_kotor', 600)
+            ->assertJsonPath('data.summary.omzet', 250)
+            ->assertJsonPath('data.summary.modal_sparepart', 100)
+            ->assertJsonPath('data.summary.laba_kotor', 150)
             ->assertJsonPath('data.summary.piutang', 750)
             ->assertJsonPath('data.technician_counts.0.jumlah_servis', 1)
+            ->assertJsonPath('data.technician_counts.0.omzet', 250)
             ->assertJsonPath('data.top_parts.0.jumlah_terjual', 2)
-            ->assertJsonPath('data.receivables.0.piutang', 750);
+            ->assertJsonPath('data.receivables.0.terbayar', 250)
+            ->assertJsonPath('data.receivables.0.piutang', 750)
+            ->assertJsonPath('data.cash_summary.0.tunai', 250);
 
         $csv = $this->get('/api/owner/reports.csv'.$filters)->assertOk();
         $this->assertStringContainsString('Laba kotor', $csv->streamedContent());
+        $this->assertStringContainsString('Rekonsiliasi kas harian per kasir', $csv->streamedContent());
         $this->assertStringContainsString('SRV-REPORT-001', $csv->streamedContent());
 
         $this->get('/api/owner/reports/print'.$filters)
             ->assertOk()
             ->assertSee('Laporan Operasional TECKFO Service')
+            ->assertSee('Rekonsiliasi kas harian per kasir')
             ->assertSee('RAM Laporan')
             ->assertSee('Pelanggan Laporan');
     }
