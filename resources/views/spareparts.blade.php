@@ -119,7 +119,7 @@
                 <!-- Form -->
                 <div class="p-6">
                     <form id="formSparepart" onsubmit="simpanSparepart(event)" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
                             <div class="md:col-span-1">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Kode Barang <span class="text-red-500">*</span></label>
                                 <input type="text" id="kode_barang" placeholder="Ex: RAM-D4-8GB" required
@@ -134,6 +134,11 @@
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Stok Awal</label>
                                 <input type="number" id="stok" placeholder="0" min="0" value="0"
                                     class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Batas Stok Minimum</label>
+                                <input type="number" id="stok_minimum" min="0" value="5"
+                                    class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Beli (Rp)</label>
@@ -166,10 +171,17 @@
                         <h2 class="text-base font-bold text-white">Daftar Stok &amp; Master Onderdil</h2>
                     </div>
                     <!-- Search & Reload -->
-                    <div class="flex gap-2 max-w-xs w-full">
+                    <div class="grid w-full max-w-3xl grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                         <input type="text" id="searchInput" oninput="filterSpareparts()" placeholder="Cari nama atau kode barang..."
-                            class="flex-1 py-2 px-3 border border-slate-600 rounded-lg text-xs bg-slate-800 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
-                        <button onclick="loadSpareparts()" class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-sm rounded-lg border border-amber-400 transition" title="Muat Ulang">
+                            class="min-w-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
+                        <select id="stockFilter" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-white">
+                            <option value="">Semua stok</option><option value="low">Stok minimum / rendah</option><option value="available">Tersedia</option><option value="out">Habis</option>
+                        </select>
+                        <select id="sparepartSort" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-white">
+                            <option value="nama_barang:asc">Nama A–Z</option><option value="nama_barang:desc">Nama Z–A</option>
+                            <option value="stok:asc">Stok terendah</option><option value="harga_jual:desc">Harga jual tertinggi</option>
+                        </select>
+                        <button onclick="loadSpareparts(1)" class="rounded-lg border border-amber-400 bg-amber-500 px-3 py-2 text-sm font-bold text-slate-900 transition hover:bg-amber-400" title="Muat Ulang">
                             🔄
                         </button>
                     </div>
@@ -194,6 +206,8 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="sparepartPagination" class="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-slate-600" aria-live="polite"></div>
+                <p id="sparepartMessage" class="px-3 pb-3 text-sm" role="status" aria-live="polite"></p>
             </div>
 
         </div>
@@ -226,12 +240,19 @@
                         class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">Stok Fisik</label>
                         <input type="number" id="edit_stok" min="0" required
                             class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Batas Stok Minimum</label>
+                        <input type="number" id="edit_stok_minimum" min="0" required
+                            class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Beli</label>
                         <input type="number" id="edit_harga_beli" min="0" required
@@ -259,6 +280,7 @@
 
     <script>
         let sparepartsCache = [];
+        let sparepartPage = 1;
 
         function toggleNavbarMenu() {
             const menu = document.getElementById('navMobileMenu');
@@ -266,37 +288,67 @@
         }
 
         // Ambil Data Semua Sparepart
-        async function loadSpareparts() {
-            try {
-                const res = await fetch('/api/spareparts');
-                const result = await res.json();
-                if (result.status === 'success') {
-                    sparepartsCache = result.data;
-                    const total = sparepartsCache.length;
-                    const lowStock = sparepartsCache.filter(i => parseInt(i.stok, 10) <= 5).length;
-                    const okStock = total - lowStock;
+        function renderSparepartPagination(meta) {
+            const container = document.getElementById('sparepartPagination');
+            container.replaceChildren();
+            if (!meta || !meta.total) {
+                container.textContent = 'Tidak ada sparepart untuk filter ini.';
+                return;
+            }
+            const summary = document.createElement('span');
+            summary.textContent = `Menampilkan ${(meta.current_page - 1) * meta.per_page + 1}–${Math.min(meta.current_page * meta.per_page, meta.total)} dari ${meta.total}`;
+            const buttons = document.createElement('div');
+            buttons.className = 'flex gap-2';
+            [['Sebelumnya', meta.current_page - 1], ['Berikutnya', meta.current_page + 1]].forEach(([label, page]) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = label;
+                button.disabled = label === 'Sebelumnya' ? meta.current_page <= 1 : meta.current_page >= meta.last_page;
+                button.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40';
+                button.addEventListener('click', () => loadSpareparts(page));
+                buttons.append(button);
+            });
+            container.append(summary, buttons);
+        }
 
-                    document.getElementById('totalItemsBadge').innerHTML = `<span>🗂️</span> Total: ${total} Jenis Sparepart`;
-                    document.getElementById('statTotal').textContent = total;
-                    document.getElementById('statLow').textContent = lowStock;
-                    document.getElementById('statOk').textContent = okStock;
-                    renderSparepartsTable(sparepartsCache);
-                }
+        async function loadSpareparts(page = 1) {
+            sparepartPage = page;
+            const tbody = document.getElementById('sparepartTable');
+            tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Memuat sparepart…</td></tr>';
+            try {
+                const params = new URLSearchParams({
+                    page: String(sparepartPage),
+                    per_page: '20',
+                    sort: document.getElementById('sparepartSort').value.split(':')[0],
+                    direction: document.getElementById('sparepartSort').value.split(':')[1],
+                });
+                const search = document.getElementById('searchInput').value.trim();
+                const stock = document.getElementById('stockFilter').value;
+                if (search) params.set('search', search);
+                if (stock) params.set('stock', stock);
+                const res = await fetch(`/api/spareparts?${params}`);
+                const result = await res.json();
+                if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Daftar sparepart gagal dimuat.');
+                sparepartsCache = result.data;
+                const total = result.summary.total;
+                const lowStock = result.summary.low_stock;
+                const okStock = result.summary.available - lowStock;
+
+                document.getElementById('totalItemsBadge').innerHTML = `<span>🗂️</span> Total: ${total} Jenis Sparepart`;
+                document.getElementById('statTotal').textContent = total;
+                document.getElementById('statLow').textContent = lowStock;
+                document.getElementById('statOk').textContent = okStock;
+                renderSparepartsTable(sparepartsCache);
+                renderSparepartPagination(result.meta);
             } catch (err) {
-                console.error(err);
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-600">${err.message || 'Daftar sparepart gagal dimuat.'}</td></tr>`;
+                document.getElementById('sparepartPagination').textContent = 'Periksa koneksi lalu coba muat ulang.';
             }
         }
 
         function filterSpareparts() {
-            const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            if (!query) {
-                return renderSparepartsTable(sparepartsCache);
-            }
-            const filtered = sparepartsCache.filter(item => 
-                (item.kode_barang && item.kode_barang.toLowerCase().includes(query)) ||
-                (item.nama_barang && item.nama_barang.toLowerCase().includes(query))
-            );
-            renderSparepartsTable(filtered);
+            clearTimeout(window.sparepartSearchTimer);
+            window.sparepartSearchTimer = setTimeout(() => loadSpareparts(1), 250);
         }
 
         function renderSparepartsTable(items) {
@@ -318,8 +370,8 @@
                 let badgeStok = '';
                 if (stokNum === 0) {
                     badgeStok = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">Habis (0)</span>';
-                } else if (stokNum <= 5) {
-                    badgeStok = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Menipis (${stokNum})</span>`;
+                } else if (stokNum <= Number(item.stok_minimum)) {
+                    badgeStok = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Menipis (${stokNum}/${item.stok_minimum})</span>`;
                 } else {
                     badgeStok = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Aman (${stokNum})</span>`;
                 }
@@ -357,6 +409,7 @@
                 kode_barang: document.getElementById('kode_barang').value.trim(),
                 nama_barang: document.getElementById('nama_barang').value.trim(),
                 stok: parseInt(document.getElementById('stok').value, 10) || 0,
+                stok_minimum: parseInt(document.getElementById('stok_minimum').value, 10) || 0,
                 harga_beli: parseFloat(document.getElementById('harga_beli').value) || 0,
                 harga_jual: parseFloat(document.getElementById('harga_jual').value) || 0
             };
@@ -371,6 +424,8 @@
                 if (data.status === 'success') {
                     alert('✅ Sparepart berhasil ditambahkan!');
                     document.getElementById('formSparepart').reset();
+                    document.getElementById('stockFilter').addEventListener('change', () => loadSpareparts(1));
+                    document.getElementById('sparepartSort').addEventListener('change', () => loadSpareparts(1));
                     loadSpareparts();
                 } else {
                     alert(`Gagal: ${data.message}`);
@@ -389,6 +444,7 @@
             document.getElementById('edit_kode_barang').value = item.kode_barang;
             document.getElementById('edit_nama_barang').value = item.nama_barang;
             document.getElementById('edit_stok').value = item.stok;
+            document.getElementById('edit_stok_minimum').value = item.stok_minimum;
             document.getElementById('edit_harga_beli').value = item.harga_beli;
             document.getElementById('edit_harga_jual').value = item.harga_jual;
 
@@ -407,6 +463,7 @@
                 kode_barang: document.getElementById('edit_kode_barang').value.trim(),
                 nama_barang: document.getElementById('edit_nama_barang').value.trim(),
                 stok: parseInt(document.getElementById('edit_stok').value, 10) || 0,
+                stok_minimum: parseInt(document.getElementById('edit_stok_minimum').value, 10) || 0,
                 harga_beli: parseFloat(document.getElementById('edit_harga_beli').value) || 0,
                 harga_jual: parseFloat(document.getElementById('edit_harga_jual').value) || 0
             };

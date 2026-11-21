@@ -149,4 +149,49 @@ Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal pub
 
 Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `fetch()` menyertakan token CSRF Laravel. Akun seed wajib mengganti kata sandi saat login pertama. Owner dapat mengatur kata sandi staf dan melihat log aktivitas di `/owner/activity-logs`.
 
+### Laporan, tabel panel, dan backup
+
+Tabel panel mendukung pencarian, filter yang sesuai dengan datanya, pengurutan, dan pagination server-side. Laporan di panel owner dapat difilter berdasarkan rentang tanggal dan ditampilkan harian atau bulanan. Omzet/laba dikelompokkan menurut **tanggal servis didaftarkan** karena aplikasi belum menyimpan jurnal transaksi dengan tanggal pembayaran tersendiri. Laba kotor dihitung sebagai nilai tagihan servis dikurangi snapshot modal sparepart yang dipakai. Piutang memakai status pembayaran saat ini. CSV dibuat native; tombol PDF membuka halaman print yang dapat disimpan sebagai PDF dari browser.
+
+Backup otomatis dijalankan setiap hari pukul 02:00 dan retensi default 14 hari. Untuk menjalankan atau menguji backup manual:
+
+```sh
+php artisan database:backup
+```
+
+Backup disimpan di `storage/app/private/backups` (di luar web root). Atur `DB_BACKUP_DIRECTORY` ke lokasi privat yang dapat ditulis oleh user aplikasi dan `DB_BACKUP_KEEP_DAYS` untuk retensi. SQLite memakai snapshot `VACUUM INTO`; MySQL/MariaDB memerlukan `mysqldump` dan PostgreSQL memerlukan `pg_dump`. Jika binari tidak ada di `PATH`, isi `MYSQLDUMP_BINARY` atau `PG_DUMP_BINARY` dengan path absolut. Driver SQL Server belum didukung command backup ini. Simpan salinan terenkripsi di lokasi terpisah/off-site dan uji proses pemulihan secara berkala; jangan mengandalkan salinan di server yang sama sebagai satu-satunya backup.
+
+Untuk scheduler lokal, jalankan:
+
+```sh
+php artisan schedule:work
+```
+
+Di server Linux, pasang cron Laravel setiap menit:
+
+```cron
+* * * * * cd /path/aplikasi && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Di Windows/XAMPP, jadwalkan `php artisan schedule:run` setiap menit melalui Task Scheduler dengan *Start in* diarahkan ke root aplikasi. Command backup dapat dipulihkan sesuai driver database: file SQLite dipulihkan saat aplikasi berhenti menulis; dump MySQL/MariaDB diimpor dengan `mysql`; dump PostgreSQL dipulihkan dengan `pg_restore`.
+
+Panel teknisi menyediakan manifest PWA dan service worker ringan. Saat offline, service worker hanya menampilkan halaman offline statis; respons API dan data servis tidak disimpan di cache perangkat. Instalasi PWA memerlukan HTTPS (atau localhost).
+
 Untuk produksi, gunakan `.env.production.example` sebagai acuan, isi `APP_KEY` dan kredensial database dengan nilai rahasia milik deployment, lalu pastikan `APP_DEBUG=false`. Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.
+# Notifikasi WhatsApp
+
+Notifikasi servis dikirim melalui queue Laravel. Atur kredensial di `.env` dan `config/services.php`:
+
+- `WHATSAPP_DRIVER=fonnte` (default) dan `FONNTE_TOKEN`
+- Alternatif: `WHATSAPP_DRIVER=wablas` dengan `WABLAS_TOKEN`, atau `WHATSAPP_DRIVER=cloud` dengan `WHATSAPP_CLOUD_TOKEN` dan `WHATSAPP_CLOUD_PHONE_NUMBER_ID`
+- URL provider dapat dioverride melalui `FONNTE_URL`, `WABLAS_URL`, atau `WHATSAPP_CLOUD_URL`.
+
+Jalankan `php artisan queue:work` untuk memproses pesan dan `php artisan schedule:work` (atau cron Laravel Scheduler) untuk pengingat unit selesai yang belum diambil pada pukul 09.00 setiap hari. Owner dapat mengubah template dan mengirim ulang notifikasi gagal melalui `/owner/notifications`. Nomor dinormalisasi otomatis menjadi format `62...`.
+
+## Fitur alur servis
+
+Form pendaftaran mencatat estimasi selesai, prioritas, teknisi, checklist kelengkapan, kondisi fisik, dan foto penerimaan. Teknisi dapat mengubah estimasi dan mengunggah foto setelah servis; foto JPEG/PNG dibatasi 5 MB dan 3000×3000 px, disimpan dengan nama acak pada disk `public`, serta dibuatkan thumbnail. Jalankan `php artisan storage:link` pada deployment untuk menyajikan foto.
+
+Batas stok minimum dapat diatur per sparepart. Penggunaan sparepart mengunci stok di dalam transaksi, menolak stok yang tidak cukup, dan menyimpan harga modal/jual sebagai snapshot pada item servis. Garansi mulai berlaku ketika unit diserahkan, sesuai masa garansi servis.
+
+Tanda terima dan nota menggunakan Blade print-CSS, bukan DomPDF: layout dapat dicetak pada thermal 58/80 mm atau disimpan sebagai PDF lewat dialog browser tanpa menambah dependensi server PDF. QR code dihasilkan lokal menggunakan paket `qrcode` dan mengarah ke tautan pelacakan acak per servis.

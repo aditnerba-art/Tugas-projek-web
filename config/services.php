@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'driver' => env('WHATSAPP_DRIVER', 'fonnte'),
+        'fonnte' => [
+            'token' => env('FONNTE_TOKEN'),
+            'url' => env('FONNTE_URL', 'https://api.fonnte.com/send'),
+        ],
+        'wablas' => [
+            'token' => env('WABLAS_TOKEN'),
+            'url' => env('WABLAS_URL', 'https://jogja.wablas.com/api/send-message'),
+        ],
+        'cloud' => [
+            'token' => env('WHATSAPP_CLOUD_TOKEN'),
+            'phone_number_id' => env('WHATSAPP_CLOUD_PHONE_NUMBER_ID'),
+            'url' => env('WHATSAPP_CLOUD_URL', 'https://graph.facebook.com/v22.0'),
+        ],
+    ],
+
 ];

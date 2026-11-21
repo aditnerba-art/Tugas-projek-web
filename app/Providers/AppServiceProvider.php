@@ -2,10 +2,15 @@
 
 namespace App\Providers;
 
+use App\Services\WhatsApp\CloudApiWhatsAppGateway;
+use App\Services\WhatsApp\FonnteWhatsAppGateway;
+use App\Services\WhatsApp\WablasWhatsAppGateway;
+use App\Services\WhatsApp\WhatsAppGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,7 +19,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(WhatsAppGateway::class, function () {
+            return match (config('services.whatsapp.driver', 'fonnte')) {
+                'fonnte' => new FonnteWhatsAppGateway,
+                'wablas' => new WablasWhatsAppGateway,
+                'cloud' => new CloudApiWhatsAppGateway,
+                default => throw new InvalidArgumentException('Driver WhatsApp tidak dikenal.'),
+            };
+        });
     }
 
     /**

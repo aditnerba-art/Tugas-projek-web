@@ -23,6 +23,7 @@ class SparepartRequest extends FormRequest
             ],
             'nama_barang' => ['required', 'string', 'max:150'],
             'stok' => ['nullable', 'integer', 'min:0'],
+            'stok_minimum' => ['nullable', 'integer', 'min:0'],
             'harga_beli' => ['nullable', 'numeric', 'min:0'],
             'harga_jual' => ['nullable', 'numeric', 'min:0'],
         ];

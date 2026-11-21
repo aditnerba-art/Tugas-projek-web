@@ -83,6 +83,9 @@
             <a href="/owner/activity-logs" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-sm font-medium text-slate-200 no-underline transition hover:bg-[#132F63] hover:text-white">
                 <span aria-hidden="true">🧾</span> Log Aktivitas
             </a>
+            <a href="/owner/notifications" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-sm font-medium text-slate-200 no-underline transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">💬</span> Notifikasi WhatsApp
+            </a>
         </nav>
         <div class="mt-auto border-t border-amber-400/30 px-5 py-4 text-[11px] text-slate-400">
             Manajemen servis &amp; inventaris
@@ -162,6 +165,16 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <input id="staffSearch" type="search" placeholder="Cari nama atau username" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <select id="staffRoleFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="">Semua peran</option><option value="admin">Admin</option><option value="teknisi">Teknisi</option>
+                    </select>
+                    <select id="staffSort" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="nama:asc">Nama A–Z</option><option value="nama:desc">Nama Z–A</option><option value="role:asc">Peran</option>
+                    </select>
+                </div>
+                <div id="staffPagination" class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600" aria-live="polite"></div>
                 <p id="staffAccountMessage" class="text-sm font-bold text-slate-600" role="status" aria-live="polite"></p>
             </section>
 
@@ -280,11 +293,11 @@
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-500 space-y-1.5 transition hover:shadow-md">
                     <div class="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-                        <span>Estimasi Arus Kas Bersih (Net)</span>
+                        <span>Laba Kotor Servis</span>
                         <span class="p-2 bg-amber-50 text-amber-800 rounded-xl text-base">📈</span>
                     </div>
                     <div id="labaBersih" class="text-3xl font-black text-emerald-600">Rp 0</div>
-                    <div class="text-xs text-slate-500">Omzet servis dikurangi biaya pengadaan</div>
+                    <div class="text-xs text-slate-500">Total tagihan servis dikurangi modal sparepart terpakai</div>
                 </div>
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-[#0B1E3F] space-y-1.5 transition hover:shadow-md">
@@ -304,6 +317,56 @@
                     <!-- Diisi via JS -->
                 </div>
             </div>
+            <section class="space-y-5 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="reportTitle">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 id="reportTitle" class="text-lg font-extrabold text-[#0B1E3F]">Laporan Owner</h2>
+                        <p class="mt-1 text-xs text-slate-500">Omzet tagihan berdasarkan tanggal servis, bukan tanggal transaksi pembayaran.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="reportCsv" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold">Ekspor CSV</button>
+                        <button id="reportPdf" type="button" class="rounded-lg bg-[#0B1E3F] px-3 py-2 text-xs font-bold text-white">Cetak / Simpan PDF</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <label class="text-xs font-semibold text-slate-600">Dari tanggal<input id="reportDateFrom" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></label>
+                    <label class="text-xs font-semibold text-slate-600">Sampai tanggal<input id="reportDateTo" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></label>
+                    <label class="text-xs font-semibold text-slate-600">Kelompok grafik<select id="reportPeriod" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="day">Harian</option><option value="month">Bulanan</option></select></label>
+                    <button id="loadReport" type="button" class="self-end rounded-lg border border-amber-400 bg-amber-400 px-4 py-2 text-sm font-bold text-[#0B1E3F]">Tampilkan laporan</button>
+                </div>
+                <p id="reportMessage" class="text-sm" role="status" aria-live="polite"></p>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Omzet servis</p><p id="reportRevenue" class="mt-1 font-extrabold text-[#0B1E3F]">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Modal sparepart terpakai</p><p id="reportCost" class="mt-1 font-extrabold text-slate-800">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Laba kotor (omzet - modal)</p><p id="reportProfit" class="mt-1 font-extrabold text-emerald-700">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Piutang saat ini pada periode</p><p id="reportReceivable" class="mt-1 font-extrabold text-rose-700">—</p></div>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
+                    <svg id="reportChart" class="h-56 min-w-[640px] w-full" viewBox="0 0 800 240" role="img" aria-label="Grafik omzet servis"></svg>
+                </div>
+                <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Servis per status</h3>
+                        <table class="w-full text-left text-xs"><thead class="bg-slate-100"><tr><th class="p-2">Status</th><th class="p-2 text-right">Jumlah</th></tr></thead><tbody id="reportStatusRows"></tbody></table>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Servis per teknisi</h3>
+                        <table class="w-full text-left text-xs"><thead class="bg-slate-100"><tr><th class="p-2">Teknisi</th><th class="p-2 text-right">Servis</th><th class="p-2 text-right">Omzet</th></tr></thead><tbody id="reportTechnicianRows"></tbody></table>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Sparepart terlaris</h3>
+                        <table class="w-full text-left text-xs"><thead class="bg-slate-100"><tr><th class="p-2">Sparepart</th><th class="p-2 text-right">Terjual</th></tr></thead><tbody id="reportPartsRows"></tbody></table>
+                    </div>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Piutang / belum lunas</h3>
+                    <table class="w-full min-w-[720px] text-left text-xs">
+                        <thead class="bg-[#0B1E3F] text-white"><tr><th class="p-3">Nota</th><th class="p-3">Pelanggan</th><th class="p-3">Tanggal</th><th class="p-3 text-right">Tagihan</th><th class="p-3 text-right">Piutang</th></tr></thead>
+                        <tbody id="reportReceivableRows"></tbody>
+                    </table>
+                    <div id="reportReceivablePagination" class="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-slate-600" aria-live="polite"></div>
+                </div>
+            </section>
             </div>
 
             <section data-owner-panel="inventory" hidden class="space-y-8">
@@ -322,6 +385,7 @@
                     <div class="border-b border-slate-100 px-6 py-4">
                         <h3 class="font-bold text-[#0B1E3F]">Stok Saat Ini</h3>
                     </div>
+                    <div class="p-3"><input id="ownerPartsSearch" type="search" placeholder="Cari kode atau nama sparepart" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm">
                             <thead class="border-b-2 border-amber-400 bg-[#0B1E3F] text-xs uppercase tracking-wide text-white">
@@ -338,6 +402,7 @@
                             </tbody>
                         </table>
                     </div>
+                    <div id="ownerPartsPagination" class="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-slate-600" aria-live="polite"></div>
                 </div>
             </div>
             <!-- Riwayat Pengadaan Sparepart (Purchases & Purchase Details) -->
@@ -374,6 +439,16 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                    <input id="purchaseSearch" type="search" placeholder="Cari nomor pembelian atau supplier" class="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2">
+                    <input id="purchaseDateFrom" type="date" aria-label="Tanggal pengadaan dari" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <input id="purchaseDateTo" type="date" aria-label="Tanggal pengadaan sampai" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <select id="purchaseSort" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="tanggal_pembelian:desc">Tanggal terbaru</option><option value="tanggal_pembelian:asc">Tanggal terlama</option>
+                        <option value="total_biaya:desc">Biaya tertinggi</option><option value="supplier:asc">Supplier A–Z</option>
+                    </select>
+                </div>
+                <div id="purchasePagination" class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600" aria-live="polite"></div>
             </div>
             </section>
         </div>
@@ -460,6 +535,43 @@
     <script>
         let sparepartsList = [];
         let rowCounter = 0;
+        let purchasePage = 1;
+        let ownerPartsPage = 1;
+        let reportPage = 1;
+
+        function renderOwnerPagination(elementId, meta, onPage) {
+            const container = document.getElementById(elementId);
+            container.replaceChildren();
+            if (!meta || !meta.total) {
+                container.textContent = 'Tidak ada data untuk filter ini.';
+                return;
+            }
+            const summary = document.createElement('span');
+            const first = (meta.current_page - 1) * meta.per_page + 1;
+            summary.textContent = `Menampilkan ${first}–${Math.min(meta.current_page * meta.per_page, meta.total)} dari ${meta.total}`;
+            const actions = document.createElement('div');
+            actions.className = 'flex gap-2';
+            [['Sebelumnya', meta.current_page - 1], ['Berikutnya', meta.current_page + 1]].forEach(([label, page]) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = label;
+                button.disabled = label === 'Sebelumnya' ? meta.current_page <= 1 : meta.current_page >= meta.last_page;
+                button.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40';
+                button.addEventListener('click', () => onPage(page));
+                actions.append(button);
+            });
+            container.append(summary, actions);
+        }
+
+        function reportFilters(page = 1) {
+            const params = new URLSearchParams({ page: String(page), per_page: '20' });
+            ['date_from', 'date_to'].forEach(key => {
+                const value = document.getElementById(key === 'date_from' ? 'reportDateFrom' : 'reportDateTo').value;
+                if (value) params.set(key, value);
+            });
+            params.set('period', document.getElementById('reportPeriod').value);
+            return params;
+        }
 
         function toggleNavbarMenu() {
             const menu = document.getElementById('navMobileMenu');
@@ -467,7 +579,7 @@
         }
 
         async function loadAllData() {
-            await Promise.all([loadDashboard(), loadPurchases(), loadSparepartsCatalog()]);
+            await Promise.all([loadDashboard(), loadPurchases(), loadSparepartsCatalog(), loadOwnerParts(), loadOwnerReport()]);
         }
 
         // 1. Ambil Data Dashboard Owner
@@ -475,6 +587,7 @@
             try {
                 const res = await fetch('/api/owner/dashboard');
                 const result = await res.json();
+                if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Dashboard gagal dimuat.');
 
                 if (result.status === 'success') {
                     const { summary, statusCounts, purchases, spareparts } = result.data;
@@ -489,15 +602,14 @@
                     document.getElementById('totalPengadaan').innerText = `Rp ${nominalPengadaan.toLocaleString('id-ID')}`;
                     document.getElementById('totalTransaksiPengadaan').innerText = `${purchases.total_transaksi_pengadaan || 0} transaksi pengadaan`;
 
-                    // Hitung Laba Bersih Arus Kas (Pendapatan - Pengadaan)
-                    const netCash = nominalPendapatan - nominalPengadaan;
+                    const grossProfit = Number(summary.laba_kotor || 0);
                     const elLaba = document.getElementById('labaBersih');
-                    if (netCash >= 0) {
+                    if (grossProfit >= 0) {
                         elLaba.className = 'text-3xl font-black text-emerald-600';
-                        elLaba.innerText = `+Rp ${netCash.toLocaleString('id-ID')}`;
+                        elLaba.innerText = `Rp ${grossProfit.toLocaleString('id-ID')}`;
                     } else {
                         elLaba.className = 'text-3xl font-black text-rose-600';
-                        elLaba.innerText = `-Rp ${Math.abs(netCash).toLocaleString('id-ID')}`;
+                        elLaba.innerText = `-Rp ${Math.abs(grossProfit).toLocaleString('id-ID')}`;
                     }
 
                     // Nilai Aset Stok
@@ -521,18 +633,34 @@
                 }
             } catch (err) {
                 console.error('Gagal memuat data dashboard', err);
+                document.getElementById('statusList').textContent = err.message || 'Dashboard gagal dimuat.';
             }
         }
 
         // 2. Ambil Riwayat Pengadaan
-        async function loadPurchases() {
+        async function loadPurchases(page = 1) {
+            purchasePage = page;
+            const tbody = document.getElementById('purchasesTable');
+            tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">Memuat riwayat pengadaan…</td></tr>';
             try {
-                const res = await fetch('/api/owner/purchases');
+                const params = new URLSearchParams({
+                    page: String(purchasePage),
+                    per_page: '20',
+                    sort: document.getElementById('purchaseSort').value.split(':')[0],
+                    direction: document.getElementById('purchaseSort').value.split(':')[1],
+                });
+                const search = document.getElementById('purchaseSearch').value.trim();
+                const dateFrom = document.getElementById('purchaseDateFrom').value;
+                const dateTo = document.getElementById('purchaseDateTo').value;
+                if (search) params.set('search', search);
+                if (dateFrom) params.set('date_from', dateFrom);
+                if (dateTo) params.set('date_to', dateTo);
+                const res = await fetch(`/api/owner/purchases?${params}`);
                 const result = await res.json();
-                const tbody = document.getElementById('purchasesTable');
+                if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Riwayat pengadaan gagal dimuat.');
                 tbody.innerHTML = '';
 
-                if (result.status === 'success' && result.data.length > 0) {
+                if (result.data.length > 0) {
                     result.data.forEach(p => {
                         const totalRp = Number(p.total_biaya || 0).toLocaleString('id-ID');
                         const tgl = new Date(p.tanggal_pembelian).toLocaleDateString('id-ID');
@@ -567,20 +695,24 @@
                         `;
                         tbody.appendChild(tr);
                     });
+                    renderOwnerPagination('purchasePagination', result.meta, loadPurchases);
                 } else {
                     tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">Belum ada riwayat transaksi pengadaan barang.</td></tr>';
+                    renderOwnerPagination('purchasePagination', result.meta, loadPurchases);
                 }
             } catch (err) {
                 console.error('Gagal memuat riwayat pengadaan', err);
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-600">${err.message || 'Riwayat pengadaan gagal dimuat.'}</td></tr>`;
+                document.getElementById('purchasePagination').textContent = 'Periksa koneksi lalu coba muat ulang.';
             }
         }
 
         // 3. Ambil Katalog Sparepart untuk Form Dropdown
-        function renderSparepartsCatalog() {
+        function renderSparepartsCatalog(parts = sparepartsList) {
             const tbody = document.getElementById('ownerSparepartsRows');
             tbody.replaceChildren();
 
-            if (sparepartsList.length === 0) {
+            if (parts.length === 0) {
                 const row = document.createElement('tr');
                 const cell = document.createElement('td');
                 cell.colSpan = 5;
@@ -591,7 +723,7 @@
                 return;
             }
 
-            sparepartsList.forEach(part => {
+            parts.forEach(part => {
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-amber-50/40';
                 [
@@ -612,15 +744,160 @@
 
         async function loadSparepartsCatalog() {
             try {
-                const res = await fetch('/api/spareparts');
+                const res = await fetch('/api/spareparts?per_page=100');
                 const result = await res.json();
+                if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Katalog sparepart gagal dimuat.');
                 if (result.status === 'success') {
                     sparepartsList = result.data;
-                    renderSparepartsCatalog();
                 }
             } catch (err) {
                 console.error(err);
             }
+        }
+
+        async function loadOwnerParts(page = 1) {
+            ownerPartsPage = page;
+            const search = document.getElementById('ownerPartsSearch').value.trim();
+            const params = new URLSearchParams({ page: String(page), per_page: '20' });
+            if (search) params.set('search', search);
+            try {
+                const response = await fetch(`/api/spareparts?${params}`);
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Inventaris gagal dimuat.');
+                renderSparepartsCatalog(result.data);
+                renderOwnerPagination('ownerPartsPagination', result.meta, loadOwnerParts);
+            } catch (error) {
+                document.getElementById('ownerSparepartsRows').innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-600">${error.message}</td></tr>`;
+                document.getElementById('ownerPartsPagination').textContent = 'Periksa koneksi lalu coba muat ulang.';
+            }
+        }
+
+        function renderReportChart(series) {
+            const svg = document.getElementById('reportChart');
+            const namespace = 'http://www.w3.org/2000/svg';
+            svg.replaceChildren();
+            if (!series.length) {
+                const empty = document.createElementNS(namespace, 'text');
+                empty.setAttribute('x', '400');
+                empty.setAttribute('y', '120');
+                empty.setAttribute('text-anchor', 'middle');
+                empty.setAttribute('fill', '#64748b');
+                empty.textContent = 'Tidak ada data servis pada periode ini.';
+                svg.append(empty);
+                return;
+            }
+            const values = series.map(row => Number(row.omzet) || 0);
+            const maximum = Math.max(...values, 1);
+            const left = 42;
+            const right = 780;
+            const top = 24;
+            const bottom = 195;
+            const points = values.map((value, index) => {
+                const x = left + (series.length === 1 ? 0 : (right - left) * index / (series.length - 1));
+                const y = bottom - (bottom - top) * value / maximum;
+                return [x, y];
+            });
+            const baseline = document.createElementNS(namespace, 'line');
+            baseline.setAttribute('x1', String(left));
+            baseline.setAttribute('x2', String(right));
+            baseline.setAttribute('y1', String(bottom));
+            baseline.setAttribute('y2', String(bottom));
+            baseline.setAttribute('stroke', '#cbd5e1');
+            svg.append(baseline);
+            const path = document.createElementNS(namespace, 'path');
+            path.setAttribute('d', points.map(([x, y], index) => `${index ? 'L' : 'M'} ${x} ${y}`).join(' '));
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#0b1e3f');
+            path.setAttribute('stroke-width', '3');
+            svg.append(path);
+            const labelStep = Math.max(1, Math.ceil(series.length / 8));
+            points.forEach(([x, y], index) => {
+                if (index % labelStep !== 0 && index !== points.length - 1) return;
+                const dot = document.createElementNS(namespace, 'circle');
+                dot.setAttribute('cx', String(x));
+                dot.setAttribute('cy', String(y));
+                dot.setAttribute('r', '4');
+                dot.setAttribute('fill', '#d4af37');
+                const title = document.createElementNS(namespace, 'title');
+                title.textContent = `${series[index].label}: Rp ${values[index].toLocaleString('id-ID')}`;
+                dot.append(title);
+                svg.append(dot);
+                const label = document.createElementNS(namespace, 'text');
+                label.setAttribute('x', String(x));
+                label.setAttribute('y', '220');
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('font-size', '10');
+                label.setAttribute('fill', '#64748b');
+                label.textContent = series[index].label;
+                svg.append(label);
+            });
+        }
+
+        function renderReportRows(elementId, rows, columns, emptyMessage) {
+            const tbody = document.getElementById(elementId);
+            tbody.replaceChildren();
+            if (!rows.length) {
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = columns.length;
+                cell.className = 'p-3 text-center text-slate-500';
+                cell.textContent = emptyMessage;
+                return;
+            }
+            rows.forEach(values => {
+                const row = tbody.insertRow();
+                values.forEach((value, index) => {
+                    const cell = row.insertCell();
+                    cell.className = `border-t border-slate-100 p-2 ${index > 0 ? 'text-right tabular-nums' : ''}`;
+                    cell.textContent = value;
+                });
+            });
+        }
+
+        async function loadOwnerReport(page = 1) {
+            reportPage = page;
+            const message = document.getElementById('reportMessage');
+            message.className = 'text-sm text-slate-500';
+            message.textContent = 'Memuat laporan…';
+            try {
+                const response = await fetch(`/api/owner/reports?${reportFilters(reportPage)}`);
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Laporan gagal dimuat.');
+                const report = result.data;
+                const currency = value => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+                document.getElementById('reportRevenue').textContent = currency(report.summary.omzet);
+                document.getElementById('reportCost').textContent = currency(report.summary.modal_sparepart);
+                document.getElementById('reportProfit').textContent = currency(report.summary.laba_kotor);
+                document.getElementById('reportReceivable').textContent = currency(report.summary.piutang);
+                renderReportChart(report.series);
+                renderReportRows('reportStatusRows', report.status_counts.map(item => [
+                    String(item.status).replaceAll('_', ' '), item.jumlah,
+                ]), ['Status', 'Jumlah'], 'Belum ada servis.');
+                renderReportRows('reportTechnicianRows', report.technician_counts.map(item => [
+                    item.teknisi, item.jumlah_servis, currency(item.omzet),
+                ]), ['Teknisi', 'Servis', 'Omzet'], 'Belum ada penugasan.');
+                renderReportRows('reportPartsRows', report.top_parts.map(item => [
+                    item.nama_barang, item.jumlah_terjual,
+                ]), ['Sparepart', 'Terjual'], 'Belum ada sparepart terpakai.');
+                renderReportRows('reportReceivableRows', report.receivables.map(item => [
+                    item.no_nota,
+                    `${item.nama_pelanggan}${item.no_wa ? ` · ${item.no_wa}` : ''}`,
+                    item.tanggal || '-',
+                    currency(item.total_biaya),
+                    currency(item.piutang),
+                ]), ['Nota', 'Pelanggan', 'Tanggal', 'Tagihan', 'Piutang'], 'Tidak ada piutang pada periode ini.');
+                renderOwnerPagination('reportReceivablePagination', report.receivable_meta, loadOwnerReport);
+                message.textContent = `Periode ${report.date_from}–${report.date_to} · ${Number(report.summary.jumlah_servis).toLocaleString('id-ID')} servis`;
+            } catch (error) {
+                message.className = 'text-sm font-semibold text-rose-700';
+                message.textContent = error.message || 'Laporan gagal dimuat. Periksa koneksi dan coba lagi.';
+            }
+        }
+
+        function openReportExport(path) {
+            const params = reportFilters(1);
+            params.delete('per_page');
+            window.open(`${path}?${params}`, '_blank', 'noopener');
         }
 
         // Modal Pengadaan Functions
@@ -772,6 +1049,14 @@
         }
 
         // Inisialisasi
+        document.getElementById('loadReport').addEventListener('click', () => loadOwnerReport(1));
+        document.getElementById('reportPeriod').addEventListener('change', () => loadOwnerReport(1));
+        document.getElementById('reportCsv').addEventListener('click', () => openReportExport('/api/owner/reports.csv'));
+        document.getElementById('reportPdf').addEventListener('click', () => openReportExport('/api/owner/reports/print'));
+        ['purchaseSearch', 'purchaseDateFrom', 'purchaseDateTo', 'purchaseSort'].forEach(id => {
+            document.getElementById(id).addEventListener(id === 'purchaseSearch' ? 'input' : 'change', () => loadPurchases(1));
+        });
+        document.getElementById('ownerPartsSearch').addEventListener('input', () => loadOwnerParts(1));
         loadAllData();
         window.addEventListener('load', () => {
             if (!window.ServiceRealtime) return;

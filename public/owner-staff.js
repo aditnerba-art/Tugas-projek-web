@@ -12,6 +12,30 @@
 
     const accounts = new Map();
     const roleLabels = { admin: 'Admin', teknisi: 'Teknisi' };
+    let currentPage = 1;
+
+    function renderPagination(meta) {
+        const container = document.getElementById('staffPagination');
+        container.replaceChildren();
+        if (!meta || !meta.total) {
+            container.textContent = 'Tidak ada akun untuk filter ini.';
+            return;
+        }
+        const summary = document.createElement('span');
+        summary.textContent = `Menampilkan ${(meta.current_page - 1) * meta.per_page + 1}–${Math.min(meta.current_page * meta.per_page, meta.total)} dari ${meta.total}`;
+        const buttons = document.createElement('div');
+        buttons.className = 'flex gap-2';
+        [['Sebelumnya', meta.current_page - 1], ['Berikutnya', meta.current_page + 1]].forEach(([label, page]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.disabled = label === 'Sebelumnya' ? meta.current_page <= 1 : meta.current_page >= meta.last_page;
+            button.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40';
+            button.addEventListener('click', () => loadAccounts(page));
+            buttons.append(button);
+        });
+        container.append(summary, buttons);
+    }
 
     function closeEditModal() {
         if (!editModal) return;
@@ -95,17 +119,30 @@
         }
     }
 
-    async function loadAccounts() {
+    async function loadAccounts(page = 1) {
+        currentPage = page;
         rows.innerHTML = '<tr><td colspan="4" class="p-4 text-slate-500 text-center">Memuat akun staf…</td></tr>';
         message.textContent = '';
         message.className = 'text-sm text-slate-600';
         try {
-            const response = await fetch('/api/owner/staff', { credentials: 'same-origin' });
+            const params = new URLSearchParams({
+                page: String(currentPage),
+                per_page: '20',
+                sort: document.getElementById('staffSort').value.split(':')[0],
+                direction: document.getElementById('staffSort').value.split(':')[1],
+            });
+            const search = document.getElementById('staffSearch').value.trim();
+            const role = document.getElementById('staffRoleFilter').value;
+            if (search) params.set('search', search);
+            if (role) params.set('role', role);
+            const response = await fetch(`/api/owner/staff?${params}`, { credentials: 'same-origin' });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'Daftar akun tidak dapat dimuat.');
             renderAccounts(result.users || []);
+            renderPagination(result.meta);
         } catch (error) {
             rows.replaceChildren();
+            document.getElementById('staffPagination').textContent = 'Periksa koneksi lalu coba muat ulang.';
             message.className = 'text-sm text-rose-600 font-medium';
             message.textContent = error.message || 'Gagal memuat daftar akun staf.';
         }
@@ -114,6 +151,13 @@
     // Refresh Tombol
     const reloadBtn = document.getElementById('reloadStaffAccounts');
     if (reloadBtn) reloadBtn.addEventListener('click', loadAccounts);
+    let searchTimer;
+    document.getElementById('staffSearch').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadAccounts(1), 250);
+    });
+    document.getElementById('staffRoleFilter').addEventListener('change', () => loadAccounts(1));
+    document.getElementById('staffSort').addEventListener('change', () => loadAccounts(1));
 
     // Buka Modal Tambah Staf Baru
     const openAddBtn = document.getElementById('openAddStaffModalBtn');

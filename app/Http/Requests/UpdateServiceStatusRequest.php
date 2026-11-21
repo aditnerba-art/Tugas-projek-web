@@ -20,6 +20,8 @@ class UpdateServiceStatusRequest extends FormRequest
             'catatan_teknis' => ['nullable', 'string', 'max:10000'],
             'biaya_jasa' => ['nullable', 'numeric', 'min:0'],
             'total_biaya' => ['nullable', 'numeric', 'min:0'],
+            'estimated_completion_at' => ['nullable', 'date', 'after_or_equal:today'],
+            'warranty_days' => ['sometimes', 'integer', 'min:0', 'max:3650'],
             'sparepart_id' => ['nullable', 'integer', 'exists:spareparts,id'],
             'jumlah_sparepart' => ['nullable', 'integer', 'min:1'],
         ];

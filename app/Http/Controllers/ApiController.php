@@ -19,29 +19,70 @@ use App\Http\Requests\StaffUpdateRequest;
 use App\Http\Requests\UpdateAccountRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Http\Requests\UpdateServiceStatusRequest;
+use App\Http\Requests\UploadServicePhotoRequest;
+use App\Jobs\SendWhatsAppMessage;
 use App\Models\ActivityLog;
 use App\Models\Customer;
 use App\Models\CustomerSession;
+use App\Models\MessageTemplate;
+use App\Models\NotificationLog;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\Service;
 use App\Models\ServiceAccessToken;
 use App\Models\ServiceItem;
 use App\Models\ServiceLog;
+use App\Models\ServicePhoto;
 use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
 use App\Notifications\ServicePanelNotification;
+use App\Services\WhatsApp\PhoneNumber;
+use App\Services\WhatsApp\WhatsAppNotificationService;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class ApiController extends Controller
 {
+    private function paginateTable(Request $request, Builder $query, array $sortable, string $defaultSort, int $perPage = 25): LengthAwarePaginator
+    {
+        $filters = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'sort' => ['sometimes', 'string', Rule::in($sortable)],
+            'direction' => ['sometimes', Rule::in(['asc', 'desc'])],
+        ]);
+        $sort = $filters['sort'] ?? $defaultSort;
+        $direction = $filters['direction'] ?? 'desc';
+
+        return $query->orderBy($sort, $direction)
+            ->paginate((int) ($filters['per_page'] ?? $perPage))
+            ->withQueryString();
+    }
+
+    private function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
+    }
+
     private function userData(User $user): array
     {
         return [
@@ -93,13 +134,23 @@ class ApiController extends Controller
 
     private function serviceDetails(Service $service, bool $includeCustomerChannelKey = true): array
     {
-        $service->load(['customer', 'technician', 'items.sparepart', 'statusLogs.user']);
+        $service->load(['customer', 'technician', 'items.sparepart', 'statusLogs.user', 'photos']);
         $unit = $service->toArray();
+        unset($unit['photos']);
         $unit['nama_pelanggan'] = $service->customer->nama;
         $unit['nama_teknisi'] = $service->technician?->nama;
         if ($includeCustomerChannelKey) {
             $unit['status_channel_key'] = $service->customerStatusChannelKey();
         }
+        $unit['warranty_active'] = $service->warranty_expires_at?->isToday()
+            || ($service->warranty_expires_at && $service->warranty_expires_at->isFuture());
+        $photos = $service->photos->map(fn (ServicePhoto $photo) => [
+            'id' => $photo->id,
+            'kind' => $photo->kind,
+            'url' => Storage::disk('public')->url($photo->path),
+            'thumbnail_url' => Storage::disk('public')->url($photo->thumbnail_path),
+            'created_at' => $photo->created_at,
+        ])->all();
         $items = $service->items->map(fn (ServiceItem $item) => [
             'id' => $item->id,
             'sparepart_id' => $item->sparepart_id,
@@ -119,7 +170,7 @@ class ApiController extends Controller
             'created_at' => $log->created_at,
         ])->all();
 
-        return ['unit' => $unit, 'onderdil' => $items, 'timeline' => $timeline];
+        return ['unit' => $unit, 'onderdil' => $items, 'timeline' => $timeline, 'photos' => $photos];
     }
 
     public function login(StaffLoginRequest $request): JsonResponse
@@ -236,11 +287,27 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'unread_count' => 0]);
     }
 
-    public function staffIndex(): JsonResponse
+    public function staffIndex(Request $request): JsonResponse
     {
-        $users = User::whereIn('role', ['admin', 'teknisi'])->orderBy('role')->orderBy('nama')->get(['id', 'nama', 'username', 'role']);
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'role' => ['nullable', Rule::in(['admin', 'teknisi'])],
+        ]);
+        $query = User::whereIn('role', ['admin', 'teknisi']);
+        if ($search = trim((string) ($filters['search'] ?? ''))) {
+            $query->where(fn ($users) => $users->where('nama', 'like', "%{$search}%")
+                ->orWhere('username', 'like', "%{$search}%"));
+        }
+        if (! empty($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+        $users = $this->paginateTable($request, $query, ['nama', 'username', 'role', 'id'], 'nama', 20);
 
-        return response()->json(['status' => 'success', 'users' => $users]);
+        return response()->json([
+            'status' => 'success',
+            'users' => $users->items(),
+            'meta' => $this->paginationMeta($users),
+        ]);
     }
 
     public function staffStore(StaffStoreRequest $request): JsonResponse
@@ -302,7 +369,14 @@ class ApiController extends Controller
 
     public function technicians(): JsonResponse
     {
-        return response()->json(['status' => 'success', 'data' => User::where('role', 'teknisi')->orderBy('nama')->get(['id', 'nama', 'username', 'role'])]);
+        $query = User::where('role', 'teknisi')
+            ->withCount(['assignedServices as beban_kerja' => fn ($services) => $services->whereNotIn('status', ['selesai', 'diambil', 'batal'])])
+            ->orderBy('nama');
+        if (request()->user()?->role === 'teknisi') {
+            $query->whereKey(request()->user()->id);
+        }
+
+        return response()->json(['status' => 'success', 'data' => $query->get(['id', 'nama', 'username', 'role'])]);
     }
 
     public function users(): JsonResponse
@@ -315,7 +389,7 @@ class ApiController extends Controller
         $data = $request->validated();
         $result = DB::transaction(function () use ($data, $request): array {
             $nama = preg_replace('/\s+/', ' ', trim($data['nama']));
-            $noWa = trim($data['no_wa']);
+            $noWa = PhoneNumber::normalize($data['no_wa']);
             $customer = null;
 
             if (! empty($data['customer_id'])) {
@@ -346,6 +420,11 @@ class ApiController extends Controller
                 'no_seri' => $data['no_seri'] ?? null,
                 'keluhan' => $data['keluhan'],
                 'kelengkapan' => $data['kelengkapan'] ?? null,
+                'accessories' => $data['accessories'] ?? [],
+                'physical_condition' => $data['physical_condition'] ?? null,
+                'estimated_completion_at' => $data['estimated_completion_at'] ?? null,
+                'warranty_days' => $data['warranty_days'] ?? 0,
+                'priority' => $data['priority'] ?? 'normal',
                 'status_pembayaran' => 'belum_bayar',
             ]);
             $code = $this->issueAccessCode($service);
@@ -368,7 +447,12 @@ class ApiController extends Controller
             return [$service, $code, $customer];
         });
         [$service, $code, $customer] = $result;
-        $customerLink = url('/lacak');
+        $customerLink = route('tracking.public.page', $service->tracking_key);
+        $notification = app(WhatsAppNotificationService::class)->queue($service, 'service_registered', [
+            'kode' => $code,
+            'link' => $customerLink,
+        ]);
+        $notificationStatus = $notification->fresh()->status;
 
         return response()->json([
             'status' => 'success',
@@ -379,23 +463,37 @@ class ApiController extends Controller
             'customer_token' => $code,
             'customer_link' => $customerLink,
             'customer_message' => "Halo {$customer->nama}, perangkat Anda sudah diterima untuk servis. Pantau statusnya di {$customerLink}. Kode akses pelanggan Anda: {$code}",
-            'whatsapp_sent' => false,
-            'whatsapp_status' => 'provider_not_configured',
+            'whatsapp_sent' => $notificationStatus === 'sent',
+            'whatsapp_status' => $notificationStatus,
+            'tracking_url' => route('tracking.public.page', $service->tracking_key),
         ]);
     }
 
     public function assignTechnician(AssignTechnicianRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $service = Service::findOrFail($data['service_id']);
-        $oldTechnicianId = $service->teknisi_id;
-        $service->teknisi_id = $data['teknisi_id'] ?? null;
-        $service->save();
-        $this->logActivity($request, 'assign_teknisi', 'service:'.$service->id,
-            ['teknisi_id' => $oldTechnicianId],
-            ['teknisi_id' => $service->teknisi_id]);
+        [$service, $oldTechnicianId, $changed] = DB::transaction(function () use ($data, $request): array {
+            $service = Service::whereKey($data['service_id'])->lockForUpdate()->firstOrFail();
+            $oldTechnicianId = $service->teknisi_id;
+            $oldPriority = $service->priority;
+            $service->teknisi_id = $data['teknisi_id'] ?? null;
+            $service->priority = $data['priority'] ?? $service->priority;
+            $service->save();
+
+            $changed = $oldTechnicianId !== $service->teknisi_id || $oldPriority !== $service->priority;
+            if ($changed) {
+                $this->logActivity($request, 'assign_teknisi', 'service:'.$service->id,
+                    ['teknisi_id' => $oldTechnicianId, 'priority' => $oldPriority],
+                    ['teknisi_id' => $service->teknisi_id, 'priority' => $service->priority]);
+                $service->recordTimelineEvent(
+                    "Penugasan teknisi diperbarui: ".($service->technician?->nama ?? 'Belum Ditugaskan')."; prioritas ".strtoupper($service->priority).'.',
+                    $request->user(),
+                );
+            }
+
+            return [$service, $oldTechnicianId, $changed];
+        });
         $name = $service->technician?->nama ?? 'Belum Ditugaskan';
-        $service->logs()->create(['status_lama' => $service->status, 'status_baru' => $service->status, 'catatan_teknis' => "Penugasan Teknisi PIC diperbarui: {$name}"]);
         if ($service->teknisi_id && $service->teknisi_id !== $oldTechnicianId) {
             $service->technician->notify(new ServicePanelNotification(
                 'Servis baru ditugaskan',
@@ -412,7 +510,7 @@ class ApiController extends Controller
     public function updateServiceStatus(UpdateServiceStatusRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $service = DB::transaction(function () use ($request, $data): Service {
+        [$service, $oldStatus, $estimateChanged] = DB::transaction(function () use ($request, $data): array {
             $query = Service::whereKey($data['service_id']);
             if ($request->user()->role === 'teknisi') {
                 $query->where('teknisi_id', $request->user()->id);
@@ -423,6 +521,11 @@ class ApiController extends Controller
                 'status' => $oldStatus,
                 'biaya_jasa' => $service->biaya_jasa,
                 'total_biaya' => $service->total_biaya,
+                'estimated_completion_at' => $service->estimated_completion_at?->toDateString(),
+            ];
+            $oldEstimate = [
+                'total_biaya' => (float) $service->total_biaya,
+                'estimated_completion_at' => $service->estimated_completion_at?->toDateString(),
             ];
 
             if (! empty($data['sparepart_id'])) {
@@ -441,6 +544,7 @@ class ApiController extends Controller
                 $service->items()->create([
                     'sparepart_id' => $sparepart->id,
                     'jumlah' => $quantity,
+                    'harga_modal' => $sparepart->harga_beli,
                     'harga_satuan' => $sparepart->harga_jual,
                     'subtotal' => $sparepart->harga_jual * $quantity,
                 ]);
@@ -448,19 +552,54 @@ class ApiController extends Controller
 
             $service->biaya_jasa = $data['biaya_jasa'] ?? $service->biaya_jasa;
             $partsTotal = $service->items()->sum('subtotal');
-            $service->total_biaya = ! empty($data['total_biaya'])
-                ? $data['total_biaya']
-                : (float) $service->biaya_jasa + (float) $partsTotal;
+            if (array_key_exists('total_biaya', $data)) {
+                $service->total_biaya = $data['total_biaya'];
+            } elseif (array_key_exists('biaya_jasa', $data) || ! empty($data['sparepart_id'])) {
+                $service->total_biaya = (float) $service->biaya_jasa + (float) $partsTotal;
+            }
+            if (array_key_exists('estimated_completion_at', $data)) {
+                $service->estimated_completion_at = $data['estimated_completion_at'];
+            }
+            if (array_key_exists('warranty_days', $data)) {
+                $service->warranty_days = $data['warranty_days'];
+            }
             $service->save();
             $service->changeStatus($data['status_baru'], $request->user(), $data['catatan_teknis'] ?? null);
+            $estimateChanged = $oldEstimate['total_biaya'] !== (float) $service->total_biaya
+                || $oldEstimate['estimated_completion_at'] !== $service->estimated_completion_at?->toDateString();
+            if ($estimateChanged) {
+                $service->recordTimelineEvent(
+                    'Estimasi diperbarui: biaya Rp '.number_format($oldEstimate['total_biaya'], 0, ',', '.')
+                    .' menjadi Rp '.number_format((float) $service->total_biaya, 0, ',', '.')
+                    .'; selesai '.($oldEstimate['estimated_completion_at']
+                        ? Carbon::parse($oldEstimate['estimated_completion_at'])->format('d-m-Y')
+                        : 'belum ditentukan')
+                    .' menjadi '.($service->estimated_completion_at?->format('d-m-Y') ?? 'belum ditentukan').'.',
+                    $request->user(),
+                );
+            }
             $this->logActivity($request, 'ubah_status_servis', 'service:'.$service->id, $oldServiceData, [
                 'status' => $service->status,
                 'biaya_jasa' => $service->biaya_jasa,
                 'total_biaya' => $service->total_biaya,
             ]);
 
-            return $service;
+            return [$service, $oldStatus, $estimateChanged];
         });
+        $notifications = app(WhatsAppNotificationService::class);
+        $statusChanged = $service->status !== $oldStatus;
+        $waitingForApproval = in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true);
+        if ($statusChanged && $waitingForApproval) {
+            $notifications->queue($service, 'cost_approval');
+        } elseif ($estimateChanged && $service->status !== 'selesai') {
+            $notifications->queue($service, 'estimate_changed');
+        }
+        if ($statusChanged && $service->status === 'selesai') {
+            if ($estimateChanged) {
+                $notifications->queue($service, 'estimate_changed');
+            }
+            $notifications->queue($service, 'service_ready');
+        }
 
         return response()->json([
             'status' => 'success',
@@ -472,25 +611,66 @@ class ApiController extends Controller
 
     public function activeServices(Request $request): JsonResponse
     {
-        $query = Service::with(['customer', 'technician'])->latest();
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['diperiksa', 'menunggu_persetujuan', 'dikerjakan', 'menunggu_sparepart', 'selesai', 'diambil', 'batal'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'teknisi_id' => ['nullable', 'integer', 'exists:users,id'],
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+        ]);
+        $query = Service::with(['customer', 'technician'])
+            ->orderByRaw('CASE priority WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END', ['urgent', 'high', 'normal']);
         if ($request->user()->role === 'teknisi') {
             $query->where('teknisi_id', $request->user()->id);
         }
         if ($request->user()->role === 'admin') {
             $query->whereHas('customer', fn ($customers) => $customers->where('nama', '<>', 'Pelanggan dihapus')->where('no_wa', 'not like', 'DIHAPUS-%'));
         }
-        $services = $query->get()->map(fn (Service $service) => [
+        if (! empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $query->where(fn ($services) => $services->where('no_nota', 'like', "%{$search}%")
+                ->orWhere('merek_tipe', 'like', "%{$search}%")
+                ->orWhereHas('customer', fn ($customers) => $customers->where('nama', 'like', "%{$search}%")
+                    ->orWhere('no_wa', 'like', "%{$search}%")));
+        }
+        foreach (['status', 'teknisi_id', 'customer_id'] as $field) {
+            if (isset($filters[$field])) {
+                $query->where($field, $filters[$field]);
+            }
+        }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+        if ($request->filled('sort')) {
+            $query->reorder();
+        }
+        $services = $this->paginateTable(
+            $request,
+            $query,
+            ['created_at', 'status', 'total_biaya', 'priority', 'no_nota'],
+            'created_at',
+        );
+        $data = collect($services->items())->map(fn (Service $service) => [
             ...$service->only([
                 'id', 'no_nota', 'jenis_unit', 'merek_tipe', 'status', 'biaya_jasa', 'total_biaya',
                 'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
-                'created_at', 'teknisi_id',
+                'created_at', 'teknisi_id', 'customer_id', 'priority', 'estimated_completion_at', 'warranty_days',
+                'warranty_expires_at', 'accessories', 'physical_condition',
             ]),
             'nama_teknisi' => $service->technician?->nama,
             'nama_pelanggan' => $service->customer->nama,
             'no_wa' => $service->customer->no_wa,
         ]);
 
-        return response()->json(['status' => 'success', 'data' => $services]);
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'meta' => $this->paginationMeta($services),
+        ]);
     }
 
     public function payment(PaymentRequest $request): JsonResponse
@@ -517,6 +697,9 @@ class ApiController extends Controller
                 ? (float) $data['kembalian']
                 : ($statusPayment === 'lunas' ? max(0, $amount - (float) $service->total_biaya) : ($statusPayment === 'dp' ? max(0, $amount - $dp) : 0));
             $newStatus = (! empty($data['ambil_unit']) || ($isHandover || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true)))) ? 'diambil' : $oldStatus;
+            $warrantyExpiresAt = $newStatus === 'diambil' && $oldStatus !== 'diambil' && $service->warranty_days > 0
+                ? now()->addDays($service->warranty_days)->toDateString()
+                : $service->warranty_expires_at?->toDateString();
 
             $service->fill([
                 'status_pembayaran' => $statusPayment,
@@ -524,6 +707,7 @@ class ApiController extends Controller
                 'nominal_dibayar' => $amount,
                 'dp_dibayar' => $dp,
                 'kembalian' => $change,
+                'warranty_expires_at' => $warrantyExpiresAt,
             ])->save();
             $note = 'Pembayaran diperbarui: Status ['.strtoupper($statusPayment)."], Metode [{$method}]. Nominal Diterima: Rp ".number_format($amount, 0, ',', '.').', Kembalian: Rp '.number_format($change, 0, ',', '.').'.';
             if (! empty($data['catatan'])) {
@@ -558,6 +742,7 @@ class ApiController extends Controller
                 'nominal_dibayar' => $amount,
                 'kembalian' => $change,
                 'status_unit' => $newStatus,
+                'warranty_expires_at' => $service->warranty_expires_at?->toDateString(),
             ],
         ]);
     }
@@ -591,9 +776,125 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $data]);
     }
 
+    public function publicTrackingLink(string $trackingKey): JsonResponse
+    {
+        $service = Service::where('tracking_key', $trackingKey)->firstOrFail();
+
+        return response()->json(['status' => 'success', 'data' => $this->serviceDetails($service, false)]);
+    }
+
+    public function uploadServicePhotos(UploadServicePhotoRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $serviceQuery = Service::whereKey($data['service_id']);
+        if ($request->user()->role === 'teknisi') {
+            $serviceQuery->where('teknisi_id', $request->user()->id);
+        }
+        $service = $serviceQuery->firstOrFail();
+        $disk = Storage::disk('public');
+        $savedPaths = [];
+
+        try {
+            $photos = DB::transaction(function () use ($data, $request, $service, $disk, &$savedPaths) {
+                return collect($data['photos'])->map(function ($file) use ($data, $request, $service, $disk, &$savedPaths): ServicePhoto {
+                    $image = imagecreatefromstring(file_get_contents($file->getRealPath()));
+                    if ($image === false) {
+                        throw new RuntimeException('File foto tidak dapat dibaca sebagai gambar yang valid.');
+                    }
+
+                    $width = imagesx($image);
+                    $height = imagesy($image);
+                    ob_start();
+                    imagejpeg($image, null, 90);
+                    $originalContents = ob_get_clean();
+                    if (! is_string($originalContents) || $originalContents === '') {
+                        imagedestroy($image);
+                        throw new RuntimeException('Foto tidak dapat diproses dengan aman.');
+                    }
+                    $scale = min(1, 640 / max($width, $height));
+                    $thumbnail = imagecreatetruecolor(max(1, (int) round($width * $scale)), max(1, (int) round($height * $scale)));
+                    imagecopyresampled(
+                        $thumbnail, $image, 0, 0, 0, 0,
+                        imagesx($thumbnail), imagesy($thumbnail), $width, $height,
+                    );
+                    ob_start();
+                    imagejpeg($thumbnail, null, 82);
+                    $thumbnailContents = ob_get_clean();
+                    imagedestroy($image);
+                    imagedestroy($thumbnail);
+
+
+                    if (! is_string($thumbnailContents) || $thumbnailContents === '') {
+                        throw new RuntimeException('Thumbnail foto gagal dibuat.');
+                    }
+
+                    $directory = 'services/'.$service->id;
+                    $name = Str::uuid()->toString();
+                    $path = $directory.'/'.$name.'.jpg';
+                    $thumbnailPath = $directory.'/thumbs/'.$name.'.jpg';
+                    if (! $disk->put($path, $originalContents)) {
+                        throw new RuntimeException('Foto gagal disimpan pada disk public.');
+                    }
+                    $savedPaths[] = $path;
+                    if (! $disk->put($thumbnailPath, $thumbnailContents)) {
+                        throw new RuntimeException('Thumbnail gagal disimpan pada disk public.');
+                    }
+                    $savedPaths[] = $thumbnailPath;
+
+                    return $service->photos()->create([
+                        'uploaded_by' => $request->user()->id,
+                        'kind' => $data['kind'],
+                        'path' => $path,
+                        'thumbnail_path' => $thumbnailPath,
+                        'mime_type' => $file->getMimeType(),
+                        'size' => $file->getSize(),
+                    ]);
+                });
+            });
+        } catch (Throwable $exception) {
+            $disk->delete($savedPaths);
+            throw $exception;
+        }
+
+        $service->recordTimelineEvent(
+            'Foto kondisi '.($data['kind'] === 'intake' ? 'saat penerimaan' : 'setelah selesai').' ditambahkan.',
+            $request->user(),
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $photos->map(fn (ServicePhoto $photo) => [
+                'id' => $photo->id,
+                'kind' => $photo->kind,
+                'thumbnail_url' => $disk->url($photo->thumbnail_path),
+            ]),
+        ], 201);
+    }
+
+    public function receipt(Request $request, Service $service, string $type): View
+    {
+        abort_unless(in_array($type, ['intake', 'payment'], true), 404);
+        $paper = $request->query('paper', '80');
+        abort_unless(in_array($paper, ['58', '80'], true), 422);
+        $service->load(['customer', 'technician', 'items.sparepart', 'photos']);
+
+        return view('receipts.service', [
+            'service' => $service,
+            'type' => $type,
+            'paper' => $paper,
+            'trackingUrl' => route('tracking.public.page', $service->tracking_key),
+        ]);
+    }
+
     public function adminCustomers(AdminCustomersRequest $request): JsonResponse
     {
         $filters = $request->validated();
+        $extraFilters = $request->validate([
+            'status' => ['nullable', Rule::in(['diperiksa', 'menunggu_persetujuan', 'dikerjakan', 'menunggu_sparepart', 'selesai', 'diambil', 'batal'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'teknisi_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
         $queryText = trim((string) ($filters['q'] ?? ''));
         $customersQuery = Customer::with([
             'services' => fn ($services) => $services->with(['items.sparepart', 'accessTokens'])
@@ -622,11 +923,23 @@ class ApiController extends Controller
                     });
             });
         }
-
-        $limit = (int) ($filters['limit'] ?? 100);
-        $customers = $customersQuery->limit($limit)->get();
-
-        return response()->json(['status' => 'success', 'data' => $customers->map(fn (Customer $customer) => [
+        if (! empty($extraFilters['status']) || ! empty($extraFilters['teknisi_id']) || ! empty($extraFilters['date_from']) || ! empty($extraFilters['date_to'])) {
+            $customersQuery->whereHas('services', function ($services) use ($extraFilters): void {
+                foreach (['status', 'teknisi_id'] as $field) {
+                    if (! empty($extraFilters[$field])) {
+                        $services->where($field, $extraFilters[$field]);
+                    }
+                }
+                if (! empty($extraFilters['date_from'])) {
+                    $services->whereDate('created_at', '>=', $extraFilters['date_from']);
+                }
+                if (! empty($extraFilters['date_to'])) {
+                    $services->whereDate('created_at', '<=', $extraFilters['date_to']);
+                }
+            });
+        }
+        $customers = $this->paginateTable($request, $customersQuery, ['nama', 'created_at', 'services_count', 'id'], 'nama', 20);
+        $data = collect($customers->items())->map(fn (Customer $customer) => [
             'id' => $customer->id, 'nama' => $customer->nama, 'no_wa' => $customer->no_wa,
             'alamat' => $customer->alamat, 'created_at' => $customer->created_at,
             'jumlah_servis' => $customer->services_count,
@@ -644,7 +957,13 @@ class ApiController extends Controller
                 'status_pembayaran' => $service->status_pembayaran,
                 'created_at' => $service->created_at,
             ]),
-        ])]);
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'meta' => $this->paginationMeta($customers),
+        ]);
     }
 
     public function updateCustomer(UpdateCustomerRequest $request, Customer $customer): JsonResponse
@@ -938,12 +1257,40 @@ class ApiController extends Controller
 
     public function spareparts(SparepartsIndexRequest $request): JsonResponse
     {
+        $extraFilters = $request->validate([
+            'stock' => ['nullable', Rule::in(['low', 'available', 'out'])],
+        ]);
         $query = Sparepart::query();
         if ($search = $request->validated('search')) {
             $query->where(fn ($parts) => $parts->where('kode_barang', 'like', "%{$search}%")->orWhere('nama_barang', 'like', "%{$search}%"));
         }
+        if (($extraFilters['stock'] ?? null) === 'low') {
+            $query->whereColumn('stok', '<=', 'stok_minimum');
+        } elseif (($extraFilters['stock'] ?? null) === 'available') {
+            $query->where('stok', '>', 0);
+        } elseif (($extraFilters['stock'] ?? null) === 'out') {
+            $query->where('stok', 0);
+        }
 
-        return response()->json(['status' => 'success', 'data' => $query->orderBy('nama_barang')->get()]);
+        $parts = $this->paginateTable($request, $query, ['nama_barang', 'kode_barang', 'stok', 'harga_beli', 'harga_jual', 'id'], 'nama_barang');
+        $data = collect($parts->items())->map(function (Sparepart $part): Sparepart {
+            $part->setAttribute('stok_rendah', $part->stok <= $part->stok_minimum);
+
+            return $part;
+        });
+        $summaryQuery = clone $query;
+        $summary = [
+            'total' => (clone $summaryQuery)->count(),
+            'low_stock' => (clone $summaryQuery)->whereColumn('stok', '<=', 'stok_minimum')->count(),
+            'available' => (clone $summaryQuery)->where('stok', '>', 0)->count(),
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'meta' => $this->paginationMeta($parts),
+            'summary' => $summary,
+        ]);
     }
 
     public function sparepart(Sparepart $sparepart): JsonResponse
@@ -996,11 +1343,16 @@ class ApiController extends Controller
     public function ownerDashboard(): JsonResponse
     {
         $services = Service::query();
+        $billed = (float) (clone $services)->sum('total_biaya');
+        $partCost = (float) DB::table('service_items')->sum(DB::raw('jumlah * harga_modal'));
         $summary = [
             'total_unit' => (clone $services)->count(),
             'unit_selesai' => (clone $services)->whereIn('status', ['selesai', 'diambil'])->count(),
             'total_pendapatan' => (clone $services)->where('status_pembayaran', 'lunas')->sum('total_biaya'),
             'total_dp' => (clone $services)->where('status_pembayaran', 'dp')->sum('dp_dibayar'),
+            'laba_kotor' => $billed - $partCost,
+            'total_piutang' => (float) (clone $services)->where('status_pembayaran', '<>', 'lunas')
+                ->sum(DB::raw("total_biaya - CASE WHEN status_pembayaran = 'dp' THEN dp_dibayar ELSE 0 END")),
         ];
         $statusCounts = Service::select('status', DB::raw('COUNT(id) AS jumlah'))->groupBy('status')->get();
 
@@ -1016,9 +1368,234 @@ class ApiController extends Controller
         ]]);
     }
 
-    public function purchases(): JsonResponse
+    private function ownerReportParameters(Request $request): array
     {
-        $purchases = Purchase::with('items.sparepart')->orderByDesc('tanggal_pembelian')->orderByDesc('id')->get()->map(fn (Purchase $purchase) => [
+        $filters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'period' => ['nullable', Rule::in(['day', 'month'])],
+        ]);
+        $from = Carbon::parse($filters['date_from'] ?? now()->startOfMonth()->toDateString())->startOfDay();
+        $to = Carbon::parse($filters['date_to'] ?? now()->toDateString())->endOfDay();
+        if ($from->diffInDays($to) > 366) {
+            abort(422, 'Rentang laporan maksimal 366 hari.');
+        }
+
+        return [$from, $to, $filters['period'] ?? 'day'];
+    }
+
+    private function ownerReportMetrics(Carbon $from, Carbon $to, string $period): array
+    {
+        $services = Service::query()->whereBetween('created_at', [$from, $to]);
+        $billed = (float) (clone $services)->sum('total_biaya');
+        $partCost = (float) DB::table('service_items')
+            ->join('services', 'services.id', '=', 'service_items.service_id')
+            ->whereBetween('services.created_at', [$from, $to])
+            ->sum(DB::raw('service_items.jumlah * service_items.harga_modal'));
+        $daily = (clone $services)
+            ->selectRaw('DATE(created_at) as period, SUM(total_biaya) as omzet, COUNT(*) as jumlah_servis')
+            ->groupByRaw('DATE(created_at)')
+            ->orderBy('period')
+            ->get()
+            ->keyBy('period');
+        $dailyCosts = DB::table('service_items')
+            ->join('services', 'services.id', '=', 'service_items.service_id')
+            ->whereBetween('services.created_at', [$from, $to])
+            ->selectRaw('DATE(services.created_at) as period, SUM(service_items.jumlah * service_items.harga_modal) as modal')
+            ->groupByRaw('DATE(services.created_at)')
+            ->get()
+            ->keyBy('period');
+        $series = [];
+        $cursor = $from->copy()->startOfDay();
+        while ($cursor->lte($to)) {
+            $key = $period === 'month' ? $cursor->format('Y-m') : $cursor->toDateString();
+            $record = $daily->get($cursor->toDateString());
+            $omzet = (float) ($record->omzet ?? 0);
+            $modal = (float) ($dailyCosts->get($cursor->toDateString())->modal ?? 0);
+            if ($period === 'month') {
+                $series[$key] ??= ['label' => $cursor->format('M Y'), 'omzet' => 0, 'modal' => 0, 'laba_kotor' => 0, 'jumlah_servis' => 0];
+                $series[$key]['omzet'] += $omzet;
+                $series[$key]['modal'] += $modal;
+                $series[$key]['laba_kotor'] += $omzet - $modal;
+                $series[$key]['jumlah_servis'] += (int) ($record->jumlah_servis ?? 0);
+            } elseif ($period === 'day') {
+                $omzet = (float) ($record->omzet ?? 0);
+                $series[$key] = [
+                    'label' => $cursor->format('d M'),
+                    'omzet' => $omzet,
+                    'modal' => $modal,
+                    'laba_kotor' => $omzet - $modal,
+                    'jumlah_servis' => (int) ($record->jumlah_servis ?? 0),
+                ];
+            }
+            $cursor->addDay();
+        }
+        $statusCounts = (clone $services)->select('status', DB::raw('COUNT(*) as jumlah'))
+            ->groupBy('status')->orderBy('status')->get();
+        $technicianCounts = (clone $services)
+            ->leftJoin('users as technicians', 'technicians.id', '=', 'services.teknisi_id')
+            ->selectRaw("COALESCE(technicians.nama, 'Belum ditugaskan') as teknisi, COUNT(services.id) as jumlah_servis, SUM(services.total_biaya) as omzet")
+            ->groupBy('technicians.nama')
+            ->orderByDesc('jumlah_servis')
+            ->get();
+        $topParts = DB::table('service_items')
+            ->join('services', 'services.id', '=', 'service_items.service_id')
+            ->leftJoin('spareparts', 'spareparts.id', '=', 'service_items.sparepart_id')
+            ->whereBetween('services.created_at', [$from, $to])
+            ->selectRaw("COALESCE(spareparts.nama_barang, 'Sparepart dihapus') as nama_barang, SUM(service_items.jumlah) as jumlah_terjual, SUM(service_items.subtotal) as nilai_jual, SUM(service_items.jumlah * service_items.harga_modal) as modal")
+            ->groupBy('service_items.sparepart_id', 'spareparts.nama_barang')
+            ->orderByDesc('jumlah_terjual')
+            ->limit(10)
+            ->get()
+            ->map(fn (object $part) => [
+                'nama_barang' => $part->nama_barang,
+                'jumlah_terjual' => (int) $part->jumlah_terjual,
+                'nilai_jual' => (float) $part->nilai_jual,
+                'modal' => (float) $part->modal,
+            ]);
+        $receivableTotal = (float) $this->receivablesQuery($from, $to)
+            ->sum(DB::raw("total_biaya - CASE WHEN status_pembayaran = 'dp' THEN dp_dibayar ELSE 0 END"));
+
+        return [
+            'period' => $period,
+            'date_from' => $from->toDateString(),
+            'date_to' => $to->toDateString(),
+            'summary' => [
+                'omzet' => $billed,
+                'modal_sparepart' => $partCost,
+                'laba_kotor' => $billed - $partCost,
+                'jumlah_servis' => (clone $services)->count(),
+                'piutang' => $receivableTotal,
+            ],
+            'series' => array_values($series),
+            'status_counts' => $statusCounts,
+            'technician_counts' => $technicianCounts,
+            'top_parts' => $topParts,
+        ];
+    }
+
+    private function receivablesQuery(Carbon $from, Carbon $to): Builder
+    {
+        return Service::with('customer:id,nama,no_wa')
+            ->whereBetween('created_at', [$from, $to])
+            ->where('status_pembayaran', '<>', 'lunas')
+            ->whereRaw('(total_biaya - CASE WHEN status_pembayaran = ? THEN dp_dibayar ELSE 0 END) > 0', ['dp']);
+    }
+
+    public function ownerReport(Request $request): JsonResponse
+    {
+        [$from, $to, $period] = $this->ownerReportParameters($request);
+        $report = $this->ownerReportMetrics($from, $to, $period);
+        $receivables = $this->paginateTable(
+            $request,
+            $this->receivablesQuery($from, $to),
+            ['created_at', 'total_biaya', 'no_nota', 'id'],
+            'created_at',
+            20,
+        );
+        $report['receivables'] = collect($receivables->items())->map(fn (Service $service) => [
+            'no_nota' => $service->no_nota,
+            'nama_pelanggan' => $service->customer?->nama ?? '-',
+            'no_wa' => $service->customer?->no_wa,
+            'status_pembayaran' => $service->status_pembayaran,
+            'total_biaya' => (float) $service->total_biaya,
+            'terbayar' => $service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0,
+            'piutang' => max(0, (float) $service->total_biaya - ($service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0)),
+            'tanggal' => $service->created_at?->toDateString(),
+        ]);
+        $report['receivable_meta'] = $this->paginationMeta($receivables);
+
+        return response()->json(['status' => 'success', 'data' => $report]);
+    }
+
+    public function ownerReportCsv(Request $request): Response
+    {
+        [$from, $to, $period] = $this->ownerReportParameters($request);
+        $report = $this->ownerReportMetrics($from, $to, $period);
+        $filename = 'laporan-owner-'.$from->toDateString().'-'.$to->toDateString().'.csv';
+
+        return response()->streamDownload(function () use ($report, $from, $to): void {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['Periode', 'Omzet tagihan servis', 'Modal sparepart', 'Laba kotor', 'Jumlah servis']);
+            foreach ($report['series'] as $row) {
+                fputcsv($output, [
+                    $row['label'],
+                    $row['omzet'],
+                    $row['modal'],
+                    $row['laba_kotor'],
+                    $row['jumlah_servis'],
+                ]);
+            }
+            fputcsv($output, []);
+            fputcsv($output, ['Status servis', 'Jumlah']);
+            foreach ($report['status_counts'] as $row) {
+                fputcsv($output, [$row->status, $row->jumlah]);
+            }
+            fputcsv($output, []);
+            fputcsv($output, ['Teknisi', 'Jumlah servis', 'Omzet']);
+            foreach ($report['technician_counts'] as $row) {
+                fputcsv($output, [$row->teknisi, $row->jumlah_servis, $row->omzet]);
+            }
+            fputcsv($output, []);
+            fputcsv($output, ['Sparepart terlaris', 'Jumlah terjual', 'Nilai jual', 'Modal']);
+            foreach ($report['top_parts'] as $part) {
+                fputcsv($output, [$part['nama_barang'], $part['jumlah_terjual'], $part['nilai_jual'], $part['modal']]);
+            }
+            fputcsv($output, []);
+            fputcsv($output, ['Piutang / belum lunas']);
+            fputcsv($output, ['Nota', 'Pelanggan', 'Tanggal servis', 'Status pembayaran', 'Tagihan', 'Piutang']);
+            $this->receivablesQuery($from, $to)->with('customer:id,nama')->orderBy('created_at')
+                ->chunk(500, function ($services) use ($output): void {
+                    foreach ($services as $service) {
+                        $paid = $service->status_pembayaran === 'dp' ? (float) $service->dp_dibayar : 0;
+                        fputcsv($output, [
+                            $service->no_nota,
+                            $service->customer?->nama ?? '-',
+                            $service->created_at?->toDateString(),
+                            $service->status_pembayaran,
+                            $service->total_biaya,
+                            max(0, (float) $service->total_biaya - $paid),
+                        ]);
+                    }
+                });
+
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function ownerReportPrint(Request $request): View
+    {
+        [$from, $to, $period] = $this->ownerReportParameters($request);
+        $report = $this->ownerReportMetrics($from, $to, $period);
+        $receivables = $this->receivablesQuery($from, $to)->orderByDesc('created_at')->get();
+
+        return view('owner-report-print', [
+            'report' => $report,
+            'receivables' => $receivables,
+        ]);
+    }
+
+    public function purchases(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+        $query = Purchase::with('items.sparepart');
+        if ($search = trim((string) ($filters['search'] ?? ''))) {
+            $query->where(fn ($purchases) => $purchases->where('no_pembelian', 'like', "%{$search}%")
+                ->orWhere('supplier', 'like', "%{$search}%"));
+        }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('tanggal_pembelian', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('tanggal_pembelian', '<=', $filters['date_to']);
+        }
+        $purchases = $this->paginateTable($request, $query, ['tanggal_pembelian', 'total_biaya', 'supplier', 'id'], 'tanggal_pembelian');
+        $data = collect($purchases->items())->map(fn (Purchase $purchase) => [
             ...$purchase->only(['id', 'no_pembelian', 'supplier', 'tanggal_pembelian', 'total_biaya', 'keterangan', 'created_at']),
             'items' => $purchase->items->map(fn (PurchaseDetail $detail) => [
                 'id' => $detail->id, 'sparepart_id' => $detail->sparepart_id,
@@ -1028,7 +1605,72 @@ class ApiController extends Controller
             ]),
         ]);
 
-        return response()->json(['status' => 'success', 'data' => $purchases]);
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'meta' => $this->paginationMeta($purchases),
+        ]);
+    }
+
+    public function notificationTemplates(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => MessageTemplate::orderBy('id')->get(['id', 'key', 'name', 'body']),
+        ]);
+    }
+
+    public function updateNotificationTemplate(Request $request, MessageTemplate $template): JsonResponse
+    {
+        $data = $request->validate(['body' => ['required', 'string', 'max:5000']]);
+        $template->update($data);
+
+        return response()->json(['status' => 'success', 'data' => $template->only(['id', 'key', 'name', 'body'])]);
+    }
+
+    public function notificationLogs(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['pending', 'sent', 'failed'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+        $query = NotificationLog::with('service:id,no_nota');
+        if (! empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $query->where(fn ($logs) => $logs->where('recipient', 'like', "%{$search}%")
+                ->orWhere('message', 'like', "%{$search}%")
+                ->orWhereHas('service', fn ($services) => $services->where('no_nota', 'like', "%{$search}%")));
+        }
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+        $logs = $this->paginateTable($request, $query, ['created_at', 'status', 'recipient', 'id'], 'created_at');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $logs->items(),
+            'meta' => $this->paginationMeta($logs),
+        ]);
+    }
+
+    public function resendNotification(NotificationLog $notificationLog): JsonResponse
+    {
+        if ($notificationLog->status !== 'failed') {
+            return response()->json(['status' => 'error', 'message' => 'Hanya pesan yang gagal dapat dikirim ulang.'], 422);
+        }
+
+        $notificationLog->update(['status' => 'pending', 'error' => null, 'sent_at' => null]);
+        SendWhatsAppMessage::dispatch($notificationLog->id);
+
+        return response()->json(['status' => 'success', 'message' => 'Pesan dimasukkan kembali ke antrean.']);
     }
 
     public function createPurchase(CreatePurchaseRequest $request): JsonResponse

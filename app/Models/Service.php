@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use LogicException;
 
 class Service extends Model
@@ -15,6 +16,8 @@ class Service extends Model
         'no_nota', 'customer_id', 'teknisi_id', 'jenis_unit', 'merek_tipe', 'no_seri',
         'keluhan', 'kelengkapan', 'status', 'biaya_jasa', 'total_biaya',
         'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
+        'estimated_completion_at', 'priority', 'accessories', 'physical_condition',
+        'warranty_days', 'warranty_expires_at',
     ];
 
     protected function casts(): array
@@ -25,7 +28,18 @@ class Service extends Model
             'dp_dibayar' => 'decimal:2',
             'nominal_dibayar' => 'decimal:2',
             'kembalian' => 'decimal:2',
+            'estimated_completion_at' => 'date',
+            'warranty_expires_at' => 'date',
+            'accessories' => 'array',
+            'warranty_days' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Service $service): void {
+            $service->tracking_key ??= Str::random(64);
+        });
     }
 
     public function customer(): BelongsTo
@@ -56,6 +70,25 @@ class Service extends Model
     public function accessTokens(): HasMany
     {
         return $this->hasMany(ServiceAccessToken::class);
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(ServicePhoto::class);
+    }
+
+    public function recordTimelineEvent(string $note, ?User $actor): ServiceStatusLog
+    {
+        $statusLog = $this->statusLogs()->create([
+            'status_lama' => $this->status,
+            'status_baru' => $this->status,
+            'catatan' => $note,
+            'user_id' => $actor?->id,
+            'created_at' => now(),
+        ]);
+        event(new ServiceStatusChanged($statusLog));
+
+        return $statusLog;
     }
 
     public function changeStatus(string $newStatus, ?User $actor, ?string $note = null): ?ServiceStatusLog

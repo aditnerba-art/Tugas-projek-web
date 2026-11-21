@@ -17,6 +17,7 @@ class AssignTechnicianRequest extends FormRequest
         return [
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'teknisi_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', 'teknisi')],
+            'priority' => ['nullable', Rule::in(['low', 'normal', 'high', 'urgent'])],
         ];
     }
 }

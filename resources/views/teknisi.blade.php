@@ -16,7 +16,9 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0B1E3F">
     <title>Panel Teknisi - TECKFO Service</title>
+    <link rel="manifest" href="/manifest.webmanifest">
     @include('partials.realtime-scripts')
     <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,11 +54,26 @@
             <!-- Form Update Status -->
             <div class="bg-white p-7 sm:p-8 rounded-2xl border border-slate-200 border-t-4 border-amber-400 shadow-sm space-y-6">
                 <div>
+                    <div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <input id="serviceSearchFilter" type="search" placeholder="Cari nota, pelanggan, unit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        <select id="serviceStatusFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <option value="">Semua status</option><option value="diperiksa">Diperiksa</option>
+                            <option value="menunggu_persetujuan">Menunggu persetujuan</option><option value="dikerjakan">Dikerjakan</option>
+                            <option value="menunggu_sparepart">Menunggu sparepart</option><option value="selesai">Selesai</option><option value="batal">Batal</option>
+                        </select>
+                        <input id="serviceDateFromFilter" type="date" aria-label="Tanggal servis dari" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        <input id="serviceDateToFilter" type="date" aria-label="Tanggal servis sampai" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        <select id="serviceSortFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <option value="created_at:desc">Terbaru</option><option value="created_at:asc">Terlama</option>
+                            <option value="priority:asc">Prioritas</option><option value="status:asc">Status</option>
+                        </select>
+                    </div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Pilih Unit Servis yang Dikerjakan <span class="text-rose-500">*</span></label>
                     <select id="service_id" required onchange="onSelectService()"
                         class="w-full py-3 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 shadow-sm">
                         <option value="">-- Pilih Unit Servis --</option>
                     </select>
+                    <div id="serviceListPagination" class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" aria-live="polite"></div>
                 </div>
 
                 <!-- Info Banner Unit yang Dipilih -->
@@ -123,6 +140,20 @@
                             <span class="text-[11px] text-slate-500 font-medium">Jasa + total onderdil terpasang</span>
                         </div>
                     </div>
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Estimasi Selesai</label>
+                            <input type="date" id="estimated_completion_at" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Garansi (hari setelah diambil)</label>
+                            <input type="number" id="warranty_days" min="0" max="3650" value="0" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Foto setelah servis (maks. 5 foto)</label>
+                            <input type="file" id="completion_photos" accept="image/jpeg,image/png" multiple class="w-full rounded-xl border border-slate-300 p-2 text-sm">
+                        </div>
+                    </div>
 
                     <!-- Input Pemasangan Sparepart Baru -->
                     <div class="p-5 bg-slate-50/80 rounded-xl border border-slate-200 space-y-3">
@@ -165,6 +196,7 @@
     <script>
         let servicesCache = [];
         let sparepartsCache = [];
+        let pendingServicePage = 1;
 
         function renderStatusTimeline(logs) {
             const wrap = document.getElementById('statusTimelineWrap');
@@ -204,51 +236,93 @@
         }
 
         // Ambil daftar unit servis yang belum diambil pelanggan
-        async function loadPendingServices() {
+        function renderServicePagination(meta) {
+            const container = document.getElementById('serviceListPagination');
+            container.replaceChildren();
+            if (!meta || !meta.total) {
+                container.textContent = 'Tidak ada servis yang cocok dengan filter.';
+                return;
+            }
+            const summary = document.createElement('span');
+            summary.textContent = `Halaman ${meta.current_page} dari ${meta.last_page} · ${meta.total} servis`;
+            const buttons = document.createElement('div');
+            buttons.className = 'flex gap-2';
+            [['Sebelumnya', meta.current_page - 1], ['Berikutnya', meta.current_page + 1]].forEach(([label, page]) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = label;
+                button.disabled = label === 'Sebelumnya' ? meta.current_page <= 1 : meta.current_page >= meta.last_page;
+                button.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-bold disabled:opacity-40';
+                button.addEventListener('click', () => loadPendingServices(page));
+                buttons.append(button);
+            });
+            container.append(summary, buttons);
+        }
+
+        async function loadPendingServices(page = 1) {
+            pendingServicePage = page;
+            const select = document.getElementById('service_id');
+            select.innerHTML = '<option value="">Memuat unit servis…</option>';
             try {
-                const res = await fetch('/api/admin/services-active');
+                const params = new URLSearchParams({
+                    page: String(pendingServicePage),
+                    per_page: '20',
+                    sort: document.getElementById('serviceSortFilter').value.split(':')[0],
+                    direction: document.getElementById('serviceSortFilter').value.split(':')[1],
+                });
+                const search = document.getElementById('serviceSearchFilter').value.trim();
+                const status = document.getElementById('serviceStatusFilter').value;
+                const dateFrom = document.getElementById('serviceDateFromFilter').value;
+                const dateTo = document.getElementById('serviceDateToFilter').value;
+                if (search) params.set('search', search);
+                if (status) params.set('status', status);
+                if (dateFrom) params.set('date_from', dateFrom);
+                if (dateTo) params.set('date_to', dateTo);
+                const res = await fetch(`/api/admin/services-active?${params}`);
                 const result = await res.json();
+                if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Daftar servis gagal dimuat.');
 
-                if (result.status === 'success') {
-                    servicesCache = result.data;
-                    const select = document.getElementById('service_id');
-                    select.innerHTML = '<option value="">-- Pilih Unit Servis --</option>';
+                servicesCache = result.data;
+                select.innerHTML = servicesCache.length
+                    ? '<option value="">-- Pilih Unit Servis --</option>'
+                    : '<option value="">Tidak ada servis yang cocok</option>';
 
-                    result.data.forEach(srv => {
-                        const opt = document.createElement('option');
-                        opt.value = srv.id;
-                        const tekName = srv.nama_teknisi ? `[PIC: ${srv.nama_teknisi}]` : '[Belum Ditugaskan]';
-                        opt.innerText = `[${srv.no_nota}] ${srv.nama_pelanggan} - ${srv.merek_tipe} ${tekName} (${(srv.status || '').toUpperCase()})`;
-                        select.appendChild(opt);
-                    });
-                }
+                servicesCache.forEach(srv => {
+                    const opt = document.createElement('option');
+                    opt.value = srv.id;
+                    const tekName = srv.nama_teknisi ? `[PIC: ${srv.nama_teknisi}]` : '[Belum Ditugaskan]';
+                    opt.innerText = `[${srv.no_nota}] ${srv.nama_pelanggan} - ${srv.merek_tipe} ${tekName} (${(srv.status || '').toUpperCase()})`;
+                    select.appendChild(opt);
+                });
+                renderServicePagination(result.meta);
             } catch (err) {
-                console.error('Gagal memuat unit servis', err);
+                select.innerHTML = '<option value="">Gagal memuat servis</option>';
+                document.getElementById('serviceListPagination').textContent = err.message || 'Periksa koneksi lalu coba lagi.';
             }
         }
 
         // Ambil daftar sparepart
         async function loadSpareparts() {
             try {
-                const res = await fetch('/api/spareparts');
+                const res = await fetch('/api/spareparts?per_page=100');
                 const result = await res.json();
+                if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Daftar sparepart gagal dimuat.');
 
-                if (result.status === 'success') {
-                    sparepartsCache = result.data;
-                    const select = document.getElementById('sparepart_id');
-                    select.innerHTML = '<option value="">-- Tidak Memasang Sparepart Baru --</option>';
+                sparepartsCache = result.data;
+                const select = document.getElementById('sparepart_id');
+                select.innerHTML = '<option value="">-- Tidak Memasang Sparepart Baru --</option>';
 
-                    result.data.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.dataset.stok = item.stok;
-                        opt.dataset.harga = item.harga_jual;
-                        opt.innerText = `${item.nama_barang} (Stok: ${item.stok}) - Rp ${Number(item.harga_jual).toLocaleString('id-ID')}`;
-                        select.appendChild(opt);
-                    });
-                }
+                result.data.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.dataset.stok = item.stok;
+                    opt.dataset.minimum = item.stok_minimum;
+                    opt.dataset.harga = item.harga_jual;
+                    opt.innerText = `${item.stok_rendah ? '⚠️ Stok rendah · ' : ''}${item.nama_barang} (Stok: ${item.stok}, minimum ${item.stok_minimum}) - Rp ${Number(item.harga_jual).toLocaleString('id-ID')}`;
+                    select.appendChild(opt);
+                });
             } catch (err) {
-                console.error('Gagal memuat daftar sparepart', err);
+                document.getElementById('sparepart_info').textContent = err.message || 'Sparepart gagal dimuat.';
             }
         }
 
@@ -273,6 +347,10 @@
                 document.getElementById('banner_keluhan').innerText = srv.keluhan || '-';
                 document.getElementById('biaya_jasa').value = srv.biaya_jasa || 0;
                 document.getElementById('total_biaya').value = srv.total_biaya || 0;
+                document.getElementById('estimated_completion_at').value = srv.estimated_completion_at
+                    ? String(srv.estimated_completion_at).slice(0, 10)
+                    : '';
+                document.getElementById('warranty_days').value = srv.warranty_days || 0;
                 document.getElementById('status_baru').value = srv.status || 'diperiksa';
                 banner.classList.remove('hidden');
 
@@ -313,7 +391,8 @@
             if (select.value && selectedOpt) {
                 const stok = selectedOpt.dataset.stok;
                 const harga = Number(selectedOpt.dataset.harga).toLocaleString('id-ID');
-                info.innerText = `Stok: ${stok} unit | Harga Jual: Rp ${harga}`;
+                const lowStock = Number(stok) <= Number(selectedOpt.dataset.minimum);
+                info.innerText = `${lowStock ? '⚠️ Stok mencapai batas minimum · ' : ''}Stok: ${stok} unit | Harga Jual: Rp ${harga}`;
                 if (!qtyInput.value || parseInt(qtyInput.value, 10) < 1) {
                     qtyInput.value = 1;
                 }
@@ -360,6 +439,19 @@
             }
         }
         initData();
+        let serviceFilterTimer;
+        ['serviceSearchFilter', 'serviceStatusFilter', 'serviceDateFromFilter', 'serviceDateToFilter', 'serviceSortFilter'].forEach(id => {
+            document.getElementById(id).addEventListener(id === 'serviceSearchFilter' ? 'input' : 'change', () => {
+                clearTimeout(serviceFilterTimer);
+                serviceFilterTimer = setTimeout(() => loadPendingServices(1), id === 'serviceSearchFilter' ? 250 : 0);
+            });
+        });
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js').catch(error => {
+                console.error('PWA panel teknisi gagal diinisialisasi', error);
+            });
+        }
 
         window.addEventListener('load', () => {
             if (!window.ServiceRealtime) return;
@@ -375,6 +467,9 @@
             const biayaJasa = document.getElementById('biaya_jasa').value;
             const totalBiaya = document.getElementById('total_biaya').value;
             const catatanTeknis = document.getElementById('catatan_teknis').value;
+            const estimatedCompletion = document.getElementById('estimated_completion_at').value;
+            const warrantyDays = document.getElementById('warranty_days').value;
+            const completionPhotos = document.getElementById('completion_photos').files;
             const sparepartId = document.getElementById('sparepart_id').value;
             const jumlahSparepart = document.getElementById('jumlah_sparepart').value;
 
@@ -400,6 +495,8 @@
                 status_baru: statusBaru,
                 biaya_jasa: biayaJasa ? parseFloat(biayaJasa) : 0,
                 total_biaya: totalBiaya ? parseFloat(totalBiaya) : 0,
+                estimated_completion_at: estimatedCompletion || null,
+                warranty_days: Number(warrantyDays || 0),
                 catatan_teknis: catatanTeknis,
                 sparepart_id: sparepartId ? parseInt(sparepartId, 10) : null,
                 jumlah_sparepart: sparepartId ? parseInt(jumlahSparepart, 10) : null
@@ -414,7 +511,23 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert('✅ Progres pengerjaan dan onderdil berhasil diperbarui!');
+                    let photoError = '';
+                    if (completionPhotos.length) {
+                        try {
+                            const photoData = new FormData();
+                            photoData.append('service_id', serviceId);
+                            photoData.append('kind', 'completion');
+                            Array.from(completionPhotos).forEach(file => photoData.append('photos[]', file));
+                            const photoResponse = await fetch('/api/admin/service/photos', { method: 'POST', body: photoData });
+                            const photoResult = await photoResponse.json();
+                            if (!photoResponse.ok) photoError = photoResult.message || 'Foto selesai gagal diunggah.';
+                        } catch (error) {
+                            photoError = error.message || 'Foto selesai gagal diunggah.';
+                        }
+                    }
+                    alert(photoError
+                        ? `Progres tersimpan, tetapi ${photoError}`
+                        : '✅ Progres pengerjaan, estimasi, dan onderdil berhasil diperbarui!');
                     document.getElementById('formUpdate').reset();
                     document.getElementById('sparepart_info').innerText = '';
                     document.getElementById('unitInfoBanner').classList.add('hidden');

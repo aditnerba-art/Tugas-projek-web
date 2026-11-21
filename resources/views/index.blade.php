@@ -594,6 +594,21 @@
                 </div>
             </div>
 
+            <section class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
+                <h2 class="text-base font-bold text-slate-100">Estimasi, garansi &amp; kondisi unit</h2>
+                <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                    <p>Estimasi biaya: <strong id="resEstimatedCost">-</strong></p>
+                    <p>Estimasi selesai: <strong id="resEstimatedCompletion">-</strong></p>
+                    <p>Garansi: <strong id="resWarranty">-</strong></p>
+                    <p>Kelengkapan: <strong id="resAccessories">-</strong></p>
+                    <p class="sm:col-span-2">Kondisi fisik saat diterima: <strong id="resPhysicalCondition">-</strong></p>
+                </div>
+                <div>
+                    <h3 class="mb-2 text-sm font-bold text-slate-100">Foto kondisi unit</h3>
+                    <div id="servicePhotos" class="grid grid-cols-2 gap-3 sm:grid-cols-4"></div>
+                </div>
+            </section>
+
             <!-- 2. Rincian Biaya -->
             <div class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
                 <div class="flex items-center gap-2.5 border-b border-slate-700/80 pb-3">
@@ -664,6 +679,7 @@
     </div>
 
     <script>
+        window.initialTrackingKey = @json($trackingKey ?? null);
         let currentServiceData = null;
 
         // ===================== LOGIN DENGAN KODE AKSES =====================
@@ -712,7 +728,7 @@
 
         // ===================== TAMPILKAN HASIL =====================
         function tampilkanHasil(data) {
-            const { unit, onderdil, timeline } = data;
+            const { unit, onderdil, timeline, photos } = data;
             currentServiceData = unit;
 
             document.getElementById('loginPage').classList.add('hidden');
@@ -726,6 +742,41 @@
             document.getElementById('resNama').innerText = unit.nama_pelanggan;
             document.getElementById('resUnit').innerText = `${unit.jenis_unit} • ${unit.merek_tipe} ${unit.no_seri ? '(' + unit.no_seri + ')' : ''}`;
             document.getElementById('resKeluhan').innerText = unit.keluhan;
+            document.getElementById('resEstimatedCost').textContent = `Rp ${Number(unit.total_biaya || 0).toLocaleString('id-ID')}`;
+            document.getElementById('resEstimatedCompletion').textContent = unit.estimated_completion_at
+                ? new Date(`${String(unit.estimated_completion_at).slice(0, 10)}T00:00:00`).toLocaleDateString('id-ID')
+                : 'Belum ditentukan';
+            document.getElementById('resWarranty').textContent = unit.warranty_expires_at
+                ? `${unit.warranty_active ? 'Aktif' : 'Berakhir'} sampai ${new Date(`${String(unit.warranty_expires_at).slice(0, 10)}T00:00:00`).toLocaleDateString('id-ID')}`
+                : `${Number(unit.warranty_days || 0)} hari setelah unit diambil`;
+            const accessories = (unit.accessories || []).join(', ');
+            document.getElementById('resAccessories').textContent = [accessories, unit.kelengkapan].filter(Boolean).join(' · ') || 'Tidak dicatat';
+            document.getElementById('resPhysicalCondition').textContent = unit.physical_condition || 'Tidak dicatat';
+            const photosWrap = document.getElementById('servicePhotos');
+            photosWrap.replaceChildren();
+            (photos || []).forEach(photo => {
+                const link = document.createElement('a');
+                link.href = photo.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = 'block overflow-hidden rounded-lg border border-slate-600';
+                const image = document.createElement('img');
+                image.src = photo.thumbnail_url;
+                image.alt = photo.kind === 'intake' ? 'Kondisi unit saat masuk' : 'Kondisi unit setelah selesai';
+                image.loading = 'lazy';
+                image.className = 'h-28 w-full object-cover';
+                const caption = document.createElement('span');
+                caption.className = 'block p-2 text-xs text-slate-200';
+                caption.textContent = photo.kind === 'intake' ? 'Saat masuk' : 'Setelah selesai';
+                link.append(image, caption);
+                photosWrap.append(link);
+            });
+            if (!photosWrap.childElementCount) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-slate-400';
+                empty.textContent = 'Belum ada foto kondisi unit.';
+                photosWrap.append(empty);
+            }
 
             // Teknisi PIC
             const teknisiEl = document.getElementById('resTeknisi');
@@ -1001,6 +1052,18 @@
 
         // Restore customer session from the HttpOnly cookie or stored session when the page reopens.
         window.addEventListener('load', async () => {
+            if (window.initialTrackingKey) {
+                try {
+                    const response = await fetch(`/api/tracking-link/${encodeURIComponent(window.initialTrackingKey)}`);
+                    const tracked = await response.json();
+                    if (response.ok && tracked.status === 'success') {
+                        tampilkanHasil(tracked.data);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Gagal memuat tautan pelacakan', error);
+                }
+            }
             try {
                 const res = await fetch('/api/customer/me');
                 if (res.ok) {

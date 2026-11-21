@@ -105,10 +105,54 @@
                         </div>
                     </div>
 
+                    <fieldset class="space-y-2">
+                        <legend class="block text-xs font-bold uppercase tracking-wider text-slate-700">Checklist Kelengkapan Unit</legend>
+                        <div class="flex flex-wrap gap-3 text-sm">
+                            <label><input type="checkbox" name="accessories" value="Charger"> Charger</label>
+                            <label><input type="checkbox" name="accessories" value="Tas"> Tas</label>
+                            <label><input type="checkbox" name="accessories" value="Baterai"> Baterai</label>
+                            <label><input type="checkbox" name="accessories" value="Kabel daya"> Kabel daya</label>
+                            <label><input type="checkbox" name="accessories" value="Lainnya"> Lainnya</label>
+                        </div>
+                    </fieldset>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Kelengkapan Unit Bawaan</label>
-                        <input type="text" id="kelengkapan" placeholder="Contoh: Unit, Charger Original, Tas Laptop"
-                            class="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Kelengkapan lainnya / catatan</label>
+                        <input type="text" id="kelengkapan" maxlength="1000" placeholder="Detail aksesori lain yang ikut diterima"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Catatan Kondisi Fisik Saat Masuk</label>
+                        <textarea id="physical_condition" rows="2" maxlength="5000" placeholder="Contoh: goresan di sudut kiri, layar utuh"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Foto Kondisi Saat Masuk (maks. 5 foto, 5 MB/foto)</label>
+                            <input type="file" id="intake_photos" accept="image/jpeg,image/png" multiple class="w-full rounded-xl border border-slate-300 p-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Estimasi Selesai</label>
+                            <input type="date" id="estimated_completion_at" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Prioritas</label>
+                            <select id="priority" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                                <option value="low">Rendah</option><option value="normal" selected>Normal</option>
+                                <option value="high">Tinggi</option><option value="urgent">Mendesak</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Teknisi (beban aktif)</label>
+                            <select id="teknisi_id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                                <option value="">Belum ditugaskan</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Garansi (hari setelah diambil)</label>
+                            <input type="number" id="warranty_days" min="0" max="3650" value="0" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                        </div>
                     </div>
 
                     <div>
@@ -160,6 +204,25 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-6">
+                    <input id="serviceSearch" type="search" placeholder="Cari nota, pelanggan, unit..." class="rounded-lg border border-slate-300 px-3 py-2 text-sm lg:col-span-2">
+                    <select id="serviceStatusFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="">Semua status</option>
+                        <option value="diperiksa">Diperiksa</option><option value="menunggu_persetujuan">Menunggu persetujuan</option>
+                        <option value="dikerjakan">Dikerjakan</option><option value="menunggu_sparepart">Menunggu sparepart</option>
+                        <option value="selesai">Selesai</option><option value="diambil">Diambil</option><option value="batal">Batal</option>
+                    </select>
+                    <select id="serviceTechnicianFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="">Semua teknisi</option>
+                    </select>
+                    <input id="serviceDateFrom" type="date" aria-label="Tanggal servis dari" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <select id="serviceSort" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" aria-label="Urutkan servis">
+                        <option value="created_at:desc">Terbaru</option><option value="created_at:asc">Terlama</option>
+                        <option value="status:asc">Status A-Z</option><option value="total_biaya:desc">Biaya tertinggi</option>
+                    </select>
+                    <input id="serviceDateTo" type="date" aria-label="Tanggal servis sampai" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div id="servicePagination" class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600" aria-live="polite"></div>
             </div>
 
             <!-- 3. Kelola data pelanggan -->
@@ -189,6 +252,22 @@
                         placeholder="Nama, nomor WhatsApp, kode servis, atau kode akses..."
                         class="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                 </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <select id="customerStatusFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="">Semua status servis</option>
+                        <option value="diperiksa">Diperiksa</option><option value="menunggu_persetujuan">Menunggu persetujuan</option>
+                        <option value="dikerjakan">Dikerjakan</option><option value="menunggu_sparepart">Menunggu sparepart</option>
+                        <option value="selesai">Selesai</option><option value="diambil">Diambil</option><option value="batal">Batal</option>
+                    </select>
+                    <select id="customerTechnicianFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="">Semua teknisi</option>
+                    </select>
+                    <input id="customerDateFrom" type="date" aria-label="Tanggal servis pelanggan dari" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <input id="customerDateTo" type="date" aria-label="Tanggal servis pelanggan sampai" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <select id="customerSort" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="nama:asc">Nama A–Z</option><option value="nama:desc">Nama Z–A</option><option value="created_at:desc">Terbaru</option><option value="services_count:desc">Servis terbanyak</option>
+                    </select>
+                </div>
                 <p id="customersMessage" class="text-sm text-slate-600 font-semibold" role="status" aria-live="polite"></p>
                 <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
                     <table class="w-full text-left text-sm">
@@ -206,6 +285,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="customerPagination" class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600" aria-live="polite"></div>
             </section>
         </div>
     </main>
@@ -425,12 +505,58 @@
         }
 
         // Ambil dan Tampilkan Daftar Unit Servis Aktif
-        async function loadActiveServices() {
+        let servicePage = 1;
+        let customerPage = 1;
+
+        function renderTablePagination(elementId, meta, onPage) {
+            const container = document.getElementById(elementId);
+            container.replaceChildren();
+            if (!meta || !meta.total) {
+                container.textContent = 'Tidak ada data untuk filter ini.';
+                return;
+            }
+            const first = (meta.current_page - 1) * meta.per_page + 1;
+            const last = Math.min(meta.current_page * meta.per_page, meta.total);
+            const summary = document.createElement('span');
+            summary.textContent = `Menampilkan ${first}–${last} dari ${meta.total}`;
+            const actions = document.createElement('div');
+            actions.className = 'flex gap-2';
+            [['Sebelumnya', meta.current_page - 1], ['Berikutnya', meta.current_page + 1]].forEach(([label, page]) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = label;
+                button.disabled = label === 'Sebelumnya' ? meta.current_page <= 1 : meta.current_page >= meta.last_page;
+                button.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40';
+                button.addEventListener('click', () => onPage(page));
+                actions.append(button);
+            });
+            container.append(summary, actions);
+        }
+
+        async function loadActiveServices(page = 1) {
+            servicePage = page;
+            const tbody = document.getElementById('activeServicesTable');
+            tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Memuat daftar servis…</td></tr>';
             try {
                 await loadAccessCodes();
-                const res = await fetch('/api/admin/services-active');
+                const params = new URLSearchParams({
+                    page: String(servicePage),
+                    per_page: '20',
+                    sort: document.getElementById('serviceSort').value.split(':')[0],
+                    direction: document.getElementById('serviceSort').value.split(':')[1],
+                });
+                const search = document.getElementById('serviceSearch').value.trim();
+                const status = document.getElementById('serviceStatusFilter').value;
+                const technicianId = document.getElementById('serviceTechnicianFilter').value;
+                const dateFrom = document.getElementById('serviceDateFrom').value;
+                const dateTo = document.getElementById('serviceDateTo').value;
+                if (search) params.set('search', search);
+                if (status) params.set('status', status);
+                if (technicianId) params.set('teknisi_id', technicianId);
+                if (dateFrom) params.set('date_from', dateFrom);
+                if (dateTo) params.set('date_to', dateTo);
+                const res = await fetch(`/api/admin/services-active?${params}`);
                 const result = await res.json();
-                const tbody = document.getElementById('activeServicesTable');
                 tbody.innerHTML = '';
 
                 if (result.status === 'success' && result.data.length > 0) {
@@ -460,11 +586,20 @@
                             <td class="p-3.5">
                                 <div class="font-semibold text-slate-800">${srv.merek_tipe}</div>
                                 <div class="text-xs text-slate-500 capitalize">${srv.jenis_unit || ''} • Status: <span class="font-bold text-[#0B1E3F]">${(srv.status || '').replace('_', ' ')}</span></div>
+                                <div class="text-xs font-semibold text-amber-800">Prioritas: ${(srv.priority || 'normal').toUpperCase()} • Teknisi: ${srv.nama_teknisi || 'Belum ditugaskan'}</div>
                             </td>
                             <td class="p-3.5 whitespace-nowrap font-black text-slate-900">Rp ${totalBiayaRp}</td>
                             <td class="p-3.5 whitespace-nowrap">${badgeBayar}</td>
                             <td class="p-3.5 whitespace-nowrap text-center">
                                 <div class="flex items-center justify-center gap-2">
+                                    <div class="flex max-w-48 flex-col gap-1">
+                                        <select class="assign-technician rounded-lg border border-slate-300 px-2 py-1 text-[10px]" aria-label="Pilih teknisi"></select>
+                                        <select class="assign-priority rounded-lg border border-slate-300 px-2 py-1 text-[10px]" aria-label="Pilih prioritas">
+                                            <option value="low">Rendah</option><option value="normal">Normal</option>
+                                            <option value="high">Tinggi</option><option value="urgent">Mendesak</option>
+                                        </select>
+                                        <button type="button" class="assign-service rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold">Simpan penugasan</button>
+                                    </div>
                                     <button onclick="openModalPelunasan(${srv.id}, '${srv.no_nota}', '${encodeURIComponent(srv.nama_pelanggan)}', '${encodeURIComponent(srv.merek_tipe)}', ${srv.total_biaya || 0}, '${srv.status_pembayaran}')"
                                         class="inline-flex items-center gap-1.5 bg-[#0B1E3F] hover:bg-[#132F63] text-white px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-400/80 shadow-sm transition">
                                         💵 Pelunasan
@@ -472,6 +607,8 @@
                                     <button type="button" class="service-history-button inline-flex items-center gap-1 rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 transition hover:bg-blue-100">
                                         Riwayat
                                     </button>
+                                    <a href="/api/admin/receipts/${srv.id}/intake" target="_blank" rel="noopener noreferrer" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700">Tanda terima</a>
+                                    <a href="/api/admin/receipts/${srv.id}/payment" target="_blank" rel="noopener noreferrer" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700">Nota</a>
                                     <button type="button" class="delete-service-button inline-flex items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100">
                                         🗑️ Hapus
                                     </button>
@@ -480,6 +617,19 @@
                         `;
                         tr.querySelector('.service-history-button').addEventListener('click', () => showServiceHistory(srv.no_nota));
                         tr.querySelector('.delete-service-button').addEventListener('click', () => hapusServis(srv.id, srv.no_nota));
+                        const technicianSelect = tr.querySelector('.assign-technician');
+                        technicianSelect.replaceChildren(new Option('Belum ditugaskan', ''));
+                        technicianWorkloads.forEach(technician => technicianSelect.add(new Option(
+                            `${technician.nama} · ${technician.beban_kerja} aktif`,
+                            technician.id,
+                        )));
+                        technicianSelect.value = srv.teknisi_id || '';
+                        tr.querySelector('.assign-priority').value = srv.priority || 'normal';
+                        tr.querySelector('.assign-service').addEventListener('click', () => saveServiceAssignment(
+                            srv.id,
+                            technicianSelect.value,
+                            tr.querySelector('.assign-priority').value,
+                        ));
                         const accessCodeCell = tr.cells[1];
                         const accessCode = sessionCustomerAccessCodes.get(String(srv.id));
                         const waNumber = formatNomorWA(srv.no_wa);
@@ -535,13 +685,15 @@
                         accessCodeCell.appendChild(codeWrap);
                         tbody.appendChild(tr);
                     });
+                    renderTablePagination('servicePagination', result.meta, loadActiveServices);
                 } else {
                     tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">Tidak ada unit servis aktif saat ini.</td></tr>';
+                    renderTablePagination('servicePagination', result.meta, loadActiveServices);
                 }
             } catch (err) {
                 console.error('Gagal memuat servis aktif', err);
-                document.getElementById('activeServicesTable').innerHTML =
-                    '<tr><td colspan="7" class="p-8 text-center text-rose-600 text-sm">Daftar servis atau status kode akses gagal dimuat.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-rose-600 text-sm">Daftar servis gagal dimuat. Periksa koneksi, lalu coba muat ulang.</td></tr>';
+                document.getElementById('servicePagination').textContent = 'Terjadi kesalahan saat memuat data.';
             }
         }
 
@@ -754,7 +906,29 @@
             }
         }
 
+        let technicianWorkloads = [];
+
+        async function saveServiceAssignment(serviceId, technicianId, priority) {
+            try {
+                const response = await fetch('/api/admin/service/assign-teknisi', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        service_id: serviceId,
+                        teknisi_id: technicianId || null,
+                        priority,
+                    }),
+                });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Penugasan gagal disimpan.');
+                await Promise.all([loadTechnicianWorkloads(false), loadActiveServices()]);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
         async function simpanServis() {
+            const intakePhotos = document.getElementById('intake_photos').files;
             const payload = {
                 customer_id: document.getElementById('customer_id').value || null,
                 nama: document.getElementById('nama').value,
@@ -762,8 +936,14 @@
                 jenis_unit: document.getElementById('jenis_unit').value,
                 merek_tipe: document.getElementById('merek_tipe').value,
                 no_seri: document.getElementById('no_seri').value,
+                keluhan: document.getElementById('keluhan').value,
                 kelengkapan: document.getElementById('kelengkapan').value,
-                keluhan: document.getElementById('keluhan').value
+                accessories: Array.from(document.querySelectorAll('input[name="accessories"]:checked')).map(input => input.value),
+                physical_condition: document.getElementById('physical_condition').value,
+                estimated_completion_at: document.getElementById('estimated_completion_at').value || null,
+                priority: document.getElementById('priority').value,
+                teknisi_id: document.getElementById('teknisi_id').value || null,
+                warranty_days: Number(document.getElementById('warranty_days').value || 0)
             };
 
             if (!payload.nama || !payload.no_wa || !payload.merek_tipe || !payload.keluhan) {
@@ -778,6 +958,20 @@
 
             const data = await res.json();
             if (data.status === 'success') {
+                let photoError = '';
+                if (intakePhotos.length) {
+                    try {
+                        const photoData = new FormData();
+                        photoData.append('service_id', data.service_id);
+                        photoData.append('kind', 'intake');
+                        Array.from(intakePhotos).forEach(file => photoData.append('photos[]', file));
+                        const photoResponse = await fetch('/api/admin/service/photos', { method: 'POST', body: photoData });
+                        const photoResult = await photoResponse.json();
+                        if (!photoResponse.ok) throw new Error(photoResult.message || 'Foto masuk gagal diunggah.');
+                    } catch (error) {
+                        photoError = `Servis tersimpan, tetapi foto masuk gagal diunggah: ${error.message}`;
+                    }
+                }
                 if (data.service_id && data.customer_token) {
                     sessionCustomerAccessCodes.set(String(data.service_id), data.customer_token);
                 }
@@ -785,14 +979,16 @@
                 document.getElementById('customer_id').value = '';
                 document.getElementById('cariPelangganLama').value = '';
                 document.getElementById('hasilPencarianPelanggan').classList.add('hidden');
-                await Promise.all([loadActiveServices(), loadCustomers()]);
+                await Promise.all([loadActiveServices(), loadCustomers(), loadTechnicianWorkloads(false)]);
                 showServiceSuccessModal(data, payload);
+                if (photoError) alert(photoError);
             } else {
                 alert(`Gagal: ${data.message}`);
             }
         }
 
-        async function loadCustomers() {
+        async function loadCustomers(page = 1) {
+            customerPage = page;
             const q = document.getElementById('cariPelanggan')?.value.trim() || '';
             const tbody = document.getElementById('customersTable');
             const message = document.getElementById('customersMessage');
@@ -802,6 +998,19 @@
             try {
                 const params = new URLSearchParams();
                 if (q) params.set('q', q);
+                params.set('page', String(customerPage));
+                params.set('per_page', '20');
+                const sort = document.getElementById('customerSort').value.split(':');
+                params.set('sort', sort[0]);
+                params.set('direction', sort[1]);
+                const status = document.getElementById('customerStatusFilter').value;
+                const technicianId = document.getElementById('customerTechnicianFilter').value;
+                const dateFrom = document.getElementById('customerDateFrom').value;
+                const dateTo = document.getElementById('customerDateTo').value;
+                if (status) params.set('status', status);
+                if (technicianId) params.set('teknisi_id', technicianId);
+                if (dateFrom) params.set('date_from', dateFrom);
+                if (dateTo) params.set('date_to', dateTo);
                 const response = await fetch(`/api/admin/customers${params.size ? `?${params}` : ''}`);
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Daftar pelanggan gagal dimuat.');
@@ -815,6 +1024,7 @@
                     cell.textContent = 'Belum ada data pelanggan.';
                     row.appendChild(cell);
                     tbody.appendChild(row);
+                    renderTablePagination('customerPagination', result.meta, loadCustomers);
                     return;
                 }
 
@@ -862,9 +1072,11 @@
                     actionCell.appendChild(actions);
                     tbody.appendChild(row);
                 });
+                renderTablePagination('customerPagination', result.meta, loadCustomers);
             } catch (error) {
                 tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-rose-600 font-semibold">Data pelanggan gagal dimuat.</td></tr>';
                 message.textContent = error.message || 'Terjadi kesalahan saat memuat pelanggan.';
+                document.getElementById('customerPagination').textContent = 'Periksa koneksi dan coba muat ulang.';
             }
         }
 
@@ -1045,12 +1257,41 @@
         let pencarianDaftarTimeout;
         document.getElementById('cariPelanggan').addEventListener('input', () => {
             clearTimeout(pencarianDaftarTimeout);
-            pencarianDaftarTimeout = setTimeout(loadCustomers, 250);
+            pencarianDaftarTimeout = setTimeout(() => loadCustomers(1), 250);
         });
+        ['serviceSearch', 'serviceStatusFilter', 'serviceTechnicianFilter', 'serviceDateFrom', 'serviceDateTo', 'serviceSort']
+            .forEach(id => document.getElementById(id).addEventListener('input', () => loadActiveServices(1)));
+        ['customerStatusFilter', 'customerTechnicianFilter', 'customerDateFrom', 'customerDateTo', 'customerSort']
+            .forEach(id => document.getElementById(id).addEventListener('change', () => loadCustomers(1)));
 
         // Inisialisasi data saat halaman dibuka
         loadActiveServices();
         loadCustomers();
+        async function loadTechnicianWorkloads(refreshServices = true) {
+            const select = document.getElementById('teknisi_id');
+            try {
+                const response = await fetch('/api/admin/teknisi');
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Beban teknisi gagal dimuat.');
+                technicianWorkloads = result.data;
+                ['serviceTechnicianFilter', 'customerTechnicianFilter'].forEach(id => {
+                    const filter = document.getElementById(id);
+                    filter.replaceChildren(new Option('Semua teknisi', ''));
+                    technicianWorkloads.forEach(technician => filter.add(new Option(technician.nama, technician.id)));
+                });
+                technicianWorkloads.forEach(technician => {
+                    const option = document.createElement('option');
+                    option.value = technician.id;
+                    option.textContent = `${technician.nama} · ${technician.beban_kerja} servis aktif`;
+                    select.append(option);
+                });
+                if (refreshServices) await loadActiveServices();
+            } catch (error) {
+                console.error(error);
+                select.innerHTML = '<option value="">Beban teknisi gagal dimuat</option>';
+            }
+        }
+        loadTechnicianWorkloads();
         window.addEventListener('load', () => {
             if (!window.ServiceRealtime) return;
             window.ServiceRealtime.startStaff('admin', () => {

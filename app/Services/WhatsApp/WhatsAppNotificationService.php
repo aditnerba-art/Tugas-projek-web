@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Services\WhatsApp;
+
+use App\Jobs\SendWhatsAppMessage;
+use App\Models\MessageTemplate;
+use App\Models\NotificationLog;
+use App\Models\Service;
+use RuntimeException;
+
+class WhatsAppNotificationService
+{
+    public function queue(Service $service, string $type, array $variables = []): NotificationLog
+    {
+        $template = MessageTemplate::where('key', $type)->first();
+        if (! $template) {
+            throw new RuntimeException("Template WhatsApp [{$type}] tidak ditemukan.");
+        }
+
+        $customer = $service->customer;
+        $values = array_merge([
+            'nama' => $customer->nama,
+            'kode' => $service->no_nota,
+            'status' => str_replace('_', ' ', $service->status),
+            'link' => route('tracking.public.page', $service->tracking_key),
+            'unit' => trim(($service->jenis_unit ? $service->jenis_unit.' ' : '').$service->merek_tipe),
+            'biaya' => 'Rp '.number_format((float) $service->total_biaya, 0, ',', '.'),
+            'estimasi_selesai' => $service->estimated_completion_at?->format('d-m-Y') ?? 'Belum ditentukan',
+        ], $variables);
+        $message = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function (array $match) use ($values): string {
+            return (string) ($values[$match[1]] ?? $match[0]);
+        }, $template->body);
+
+        $log = NotificationLog::create([
+            'service_id' => $service->id,
+            'message_type' => $type,
+            'recipient' => PhoneNumber::normalize($customer->no_wa),
+            'message' => $message,
+            'status' => 'pending',
+        ]);
+
+        SendWhatsAppMessage::dispatch($log->id);
+
+        return $log;
+    }
+
+    public function queuePickupReminders(): int
+    {
+        $queued = 0;
+
+        Service::with('customer')
+            ->where('status', 'selesai')
+            ->where('updated_at', '<=', now()->subDay())
+            ->chunkById(100, function ($services) use (&$queued): void {
+                foreach ($services as $service) {
+                    $alreadyRemindedToday = NotificationLog::where('service_id', $service->id)
+                        ->where('message_type', 'pickup_reminder')
+                        ->whereDate('created_at', today())
+                        ->exists();
+                    if ($alreadyRemindedToday) {
+                        continue;
+                    }
+
+                    $this->queue($service, 'pickup_reminder');
+                    $queued++;
+                }
+            });
+
+        return $queued;
+    }
+}
