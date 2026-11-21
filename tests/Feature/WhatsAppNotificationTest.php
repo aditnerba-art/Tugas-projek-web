@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\WhatsApp\WhatsAppNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
@@ -111,36 +112,42 @@ class WhatsAppNotificationTest extends TestCase
 
     public function test_daily_reminder_only_targets_old_completed_units_not_collected(): void
     {
-        $customer = Customer::create(['nama' => 'Pelanggan Tes', 'no_wa' => '08123456789']);
-        $service = Service::create([
-            'no_nota' => 'SRV-WA-REMIND',
-            'customer_id' => $customer->id,
-            'merek_tipe' => 'Laptop',
-            'keluhan' => 'Rusak',
-            'status' => 'selesai',
-            'created_at' => now()->subDays(4),
-            'updated_at' => now()->subDays(2),
-        ]);
-        Service::create([
-            'no_nota' => 'SRV-WA-PICKED',
-            'customer_id' => $customer->id,
-            'merek_tipe' => 'Tablet',
-            'keluhan' => 'Rusak',
-            'status' => 'diambil',
-            'created_at' => now()->subDays(4),
-            'updated_at' => now()->subDays(2),
-        ]);
-        DB::table('services')->whereIn('no_nota', ['SRV-WA-REMIND', 'SRV-WA-PICKED'])
-            ->update(['updated_at' => now()->subDays(2)]);
+        Carbon::setTestNow(Carbon::parse('2026-11-22 09:00:00', 'Asia/Jakarta'));
 
-        $this->assertSame(1, app(WhatsAppNotificationService::class)->queuePickupReminders());
+        try {
+            $customer = Customer::create(['nama' => 'Pelanggan Tes', 'no_wa' => '08123456789']);
+            $service = Service::create([
+                'no_nota' => 'SRV-WA-REMIND',
+                'customer_id' => $customer->id,
+                'merek_tipe' => 'Laptop',
+                'keluhan' => 'Rusak',
+                'status' => 'selesai',
+                'created_at' => now()->subDays(4),
+                'updated_at' => now()->subDays(2),
+            ]);
+            Service::create([
+                'no_nota' => 'SRV-WA-PICKED',
+                'customer_id' => $customer->id,
+                'merek_tipe' => 'Tablet',
+                'keluhan' => 'Rusak',
+                'status' => 'diambil',
+                'created_at' => now()->subDays(4),
+                'updated_at' => now()->subDays(2),
+            ]);
+            DB::table('services')->whereIn('no_nota', ['SRV-WA-REMIND', 'SRV-WA-PICKED'])
+                ->update(['updated_at' => now()->subDays(2)]);
 
-        $this->assertDatabaseHas('notification_logs', [
-            'service_id' => $service->id,
-            'message_type' => 'pickup_reminder',
-            'status' => 'sent',
-        ]);
-        $this->assertCount(1, $this->whatsAppGateway->messages);
+            $this->assertSame(1, app(WhatsAppNotificationService::class)->queuePickupReminders());
+
+            $this->assertDatabaseHas('notification_logs', [
+                'service_id' => $service->id,
+                'message_type' => 'pickup_reminder',
+                'status' => 'sent',
+            ]);
+            $this->assertCount(1, $this->whatsAppGateway->messages);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_owner_can_edit_templates_and_retry_a_failed_notification(): void

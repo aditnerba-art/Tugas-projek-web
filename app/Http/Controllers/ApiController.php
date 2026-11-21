@@ -142,8 +142,9 @@ class ApiController extends Controller
         if ($includeCustomerChannelKey) {
             $unit['status_channel_key'] = $service->customerStatusChannelKey();
         }
-        $unit['warranty_active'] = $service->warranty_expires_at?->isToday()
-            || ($service->warranty_expires_at && $service->warranty_expires_at->isFuture());
+        $warrantyExpiresAt = $service->warranty_expires_at?->toDateString();
+        $unit['warranty_active'] = $warrantyExpiresAt !== null
+            && $warrantyExpiresAt >= now(config('app.timezone'))->toDateString();
         $photos = $service->photos->map(fn (ServicePhoto $photo) => [
             'id' => $photo->id,
             'kind' => $photo->kind,
@@ -703,7 +704,7 @@ class ApiController extends Controller
                 : ($statusPayment === 'lunas' ? max(0, $amount - (float) $service->total_biaya) : ($statusPayment === 'dp' ? max(0, $amount - $dp) : 0));
             $newStatus = (! empty($data['ambil_unit']) || ($isHandover || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true)))) ? 'diambil' : $oldStatus;
             $warrantyExpiresAt = $newStatus === 'diambil' && $oldStatus !== 'diambil' && $service->warranty_days > 0
-                ? now()->addDays($service->warranty_days)->toDateString()
+                ? now(config('app.timezone'))->addDays($service->warranty_days)->toDateString()
                 : $service->warranty_expires_at?->toDateString();
 
             $service->fill([
@@ -1380,8 +1381,9 @@ class ApiController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'period' => ['nullable', Rule::in(['day', 'month'])],
         ]);
-        $from = Carbon::parse($filters['date_from'] ?? now()->startOfMonth()->toDateString())->startOfDay();
-        $to = Carbon::parse($filters['date_to'] ?? now()->toDateString())->endOfDay();
+        $timezone = config('app.timezone');
+        $from = Carbon::parse($filters['date_from'] ?? now($timezone)->startOfMonth()->toDateString(), $timezone)->startOfDay();
+        $to = Carbon::parse($filters['date_to'] ?? now($timezone)->toDateString(), $timezone)->endOfDay();
         if ($from->diffInDays($to) > 366) {
             abort(422, 'Rentang laporan maksimal 366 hari.');
         }

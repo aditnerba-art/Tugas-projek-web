@@ -47,15 +47,17 @@ class WhatsAppNotificationService
     public function queuePickupReminders(): int
     {
         $queued = 0;
+        $now = now(config('app.timezone'));
+        $today = $now->toDateString();
 
         Service::with('customer')
             ->where('status', 'selesai')
-            ->where('updated_at', '<=', now()->subDay())
-            ->chunkById(100, function ($services) use (&$queued): void {
+            ->where('updated_at', '<=', $now->copy()->subDay())
+            ->chunkById(100, function ($services) use (&$queued, $today): void {
                 foreach ($services as $service) {
                     $alreadyRemindedToday = NotificationLog::where('service_id', $service->id)
                         ->where('message_type', 'pickup_reminder')
-                        ->whereDate('created_at', today())
+                        ->whereDate('created_at', $today)
                         ->exists();
                     if ($alreadyRemindedToday) {
                         continue;

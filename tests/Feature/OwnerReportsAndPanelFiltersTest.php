@@ -155,6 +155,9 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
                 ->assertJsonPath('data.summary.jumlah_servis', 1)
                 ->assertJsonPath('data.series.0.label', '22 Nov')
                 ->assertJsonPath('data.series.0.jumlah_servis', 1);
+            $this->getJson('/api/owner/reports?date_from=2026-11-22&date_to=2026-11-22&period=month')
+                ->assertOk()
+                ->assertJsonPath('data.series.0.jumlah_servis', 1);
 
             $this->getJson('/api/owner/reports?date_from=2026-11-21&date_to=2026-11-21&period=day')
                 ->assertOk()
