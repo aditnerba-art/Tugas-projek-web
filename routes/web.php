@@ -94,6 +94,7 @@ Route::prefix('api')->group(function () {
         Route::get('/admin/users', [ApiController::class, 'users']);
         Route::post('/admin/service', [ApiController::class, 'createService']);
         Route::put('/admin/service/assign-teknisi', [ApiController::class, 'assignTechnician']);
+        Route::post('/admin/service/payments', [ApiController::class, 'payment']);
         Route::put('/admin/service/pembayaran', [ApiController::class, 'payment']);
         Route::put('/admin/service/pelunasan', [ApiController::class, 'payment']);
         Route::get('/admin/customers/access-codes', [ApiController::class, 'accessCodes']);

@@ -18,7 +18,7 @@ class Service extends Model
     protected $fillable = [
         'no_nota', 'customer_id', 'teknisi_id', 'jenis_unit', 'merek_tipe', 'no_seri',
         'keluhan', 'kelengkapan', 'status', 'biaya_jasa', 'total_biaya',
-        'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
+        'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
         'estimated_completion_at', 'priority', 'accessories', 'physical_condition',
         'warranty_days', 'warranty_expires_at',
     ];
@@ -78,6 +78,50 @@ class Service extends Model
     public function photos(): HasMany
     {
         return $this->hasMany(ServicePhoto::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function paidAmount(): int
+    {
+        return max(0, (int) $this->payments()
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'refund' THEN -amount ELSE amount END), 0) as net_paid")
+            ->value('net_paid'));
+    }
+
+    public function paymentStatus(?int $paidAmount = null): string
+    {
+        $paidAmount ??= $this->paidAmount();
+        if ($paidAmount <= 0) {
+            return 'belum';
+        }
+
+        return $paidAmount >= (int) round((float) $this->total_biaya) ? 'lunas' : 'sebagian';
+    }
+
+    public function syncPaymentSummary(): void
+    {
+        $paidAmount = $this->paidAmount();
+        $status = $this->paymentStatus($paidAmount);
+        $lastMethod = $this->payments()
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->value('method');
+
+        $this->forceFill([
+            'status_pembayaran' => $status,
+            'metode_pembayaran' => $lastMethod,
+            'dp_dibayar' => $status === 'sebagian' ? $paidAmount : 0,
+            'nominal_dibayar' => $paidAmount,
+        ])->save();
+    }
+
+    public function balanceDue(): int
+    {
+        return max(0, (int) round((float) $this->total_biaya) - $this->paidAmount());
     }
 
     public function recordTimelineEvent(string $note, ?User $actor): ServiceStatusLog

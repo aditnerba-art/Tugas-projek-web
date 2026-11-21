@@ -52,6 +52,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -693,25 +694,67 @@ class ApiController extends Controller
         $data = $request->validated();
 
         $isHandover = $request->is('api/admin/service/pelunasan');
-        $result = DB::transaction(function () use ($data, $request, $isHandover): array {
+        $type = $data['type'];
+        if ($isHandover && $type === 'refund') {
+            throw ValidationException::withMessages([
+                'type' => 'Refund tidak dapat diproses bersamaan dengan serah terima unit.',
+            ]);
+        }
+
+        $result = DB::transaction(function () use ($data, $request, $isHandover, $type): array {
             $service = Service::whereKey($data['service_id'])->lockForUpdate()->firstOrFail();
             $oldStatus = $service->status;
             $oldPaymentData = [
                 'status_pembayaran' => $service->status_pembayaran,
                 'metode_pembayaran' => $service->metode_pembayaran,
-                'nominal_dibayar' => $service->nominal_dibayar,
-                'dp_dibayar' => $service->dp_dibayar,
-                'kembalian' => $service->kembalian,
+                'terbayar' => $service->paidAmount(),
+                'piutang' => $service->balanceDue(),
                 'status' => $service->status,
             ];
-            $statusPayment = $data['status_pembayaran'] ?? ($isHandover ? 'lunas' : 'belum_bayar');
-            $method = $data['metode_pembayaran'] ?? 'Cash';
-            $amount = (float) ($data['nominal_dibayar'] ?? ($isHandover ? $service->total_biaya : 0));
-            $dp = $statusPayment === 'dp' ? (float) ($data['dp_dibayar'] ?? $amount) : 0;
-            $change = isset($data['kembalian'])
-                ? (float) $data['kembalian']
-                : ($statusPayment === 'lunas' ? max(0, $amount - (float) $service->total_biaya) : ($statusPayment === 'dp' ? max(0, $amount - $dp) : 0));
-            $newStatus = (! empty($data['ambil_unit']) || ($isHandover || ($statusPayment === 'lunas' && ($data['ambil_unit'] ?? true)))) ? 'diambil' : $oldStatus;
+            $amount = (int) ($data['amount'] ?? $data['nominal_dibayar'] ?? 0);
+            $method = $data['method'];
+            $note = $data['note'] ?? null;
+            $change = 0;
+
+            if ($type === 'refund') {
+                if ($amount < 1) {
+                    throw ValidationException::withMessages(['amount' => 'Nominal refund harus lebih dari nol.']);
+                }
+                if ($amount > $service->paidAmount()) {
+                    throw ValidationException::withMessages(['amount' => 'Nominal refund melebihi total pembayaran bersih.']);
+                }
+                $service->payments()->create([
+                    'amount' => $amount,
+                    'method' => $method,
+                    'paid_at' => now(config('app.timezone')),
+                    'received_by' => $request->user()->id,
+                    'note' => $note,
+                    'type' => 'refund',
+                ]);
+            } else {
+                $change = max(0, $amount - $service->balanceDue());
+                $appliedAmount = min($amount, $service->balanceDue());
+                if ($appliedAmount > 0) {
+                    $service->payments()->create([
+                        'amount' => $appliedAmount,
+                        'method' => $method,
+                        'paid_at' => now(config('app.timezone')),
+                        'received_by' => $request->user()->id,
+                        'note' => $note,
+                        'type' => 'payment',
+                    ]);
+                }
+            }
+
+            $paidAmount = $service->paidAmount();
+            $statusPayment = $service->paymentStatus($paidAmount);
+            $isTakingUnit = $isHandover || (bool) ($data['ambil_unit'] ?? false);
+            if ($isTakingUnit && $statusPayment !== 'lunas') {
+                throw ValidationException::withMessages([
+                    'amount' => 'Pelunasan penuh diperlukan sebelum unit diserahkan.',
+                ]);
+            }
+            $newStatus = $isTakingUnit ? 'diambil' : $oldStatus;
             $warrantyExpiresAt = $newStatus === 'diambil' && $oldStatus !== 'diambil' && $service->warranty_days > 0
                 ? now(config('app.timezone'))->addDays($service->warranty_days)->toDateString()
                 : $service->warranty_expires_at?->toDateString();
@@ -719,44 +762,49 @@ class ApiController extends Controller
             $service->fill([
                 'status_pembayaran' => $statusPayment,
                 'metode_pembayaran' => $method,
-                'nominal_dibayar' => $amount,
-                'dp_dibayar' => $dp,
+                'nominal_dibayar' => $paidAmount,
+                'dp_dibayar' => $statusPayment === 'sebagian' ? $paidAmount : 0,
                 'kembalian' => $change,
                 'warranty_expires_at' => $warrantyExpiresAt,
             ])->save();
-            $note = 'Pembayaran diperbarui: Status ['.strtoupper($statusPayment)."], Metode [{$method}]. Nominal Diterima: Rp ".number_format($amount, 0, ',', '.').', Kembalian: Rp '.number_format($change, 0, ',', '.').'.';
-            if (! empty($data['catatan'])) {
-                $note .= ' Catatan: '.$data['catatan'].'.';
+            $timelineNote = ($type === 'refund' ? 'Refund' : 'Pembayaran').' dicatat: Status ['.strtoupper($statusPayment)."], Metode [{$method}]. Nominal: Rp ".number_format($amount, 0, ',', '.').', Kembalian: Rp '.number_format($change, 0, ',', '.').'.';
+            if ($note !== null && $note !== '') {
+                $timelineNote .= ' Catatan: '.$note.'.';
             }
             if ($newStatus === 'diambil') {
-                $note .= ' Unit telah diserahkan ke pelanggan.';
+                $timelineNote .= ' Unit telah diserahkan ke pelanggan.';
             }
             if ($newStatus !== $oldStatus) {
-                $service->changeStatus($newStatus, $request->user(), $note);
+                $service->changeStatus($newStatus, $request->user(), $timelineNote);
+            } elseif ($type === 'payment' || $type === 'refund') {
+                $service->recordTimelineEvent($timelineNote, $request->user());
             }
             $this->logActivity($request, 'pembayaran', 'service:'.$service->id, $oldPaymentData, [
                 'status_pembayaran' => $service->status_pembayaran,
                 'metode_pembayaran' => $service->metode_pembayaran,
-                'nominal_dibayar' => $service->nominal_dibayar,
-                'dp_dibayar' => $service->dp_dibayar,
+                'terbayar' => $paidAmount,
+                'piutang' => max(0, (int) round((float) $service->total_biaya) - $paidAmount),
                 'kembalian' => $service->kembalian,
                 'status' => $service->status,
             ]);
 
-            return [$service, $statusPayment, $method, $amount, $change, $newStatus];
+            return [$service, $statusPayment, $method, $amount, $paidAmount, $change, $newStatus, $type];
         });
-        [$service, $statusPayment, $method, $amount, $change, $newStatus] = $result;
+        [$service, $statusPayment, $method, $amount, $paidAmount, $change, $newStatus, $type] = $result;
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Pembayaran berhasil disimpan ('.strtoupper($statusPayment).')',
+            'message' => ($type === 'refund' ? 'Refund' : 'Pembayaran').' berhasil disimpan ('.strtoupper($statusPayment).')',
             'data' => [
                 'service_id' => $service->id,
                 'status_pembayaran' => $statusPayment,
                 'metode_pembayaran' => $method,
-                'nominal_dibayar' => $amount,
+                'nominal_transaksi' => $amount,
+                'total_terbayar' => $paidAmount,
+                'piutang' => max(0, (int) round((float) $service->total_biaya) - $paidAmount),
                 'kembalian' => $change,
                 'status_unit' => $newStatus,
+                'type' => $type,
                 'warranty_expires_at' => $service->warranty_expires_at?->toDateString(),
             ],
         ]);
