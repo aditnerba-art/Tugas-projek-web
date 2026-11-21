@@ -1391,7 +1391,7 @@ class ApiController extends Controller
 
     private function ownerReportMetrics(Carbon $from, Carbon $to, string $period): array
     {
-        $services = Service::query()->whereBetween('created_at', [$from, $to]);
+        $services = Service::query()->whereBetween('services.created_at', [$from, $to]);
         $billed = (float) (clone $services)->sum('total_biaya');
         $partCost = (float) DB::table('service_items')
             ->join('services', 'services.id', '=', 'service_items.service_id')
