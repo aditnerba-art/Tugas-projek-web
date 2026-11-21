@@ -61,30 +61,61 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 
 Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admin/kasir, panel teknisi, dan dashboard owner.
 
-### Menjalankan aplikasi
+### Instalasi dan menjalankan aplikasi
 
-1. Salin `.env.example` menjadi `.env`, lalu atur koneksi database.
-2. Jalankan `php artisan key:generate`.
-3. Jalankan `php artisan migrate --seed`.
-4. Jalankan `php artisan serve` dari root proyek.
+Persyaratan: PHP 8.2+, Composer, Node.js/npm, serta ekstensi PHP `fileinfo`, `gd`, `mbstring`, dan driver PDO database yang dipakai. Dari root proyek:
 
-Database SQLite digunakan secara default; koneksi MySQL dapat diatur melalui variabel `DB_*` di `.env`.
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan storage:link
+npm ci
+npm run build
+php artisan serve
+```
+
+Jika berkas `.env` sudah ada, jangan menyalinnya lagi; cukup tinjau konfigurasi yang diperlukan. SQLite digunakan secara default. Untuk MySQL/MariaDB, ubah `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, dan `DB_PASSWORD`, lalu pastikan databasenya sudah dibuat sebelum menjalankan migrasi.
+
+Seeder akun awal hanya membuat akun staf dengan kewajiban mengganti kata sandi saat login pertama. Untuk mengisi data servis contoh (delapan status berbeda), jalankan secara terpisah:
+
+```sh
+php artisan db:seed --class=DemoServiceSeeder
+```
+
+Seeder demo dapat dijalankan ulang tanpa menggandakan servis contoh. Gunakan hanya di lingkungan pengembangan atau demo.
 
 ### Realtime dan notifikasi
 
 Status servis dicatat di timeline terpusat dan dikirim melalui Laravel Reverb saat `REALTIME_DRIVER=reverb`. Staf memakai private channel sesuai peran. Portal pelanggan menerima nama channel opaque berbasis HMAC hanya dari sesi portal yang sudah valid; endpoint polling tetap memverifikasi sesi dan token akses pelanggan. Jika WebSocket tidak tersambung, frontend otomatis memakai polling JSON dengan ETag setiap 12 detik. Set `REALTIME_DRIVER=polling` untuk menonaktifkan Reverb dan menggunakan polling saja.
 
-Untuk pengembangan lokal, atur nilai Reverb lokal di `.env`, lalu jalankan:
+### Queue, Reverb, scheduler, dan variabel lingkungan
+
+Notifikasi WhatsApp dan event broadcast diproses melalui queue. Di lokal, `composer dev` menjalankan server Laravel, queue worker, Pail, Vite, dan Reverb. Untuk menjalankannya sebagai proses terpisah:
 
 ```sh
-npm install
-npm run build
-composer dev
+php artisan serve
+php artisan queue:work --sleep=3 --tries=3 --timeout=90
+php artisan reverb:start
+php artisan schedule:work
 ```
 
-`composer dev` menjalankan Laravel, queue worker, Pail, Vite, dan Reverb secara bersamaan. Untuk mencoba polling saja, ubah `REALTIME_DRIVER=polling` dan `VITE_REALTIME_DRIVER=polling`, lalu build ulang asset.
+| Kelompok | Variabel `.env` | Kegunaan |
+| --- | --- | --- |
+| Aplikasi | `APP_ENV`, `APP_DEBUG`, `APP_URL`, `APP_KEY`, `APP_TIMEZONE` | Lingkungan, URL publik, enkripsi, dan zona waktu |
+| Database | `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | Koneksi basis data |
+| Worker | `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER` | Antrean, cache, dan sesi; konfigurasi default memakai database |
+| Realtime | `BROADCAST_CONNECTION`, `REALTIME_DRIVER`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`, `REVERB_SERVER_HOST`, `REVERB_SERVER_PORT`, `REVERB_ALLOWED_ORIGINS` | Kredensial, listener, dan origin yang diizinkan untuk WebSocket |
+| Build frontend realtime | `VITE_REALTIME_DRIVER`, `VITE_REVERB_APP_KEY`, `VITE_REVERB_HOST`, `VITE_REVERB_PORT`, `VITE_REVERB_SCHEME` | Ditanam saat `npm run build`; build ulang setelah nilainya diubah |
+| WhatsApp | `WHATSAPP_DRIVER`, `FONNTE_TOKEN`, `WABLAS_TOKEN`, `WHATSAPP_CLOUD_TOKEN`, `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | Pilih `fonnte`, `wablas`, atau `cloud`, lalu isi kredensial providernya |
+| Backup | `DB_BACKUP_DIRECTORY`, `DB_BACKUP_KEEP_DAYS`, `MYSQLDUMP_BINARY`, `PG_DUMP_BINARY` | Folder privat, retensi, dan lokasi binary backup |
 
-Di produksi, gunakan kredensial rahasia berbeda dari nilai lokal pada `.env.production.example`. Pastikan `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`, dan `REVERB_ALLOWED_ORIGINS` sesuai domain publik; terminasi TLS/WSS sebaiknya dilakukan oleh reverse proxy dan port Reverb hanya dibuka secara internal. Jalankan `npm ci && npm run build`, kemudian jalankan proses Reverb dan queue secara persisten.
+URL provider WhatsApp dapat dioverride lewat `FONNTE_URL`, `WABLAS_URL`, atau `WHATSAPP_CLOUD_URL`. Lihat `.env.example` dan `.env.production.example` untuk nilai awal; jangan salin kredensial contoh ke server publik.
+
+Untuk memakai polling alih-alih WebSocket, set `REALTIME_DRIVER=polling` dan `VITE_REALTIME_DRIVER=polling`, kemudian build ulang asset. `composer dev` tidak menjalankan scheduler, jadi mulai proses `schedule:work` secara terpisah saat menguji tugas terjadwal.
+
+Di produksi, gunakan kredensial rahasia milik deployment, bukan nilai contoh di `.env.production.example`. Pastikan Reverb menggunakan domain dan origin yang benar; terminasi TLS/WSS sebaiknya dilakukan oleh reverse proxy dan port listener Reverb hanya dibuka secara internal.
 
 Contoh Supervisor (sesuaikan direktori dan pengguna deployment):
 
@@ -133,7 +164,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Aktifkan dengan `sudo systemctl daemon-reload && sudo systemctl enable --now teckfo-reverb`. Jalankan queue worker sebagai service terpisah juga. Setelah deployment, gunakan `php artisan config:cache` dan `php artisan queue:restart`; verifikasi koneksi WebSocket melalui reverse proxy atau pilih `REALTIME_DRIVER=polling` sebagai fallback.
+Aktifkan dengan `sudo systemctl daemon-reload && sudo systemctl enable --now teckfo-reverb`. Jalankan queue worker sebagai service terpisah juga. Untuk tugas terjadwal, jalankan `php artisan schedule:work` sebagai service atau pasang cron Laravel setiap menit seperti petunjuk di bagian backup.
 
 ### Akun awal
 
@@ -177,7 +208,19 @@ Di Windows/XAMPP, jadwalkan `php artisan schedule:run` setiap menit melalui Task
 
 Panel teknisi menyediakan manifest PWA dan service worker ringan. Saat offline, service worker hanya menampilkan halaman offline statis; respons API dan data servis tidak disimpan di cache perangkat. Instalasi PWA memerlukan HTTPS (atau localhost).
 
-Untuk produksi, gunakan `.env.production.example` sebagai acuan, isi `APP_KEY` dan kredensial database dengan nilai rahasia milik deployment, lalu pastikan `APP_DEBUG=false`. Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.
+### Checklist deployment produksi
+
+- [ ] Gunakan HTTPS untuk seluruh aplikasi dan WebSocket (WSS); konfigurasi reverse proxy untuk meneruskan koneksi Reverb.
+- [ ] Atur `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL`, `APP_KEY`, kredensial database, rahasia Reverb, dan token WhatsApp khusus deployment.
+- [ ] Batasi akses database dan port Reverb; isi `REVERB_ALLOWED_ORIGINS` hanya dengan origin publik yang dipakai.
+- [ ] Pasang dependency dan build frontend: `composer install --no-dev --prefer-dist --optimize-autoloader`, `npm ci`, dan `npm run build`.
+- [ ] Jalankan `php artisan migrate --force`, `php artisan storage:link`, lalu `php artisan optimize`.
+- [ ] Pastikan user aplikasi dapat menulis ke `storage` dan `bootstrap/cache`; simpan backup database di folder privat di luar web root.
+- [ ] Jalankan queue worker dan Reverb secara persisten (misalnya dengan Supervisor); jalankan scheduler setiap menit melalui cron atau Windows Task Scheduler.
+- [ ] Jalankan `php artisan queue:restart` setelah deploy, verifikasi status worker/Reverb/scheduler, dan uji pengiriman WhatsApp serta pemulihan backup.
+- [ ] Ganti kata sandi seluruh akun awal/demo sebelum memberi akses kepada pengguna. Jangan gunakan data demo pada produksi.
+
+Tidak ada fitur cetak nota; tautan WhatsApp tetap tersedia dari panel admin.
 # Notifikasi WhatsApp
 
 Notifikasi servis dikirim melalui queue Laravel. Atur kredensial di `.env` dan `config/services.php`:

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Events\ServiceStatusChanged;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +13,8 @@ use LogicException;
 
 class Service extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'no_nota', 'customer_id', 'teknisi_id', 'jenis_unit', 'merek_tipe', 'no_seri',
         'keluhan', 'kelengkapan', 'status', 'biaya_jasa', 'total_biaya',

@@ -28,6 +28,22 @@ class UserFactory extends Factory
             'username' => fake()->unique()->userName(),
             'password' => static::$password ??= Hash::make('password'),
             'role' => fake()->randomElement(['owner', 'admin', 'teknisi']),
+            'must_change_password' => false,
         ];
+    }
+
+    public function owner(): static
+    {
+        return $this->state(fn () => ['role' => 'owner']);
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn () => ['role' => 'admin']);
+    }
+
+    public function technician(): static
+    {
+        return $this->state(fn () => ['role' => 'teknisi']);
     }
 }
