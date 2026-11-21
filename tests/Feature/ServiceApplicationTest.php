@@ -162,6 +162,13 @@ class ServiceApplicationTest extends TestCase
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
     }
 
+    public function test_unauthenticated_api_requests_return_json_without_accept_header(): void
+    {
+        $this->get('/api/admin/services-active')
+            ->assertUnauthorized()
+            ->assertJson(['message' => 'Unauthenticated.']);
+    }
+
     public function test_owner_can_manage_staff_inventory_and_record_a_purchase(): void
     {
         $owner = User::create([

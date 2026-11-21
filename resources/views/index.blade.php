@@ -697,13 +697,15 @@
             try {
                 const loginRes = await fetch('/api/customer/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token, customer_name: customerName })
                 });
                 const loginResult = await loginRes.json();
                 if (!loginRes.ok) throw new Error(loginResult.message || 'Kode akses tidak valid.');
 
-                const dataRes = await fetch('/api/customer/me');
+                const dataRes = await fetch('/api/customer/me', {
+                    headers: { 'Accept': 'application/json' }
+                });
                 const dataResult = await dataRes.json();
                 if (!dataRes.ok) throw new Error(dataResult.message || 'Data servis tidak dapat dimuat.');
                 tampilkanHasil(dataResult.data);

@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -35,6 +36,10 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $exception, Request $request) {
+            if ($exception instanceof AuthenticationException && $request->is('api/*')) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
             if ($request->expectsJson()) {
                 return null;
             }
