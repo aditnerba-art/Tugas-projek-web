@@ -103,19 +103,22 @@ php artisan schedule:work
 
 | Kelompok | Variabel `.env` | Kegunaan |
 | --- | --- | --- |
-| Aplikasi | `APP_ENV`, `APP_DEBUG`, `APP_URL`, `APP_KEY`, `APP_TIMEZONE` | Lingkungan, URL publik, enkripsi, dan zona waktu |
+| Aplikasi | `APP_ENV`, `APP_DEBUG`, `APP_URL`, `APP_KEY`, `APP_NAME`, `APP_TIMEZONE`, `APP_LOCALE`, `APP_FALLBACK_LOCALE`, `APP_FAKER_LOCALE` | Lingkungan, URL publik, enkripsi, nama, bahasa, dan zona waktu |
 | Database | `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | Koneksi basis data |
 | Worker | `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER` | Antrean, cache, dan sesi; konfigurasi default memakai database |
 | Realtime | `BROADCAST_CONNECTION`, `REALTIME_DRIVER`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`, `REVERB_SERVER_HOST`, `REVERB_SERVER_PORT`, `REVERB_ALLOWED_ORIGINS` | Kredensial, listener, dan origin yang diizinkan untuk WebSocket |
 | Build frontend realtime | `VITE_REALTIME_DRIVER`, `VITE_REVERB_APP_KEY`, `VITE_REVERB_HOST`, `VITE_REVERB_PORT`, `VITE_REVERB_SCHEME` | Ditanam saat `npm run build`; build ulang setelah nilainya diubah |
+| Reverse proxy | `TRUSTED_PROXIES` | IP atau CIDR proxy HTTPS tepercaya, dipisahkan koma; kosongkan jika tidak memakai proxy |
 | WhatsApp | `WHATSAPP_DRIVER`, `FONNTE_TOKEN`, `WABLAS_TOKEN`, `WHATSAPP_CLOUD_TOKEN`, `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | Pilih `fonnte`, `wablas`, atau `cloud`, lalu isi kredensial providernya |
 | Backup | `DB_BACKUP_DIRECTORY`, `DB_BACKUP_KEEP_DAYS`, `MYSQLDUMP_BINARY`, `PG_DUMP_BINARY` | Folder privat, retensi, dan lokasi binary backup |
 
 URL provider WhatsApp dapat dioverride lewat `FONNTE_URL`, `WABLAS_URL`, atau `WHATSAPP_CLOUD_URL`. Lihat `.env.example` dan `.env.production.example` untuk nilai awal; jangan salin kredensial contoh ke server publik.
 
+Untuk menyiapkan Reverb lokal, salin blok `BROADCAST_CONNECTION`, `REALTIME_DRIVER`, `REVERB_*`, dan `VITE_REVERB_*` dari `.env.example` ke `.env` (atau buat ulang `.env` dari contoh sebelum mengisi rahasia lokal). Nilai `local` dan `local-secret` hanya untuk pengembangan lokal; jangan gunakan di produksi. Nilai `VITE_*` tidak rahasia dan dipakai saat build frontend, jadi jalankan ulang `npm run build` setelah mengubahnya.
+
 Untuk memakai polling alih-alih WebSocket, set `REALTIME_DRIVER=polling` dan `VITE_REALTIME_DRIVER=polling`, kemudian build ulang asset. `composer dev` tidak menjalankan scheduler, jadi mulai proses `schedule:work` secara terpisah saat menguji tugas terjadwal.
 
-Di produksi, gunakan kredensial rahasia milik deployment, bukan nilai contoh di `.env.production.example`. Pastikan Reverb menggunakan domain dan origin yang benar; terminasi TLS/WSS sebaiknya dilakukan oleh reverse proxy dan port listener Reverb hanya dibuka secara internal.
+Di produksi, gunakan kredensial rahasia milik deployment, bukan nilai contoh di `.env.production.example`. Aplikasi menolak boot bila `APP_DEBUG=true` atau kunci/rahasia Reverb masih berupa placeholder. Jika TLS diakhiri oleh reverse proxy, isi `TRUSTED_PROXIES` dengan alamat IP/CIDR proxy yang benar (dipisahkan koma); jangan gunakan `*` atau mempercayai alamat dari klien. Pastikan Reverb menggunakan domain dan origin yang benar; terminasi TLS/WSS sebaiknya dilakukan oleh reverse proxy dan port listener Reverb hanya dibuka secara internal.
 
 Contoh Supervisor (sesuaikan direktori dan pengguna deployment):
 

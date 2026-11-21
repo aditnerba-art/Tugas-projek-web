@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->guardProductionConfiguration();
+
         RateLimiter::for('customer-code', function (Request $request) {
             $code = (string) $request->input(
                 'kode_akses',
@@ -59,5 +62,31 @@ class AppServiceProvider extends ServiceProvider
                     : response()->view('errors.429', [], 429, $headers)
             );
         });
+    }
+
+    private function guardProductionConfiguration(): void
+    {
+        if (! $this->app->environment('production')) {
+            return;
+        }
+
+        $problems = [];
+        if (config('app.debug')) {
+            $problems[] = 'APP_DEBUG must be false';
+        }
+
+        $placeholders = ['local', 'local-secret', 'change_me'];
+        foreach ([
+            'REVERB_APP_KEY' => config('broadcasting.connections.reverb.key'),
+            'REVERB_APP_SECRET' => config('broadcasting.connections.reverb.secret'),
+        ] as $name => $value) {
+            if ($value === null || trim((string) $value) === '' || in_array(strtolower(trim((string) $value)), $placeholders, true)) {
+                $problems[] = $name.' must be set to a unique deployment value';
+            }
+        }
+
+        if ($problems !== []) {
+            throw new RuntimeException('Unsafe production configuration: '.implode('; ', $problems).'.');
+        }
     }
 }
