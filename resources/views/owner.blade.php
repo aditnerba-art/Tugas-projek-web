@@ -919,7 +919,13 @@
 
         // Modal Pengadaan Functions
         function openModalPengadaan() {
-            document.getElementById('purch_tanggal').value = new Date().toISOString().slice(0, 10);
+            const now = new Date();
+            const localDate = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0')
+            ].join('-');
+            document.getElementById('purch_tanggal').value = localDate;
             document.getElementById('purch_supplier').value = '';
             document.getElementById('purch_keterangan').value = '';
             document.getElementById('itemsContainer').innerHTML = '';

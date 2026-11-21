@@ -104,7 +104,7 @@ php artisan schedule:work
 | Kelompok | Variabel `.env` | Kegunaan |
 | --- | --- | --- |
 | Aplikasi | `APP_ENV`, `APP_DEBUG`, `APP_URL`, `APP_KEY`, `APP_NAME`, `APP_TIMEZONE`, `APP_LOCALE`, `APP_FALLBACK_LOCALE`, `APP_FAKER_LOCALE` | Lingkungan, URL publik, enkripsi, nama, bahasa, dan zona waktu |
-| Database | `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | Koneksi basis data |
+| Database | `DB_CONNECTION`, `DB_TIMEZONE`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | Koneksi dan zona waktu sesi basis data; MySQL/MariaDB default `+07:00` |
 | Worker | `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER` | Antrean, cache, dan sesi; konfigurasi default memakai database |
 | Realtime | `BROADCAST_CONNECTION`, `REALTIME_DRIVER`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`, `REVERB_SERVER_HOST`, `REVERB_SERVER_PORT`, `REVERB_ALLOWED_ORIGINS` | Kredensial, listener, dan origin yang diizinkan untuk WebSocket |
 | Build frontend realtime | `VITE_REALTIME_DRIVER`, `VITE_REVERB_APP_KEY`, `VITE_REVERB_HOST`, `VITE_REVERB_PORT`, `VITE_REVERB_SCHEME` | Ditanam saat `npm run build`; build ulang setelah nilainya diubah |
@@ -185,7 +185,9 @@ Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `f
 
 ### Laporan, tabel panel, dan backup
 
-Tabel panel mendukung pencarian, filter yang sesuai dengan datanya, pengurutan, dan pagination server-side. Laporan di panel owner dapat difilter berdasarkan rentang tanggal dan ditampilkan harian atau bulanan. Omzet/laba dikelompokkan menurut **tanggal servis didaftarkan** karena aplikasi belum menyimpan jurnal transaksi dengan tanggal pembayaran tersendiri. Laba kotor dihitung sebagai nilai tagihan servis dikurangi snapshot modal sparepart yang dipakai. Piutang memakai status pembayaran saat ini. CSV dibuat native; tombol PDF membuka halaman print yang dapat disimpan sebagai PDF dari browser.
+Tabel panel mendukung pencarian, filter yang sesuai dengan datanya, pengurutan, dan pagination server-side. Laporan di panel owner dapat difilter berdasarkan rentang tanggal dan ditampilkan harian atau bulanan. Omzet/laba dikelompokkan menurut **tanggal servis didaftarkan** karena aplikasi belum menyimpan jurnal transaksi dengan tanggal pembayaran tersendiri. Filter tanggal dan pengelompokan memakai zona waktu aplikasi (`APP_TIMEZONE`, default `Asia/Jakarta`); servis yang tercatat pukul 00:30 WIB masuk ke tanggal kalender WIB tersebut. Laba kotor dihitung sebagai nilai tagihan servis dikurangi snapshot modal sparepart yang dipakai. Piutang memakai status pembayaran saat ini. CSV dibuat native; tanggalnya berasal dari timestamp lokal servis yang sama dengan laporan; tombol PDF membuka halaman print yang dapat disimpan sebagai PDF dari browser.
+
+Timestamp aplikasi ditulis/dibaca dalam konteks `APP_TIMEZONE`. Kolom `DATETIME` (termasuk `services.created_at`) menyimpan waktu kalender lokal tanpa konversi zona. Pada MySQL/MariaDB, kolom `TIMESTAMP` disimpan internal sebagai UTC oleh mesin database; `DB_TIMEZONE=+07:00` membuat sesi koneksi mengonversi nilai ke/dari WIB secara konsisten. Kolom `DATE` seperti tanggal pembelian dan akhir garansi adalah tanggal kalender tanpa jam. Respons API menserialisasi datetime sebagai ISO-8601 UTC, lalu browser mengubahnya ke zona waktu perangkat saat ditampilkan.
 
 Backup otomatis dijalankan setiap hari pukul 02:00 dan retensi default 14 hari. Untuk menjalankan atau menguji backup manual:
 

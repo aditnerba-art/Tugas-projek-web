@@ -138,5 +138,11 @@ Artisan::command('database:backup', function () {
     return Command::SUCCESS;
 })->purpose('Create a private database backup and remove expired backup files');
 
-Schedule::command('notifications:remind-uncollected')->dailyAt('09:00')->withoutOverlapping();
-Schedule::command('database:backup')->dailyAt('02:00')->withoutOverlapping();
+Schedule::command('notifications:remind-uncollected')
+    ->dailyAt('09:00')
+    ->timezone(config('app.timezone'))
+    ->withoutOverlapping();
+Schedule::command('database:backup')
+    ->dailyAt('02:00')
+    ->timezone(config('app.timezone'))
+    ->withoutOverlapping();

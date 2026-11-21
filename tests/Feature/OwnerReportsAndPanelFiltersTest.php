@@ -8,6 +8,8 @@ use App\Models\ServiceItem;
 use App\Models\Sparepart;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -122,5 +124,47 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             ->assertSee('Laporan Operasional TECKFO Service')
             ->assertSee('RAM Laporan')
             ->assertSee('Pelanggan Laporan');
+    }
+
+    public function test_report_groups_a_service_created_at_0030_wib_on_its_local_calendar_date(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $createdAt = Carbon::parse('2026-11-22 00:30:00', 'Asia/Jakarta');
+        Carbon::setTestNow($createdAt);
+
+        try {
+            $owner = User::factory()->owner()->create();
+            $customer = Customer::create(['nama' => 'Pelanggan Tengah Malam', 'no_wa' => '08123456789']);
+            $service = Service::create([
+                'no_nota' => 'SRV-WIB-0030',
+                'customer_id' => $customer->id,
+                'merek_tipe' => 'Laptop WIB',
+                'keluhan' => 'Pengecekan waktu laporan',
+                'total_biaya' => 125000,
+                'created_at' => $createdAt,
+            ]);
+
+            $this->assertSame(
+                '2026-11-22 00:30:00',
+                DB::table('services')->where('id', $service->id)->value('created_at')
+            );
+
+            $this->actingAs($owner)
+                ->getJson('/api/owner/reports?date_from=2026-11-22&date_to=2026-11-22&period=day')
+                ->assertOk()
+                ->assertJsonPath('data.summary.jumlah_servis', 1)
+                ->assertJsonPath('data.series.0.label', '22 Nov')
+                ->assertJsonPath('data.series.0.jumlah_servis', 1);
+
+            $this->getJson('/api/owner/reports?date_from=2026-11-21&date_to=2026-11-21&period=day')
+                ->assertOk()
+                ->assertJsonPath('data.summary.jumlah_servis', 0);
+
+            $csv = $this->get('/api/owner/reports.csv?date_from=2026-11-22&date_to=2026-11-22&period=day')
+                ->assertOk();
+            $this->assertStringContainsString('22 Nov', $csv->streamedContent());
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 }
