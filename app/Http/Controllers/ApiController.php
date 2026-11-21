@@ -1440,7 +1440,7 @@ class ApiController extends Controller
         $technicianCounts = (clone $services)
             ->leftJoin('users as technicians', 'technicians.id', '=', 'services.teknisi_id')
             ->selectRaw("COALESCE(technicians.nama, 'Belum ditugaskan') as teknisi, COUNT(services.id) as jumlah_servis, SUM(services.total_biaya) as omzet")
-            ->groupBy('technicians.nama')
+            ->groupBy('technicians.id', 'technicians.nama')
             ->orderByDesc('jumlah_servis')
             ->get();
         $topParts = DB::table('service_items')

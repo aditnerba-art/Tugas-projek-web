@@ -98,8 +98,12 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
         $date = now()->toDateString();
         $filters = '?date_from='.$date.'&date_to='.$date.'&period=month';
 
-        $this->actingAs($owner)
-            ->getJson('/api/owner/reports'.$filters)
+        $this->actingAs($owner)->getJson('/api/owner/reports?date_from='.$date.'&date_to='.$date.'&period=day')
+            ->assertOk()
+            ->assertJsonPath('data.series.0.jumlah_servis', 1)
+            ->assertJsonPath('data.status_counts.0.jumlah', 1);
+
+        $this->getJson('/api/owner/reports'.$filters)
             ->assertOk()
             ->assertJsonPath('data.summary.omzet', 1000)
             ->assertJsonPath('data.summary.modal_sparepart', 400)
