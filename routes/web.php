@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApiController;
+use App\Http\Controllers\ServicePhotoController;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Route;
 
@@ -9,6 +10,10 @@ Route::view('/lacak', 'index');
 Route::get('/lacak/unit/{trackingKey}', fn (string $trackingKey) => view('index', ['trackingKey' => $trackingKey]))
     ->where('trackingKey', '[A-Za-z0-9]{64}')
     ->name('tracking.public.page');
+Route::get('/service-photos/{photo}/{variant?}', ServicePhotoController::class)
+    ->whereNumber('photo')
+    ->where('variant', 'original|thumbnail')
+    ->name('service-photos.show');
 Route::get('/index.html', fn () => redirect('/', 301));
 Route::view('/login.html', 'login');
 Route::view('/admin-login.html', 'admin-login');

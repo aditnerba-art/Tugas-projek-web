@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\NotificationLog;
 use App\Models\Service;
+use App\Models\ServicePhoto;
 use App\Models\Sparepart;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -128,6 +130,7 @@ class ServiceWorkflowEnhancementsTest extends TestCase
     public function test_service_photos_are_validated_stored_and_visible_only_through_service_tracking(): void
     {
         Storage::fake('public');
+        Storage::fake('service_photos');
         $admin = $this->user('admin', 'admin_photo');
         $technician = $this->user('teknisi', 'teknisi_photo');
         $service = $this->service(['teknisi_id' => $technician->id]);
@@ -139,12 +142,37 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         ])->assertCreated();
 
         $photo = $service->photos()->sole();
-        Storage::disk('public')->assertExists($photo->path);
-        Storage::disk('public')->assertExists($photo->thumbnail_path);
-        $this->getJson('/api/tracking-link/'.$service->tracking_key)
-            ->assertOk()->assertJsonPath('data.photos.0.kind', 'intake');
+        Storage::disk('service_photos')->assertExists($photo->path);
+        Storage::disk('service_photos')->assertExists($photo->thumbnail_path);
+        Storage::disk('public')->assertMissing($photo->path);
+        Storage::disk('public')->assertMissing($photo->thumbnail_path);
+        $tracking = $this->getJson('/api/tracking-link/'.$service->tracking_key)
+            ->assertOk()
+            ->assertJsonPath('data.photos.0.kind', 'intake');
+        $photoUrl = $tracking->json('data.photos.0.url');
+        $this->assertStringContainsString('tracking_key='.$service->tracking_key, $photoUrl);
+
+        $photoPath = parse_url($photoUrl, PHP_URL_PATH);
+        Auth::logout();
+        $this->get($photoPath)->assertNotFound();
+        $this->get('/storage/'.$photo->path)->assertForbidden();
+        $this->get($photoUrl)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->actingAs($admin)->get(route('service-photos.show', [
+            'photo' => $photo->id,
+            'variant' => 'thumbnail',
+        ]))->assertOk();
+        $this->actingAs($technician)->get(route('service-photos.show', [
+            'photo' => $photo->id,
+        ]))->assertOk();
 
         $otherTechnician = $this->user('teknisi', 'teknisi_other');
+        $this->actingAs($otherTechnician)->get(route('service-photos.show', [
+            'photo' => $photo->id,
+        ]))->assertNotFound();
         $this->actingAs($otherTechnician)->withHeaders(['Accept' => 'application/json'])->post('/api/admin/service/photos', [
             'service_id' => $service->id,
             'kind' => 'completion',
@@ -156,6 +184,46 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             'kind' => 'intake',
             'photos' => [UploadedFile::fake()->create('bad.svg', 100, 'image/svg+xml')],
         ])->assertUnprocessable();
+    }
+
+    public function test_private_photo_migration_supports_dry_run_and_reencodes_legacy_images(): void
+    {
+        Storage::fake('public');
+        Storage::fake('service_photos');
+        $service = $this->service();
+        $image = UploadedFile::fake()->image('legacy.png', 320, 240);
+        $legacyContents = file_get_contents($image->getRealPath()).'private-metadata-marker';
+        $legacyPath = 'services/'.$service->id.'/legacy.jpg';
+        $legacyThumbnailPath = 'services/'.$service->id.'/thumbs/legacy.jpg';
+        Storage::disk('public')->put($legacyPath, $legacyContents);
+        Storage::disk('public')->put($legacyThumbnailPath, file_get_contents($image->getRealPath()));
+        $photo = ServicePhoto::create([
+            'service_id' => $service->id,
+            'uploaded_by' => null,
+            'kind' => 'intake',
+            'path' => $legacyPath,
+            'thumbnail_path' => $legacyThumbnailPath,
+            'mime_type' => 'image/png',
+            'size' => strlen($legacyContents),
+        ]);
+
+        $this->artisan('service-photos:migrate-private', ['--dry-run' => true])
+            ->expectsOutputToContain("1 foto, 0 gagal")
+            ->assertSuccessful();
+        $this->assertSame($legacyPath, $photo->fresh()->path);
+        Storage::disk('public')->assertExists($legacyPath);
+        Storage::disk('service_photos')->assertMissing('service-photos/'.$legacyPath);
+
+        $this->artisan('service-photos:migrate-private')->assertSuccessful();
+        $photo->refresh();
+        $this->assertSame('service-photos/'.$legacyPath, $photo->path);
+        $this->assertSame('image/jpeg', $photo->mime_type);
+        Storage::disk('service_photos')->assertExists($photo->path);
+        Storage::disk('service_photos')->assertExists($photo->thumbnail_path);
+        Storage::disk('public')->assertMissing($legacyPath);
+        Storage::disk('public')->assertMissing($legacyThumbnailPath);
+        $this->get('/storage/'.$legacyPath)->assertForbidden();
+        $this->assertStringNotContainsString('private-metadata-marker', Storage::disk('service_photos')->get($photo->path));
     }
 
     public function test_admin_assignment_exposes_workload_and_technicians_only_see_their_services(): void

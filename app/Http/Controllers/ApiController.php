@@ -37,6 +37,7 @@ use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
 use App\Notifications\ServicePanelNotification;
+use App\Services\ServicePhotoImageProcessor;
 use App\Services\WhatsApp\PhoneNumber;
 use App\Services\WhatsApp\WhatsAppNotificationService;
 use Illuminate\Contracts\View\View;
@@ -148,8 +149,16 @@ class ApiController extends Controller
         $photos = $service->photos->map(fn (ServicePhoto $photo) => [
             'id' => $photo->id,
             'kind' => $photo->kind,
-            'url' => Storage::disk('public')->url($photo->path),
-            'thumbnail_url' => Storage::disk('public')->url($photo->thumbnail_path),
+            'url' => route('service-photos.show', [
+                'photo' => $photo->id,
+                'variant' => 'original',
+                'tracking_key' => $service->tracking_key,
+            ]),
+            'thumbnail_url' => route('service-photos.show', [
+                'photo' => $photo->id,
+                'variant' => 'thumbnail',
+                'tracking_key' => $service->tracking_key,
+            ]),
             'created_at' => $photo->created_at,
         ])->all();
         $items = $service->items->map(fn (ServiceItem $item) => [
@@ -797,52 +806,28 @@ class ApiController extends Controller
             $serviceQuery->where('teknisi_id', $request->user()->id);
         }
         $service = $serviceQuery->firstOrFail();
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('service_photos');
+        $imageProcessor = app(ServicePhotoImageProcessor::class);
         $savedPaths = [];
 
         try {
-            $photos = DB::transaction(function () use ($data, $request, $service, $disk, &$savedPaths) {
-                return collect($data['photos'])->map(function ($file) use ($data, $request, $service, $disk, &$savedPaths): ServicePhoto {
-                    $image = imagecreatefromstring(file_get_contents($file->getRealPath()));
-                    if ($image === false) {
-                        throw new RuntimeException('File foto tidak dapat dibaca sebagai gambar yang valid.');
+            $photos = DB::transaction(function () use ($data, $request, $service, $disk, $imageProcessor, &$savedPaths) {
+                return collect($data['photos'])->map(function ($file) use ($data, $request, $service, $disk, $imageProcessor, &$savedPaths): ServicePhoto {
+                    $uploadedContents = file_get_contents($file->getRealPath());
+                    if (! is_string($uploadedContents)) {
+                        throw new RuntimeException('File foto tidak dapat dibaca.');
                     }
 
-                    $width = imagesx($image);
-                    $height = imagesy($image);
-                    ob_start();
-                    imagejpeg($image, null, 90);
-                    $originalContents = ob_get_clean();
-                    if (! is_string($originalContents) || $originalContents === '') {
-                        imagedestroy($image);
-                        throw new RuntimeException('Foto tidak dapat diproses dengan aman.');
-                    }
-                    $scale = min(1, 640 / max($width, $height));
-                    $thumbnail = imagecreatetruecolor(max(1, (int) round($width * $scale)), max(1, (int) round($height * $scale)));
-                    imagecopyresampled(
-                        $thumbnail, $image, 0, 0, 0, 0,
-                        imagesx($thumbnail), imagesy($thumbnail), $width, $height,
-                    );
-                    ob_start();
-                    imagejpeg($thumbnail, null, 82);
-                    $thumbnailContents = ob_get_clean();
-                    imagedestroy($image);
-                    imagedestroy($thumbnail);
-
-
-                    if (! is_string($thumbnailContents) || $thumbnailContents === '') {
-                        throw new RuntimeException('Thumbnail foto gagal dibuat.');
-                    }
-
-                    $directory = 'services/'.$service->id;
+                    $processed = $imageProcessor->process($uploadedContents);
+                    $directory = 'service-photos/services/'.$service->id;
                     $name = Str::uuid()->toString();
                     $path = $directory.'/'.$name.'.jpg';
                     $thumbnailPath = $directory.'/thumbs/'.$name.'.jpg';
-                    if (! $disk->put($path, $originalContents)) {
-                        throw new RuntimeException('Foto gagal disimpan pada disk public.');
+                    if (! $disk->put($path, $processed['original'])) {
+                        throw new RuntimeException('Foto gagal disimpan pada disk privat.');
                     }
                     $savedPaths[] = $path;
-                    if (! $disk->put($thumbnailPath, $thumbnailContents)) {
+                    if (! $disk->put($thumbnailPath, $processed['thumbnail'])) {
                         throw new RuntimeException('Thumbnail gagal disimpan pada disk public.');
                     }
                     $savedPaths[] = $thumbnailPath;
@@ -852,8 +837,8 @@ class ApiController extends Controller
                         'kind' => $data['kind'],
                         'path' => $path,
                         'thumbnail_path' => $thumbnailPath,
-                        'mime_type' => $file->getMimeType(),
-                        'size' => $file->getSize(),
+                        'mime_type' => 'image/jpeg',
+                        'size' => strlen($processed['original']),
                     ]);
                 });
             });
@@ -872,7 +857,11 @@ class ApiController extends Controller
             'data' => $photos->map(fn (ServicePhoto $photo) => [
                 'id' => $photo->id,
                 'kind' => $photo->kind,
-                'thumbnail_url' => $disk->url($photo->thumbnail_path),
+                'thumbnail_url' => route('service-photos.show', [
+                    'photo' => $photo->id,
+                    'variant' => 'thumbnail',
+                    'tracking_key' => $service->tracking_key,
+                ]),
             ]),
         ], 201);
     }

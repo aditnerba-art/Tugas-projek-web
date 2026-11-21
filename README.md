@@ -238,7 +238,16 @@ Jalankan `php artisan queue:work` untuk memproses pesan dan `php artisan schedul
 
 ## Fitur alur servis
 
-Form pendaftaran mencatat estimasi selesai, prioritas, teknisi, checklist kelengkapan, kondisi fisik, dan foto penerimaan. Teknisi dapat mengubah estimasi dan mengunggah foto setelah servis; foto JPEG/PNG dibatasi 5 MB dan 3000×3000 px, disimpan dengan nama acak pada disk `public`, serta dibuatkan thumbnail. Jalankan `php artisan storage:link` pada deployment untuk menyajikan foto.
+Form pendaftaran mencatat estimasi selesai, prioritas, teknisi, checklist kelengkapan, kondisi fisik, dan foto penerimaan. Teknisi dapat mengubah estimasi dan mengunggah foto setelah servis; foto JPEG/PNG dibatasi 5 MB dan 3000×3000 px, di-decode dan di-encode ulang sebagai JPEG untuk menghapus metadata, lalu disimpan beserta thumbnail pada disk privat `service_photos` di `storage/app/private`. Foto hanya dilayani melalui endpoint berotorisasi untuk staf yang berwenang atau pelanggan dengan akses tracking yang valid; URL `/storage/...` tidak digunakan untuk foto servis.
+
+Jika instalasi lama sudah menyimpan foto pada disk `public`, tinjau terlebih dahulu apa yang akan dipindahkan, kemudian jalankan:
+
+```sh
+php artisan service-photos:migrate-private --dry-run
+php artisan service-photos:migrate-private
+```
+
+Command meng-encode ulang gambar, memperbarui path database, dan menghapus salinan publik setelah path privat berhasil disimpan. Periksa output command dan backup sebelum migrasi. `php artisan storage:link` tetap diperlukan hanya untuk aset lain yang memang publik, seperti logo atau gambar statis.
 
 Batas stok minimum dapat diatur per sparepart. Penggunaan sparepart mengunci stok di dalam transaksi, menolak stok yang tidak cukup, dan menyimpan harga modal/jual sebagai snapshot pada item servis. Garansi mulai berlaku ketika unit diserahkan, sesuai masa garansi servis.
 
