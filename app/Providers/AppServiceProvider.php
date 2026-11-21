@@ -66,7 +66,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function guardProductionConfiguration(): void
     {
-        if (! $this->app->environment('production')) {
+        if (config('app.env') !== 'production') {
             return;
         }
 
