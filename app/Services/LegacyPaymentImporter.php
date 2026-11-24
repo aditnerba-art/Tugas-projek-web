@@ -45,8 +45,15 @@ class LegacyPaymentImporter
                             ->where('subjek', 'service:'.$lockedService->id)
                             ->orderByDesc('created_at')
                             ->first(['user_id', 'created_at']);
+                        $handoverDate = $lockedService->status === 'diambil'
+                            ? DB::table('service_status_logs')
+                                ->where('service_id', $lockedService->id)
+                                ->where('status_baru', 'diambil')
+                                ->orderByDesc('created_at')
+                                ->value('created_at')
+                            : null;
                         $fallbackDate = $lockedService->status === 'diambil'
-                            ? $lockedService->updated_at
+                            ? ($handoverDate ?? $lockedService->updated_at)
                             : ($lockedService->updated_at ?? $lockedService->created_at);
 
                         $lockedService->payments()->create([

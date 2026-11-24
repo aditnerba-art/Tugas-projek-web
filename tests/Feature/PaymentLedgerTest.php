@@ -177,4 +177,37 @@ class PaymentLedgerTest extends TestCase
         $this->artisan('payments:migrate-legacy')->assertSuccessful();
         $this->assertDatabaseCount('payments', 1);
     }
+
+    public function test_legacy_payment_import_uses_handover_date_before_service_updated_at(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $customer = Customer::create(['nama' => 'Pelanggan Serah Terima', 'no_wa' => '08123456789']);
+        $service = Service::create([
+            'no_nota' => 'SRV-LEGACY-HANDOVER',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop Lama',
+            'keluhan' => 'Servis lama',
+            'status' => 'diambil',
+            'total_biaya' => 1000,
+        ]);
+        DB::table('services')->where('id', $service->id)->update([
+            'status_pembayaran' => 'lunas',
+            'nominal_dibayar' => 1000,
+            'updated_at' => '2026-12-10 14:25:00',
+            'created_at' => '2026-11-30 14:25:00',
+        ]);
+        DB::table('service_status_logs')->insert([
+            'service_id' => $service->id,
+            'status_lama' => 'selesai',
+            'status_baru' => 'diambil',
+            'created_at' => '2026-12-03 14:25:00',
+        ]);
+
+        $this->artisan('payments:migrate-legacy')->assertSuccessful();
+
+        $payment = Payment::sole();
+        $this->assertSame(1000, $payment->amount);
+        $this->assertSame('2026-12-03 14:25:00', $payment->paid_at->format('Y-m-d H:i:s'));
+        $this->assertSame('migrasi data lama', $payment->note);
+    }
 }
