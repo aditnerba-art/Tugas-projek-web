@@ -83,6 +83,9 @@
             <button type="button" data-owner-nav="pricing" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
                 <span aria-hidden="true">💵</span> Tarif Jasa
             </button>
+            <button type="button" data-owner-nav="warranty" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">🛡️</span> Kebijakan Garansi
+            </button>
             <a href="/owner/activity-logs" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-sm font-medium text-slate-200 no-underline transition hover:bg-[#132F63] hover:text-white">
                 <span aria-hidden="true">🧾</span> Log Aktivitas
             </a>
@@ -422,6 +425,37 @@
                 </div>
             </section>
 
+            <section data-owner-panel="warranty" hidden class="space-y-5 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-5 shadow-sm sm:p-7">
+                <div>
+                    <h2 class="text-xl font-extrabold text-[#0B1E3F]">Preset Garansi</h2>
+                    <p class="mt-1 text-sm text-slate-600">Atur jenis garansi dan durasinya. Durasi yang sudah dipilih pada servis tetap tersimpan sebagai snapshot.</p>
+                </div>
+                <form id="warrantyPresetForm" class="grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-4">
+                    <input id="warrantyPresetId" type="hidden">
+                    <label class="text-xs font-semibold text-slate-700 sm:col-span-2">Nama preset
+                        <input id="warrantyPresetName" required minlength="2" maxlength="100" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+                    </label>
+                    <label class="text-xs font-semibold text-slate-700">Durasi (hari)
+                        <input id="warrantyPresetDays" type="number" min="1" max="3650" step="1" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+                    </label>
+                    <label class="flex items-center gap-2 self-end pb-2 text-sm">
+                        <input id="warrantyPresetActive" type="checkbox" checked class="h-4 w-4">
+                        Preset aktif
+                    </label>
+                    <div class="flex flex-wrap gap-2 sm:col-span-4">
+                        <button type="submit" class="rounded-lg bg-[#0B1E3F] px-4 py-2.5 text-sm font-bold text-white">Simpan preset</button>
+                        <button id="warrantyPresetReset" type="button" class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold">Batal / preset baru</button>
+                    </div>
+                </form>
+                <p id="warrantyPresetMessage" role="status" aria-live="polite" class="text-sm"></p>
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100"><tr><th class="p-3">Nama preset</th><th class="p-3 text-right">Durasi</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead>
+                        <tbody id="warrantyPresetRows"><tr><td colspan="4" class="p-4 text-center text-slate-500">Memuat preset…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
             <section data-owner-panel="inventory" hidden class="space-y-8">
                 <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -601,6 +635,7 @@
         let ownerPartsPage = 1;
         let reportPage = 1;
         let serviceRatesCache = [];
+        let warrantyPresetsCache = [];
 
         function renderOwnerPagination(elementId, meta, onPage) {
             const container = document.getElementById(elementId);
@@ -642,7 +677,7 @@
         }
 
         async function loadAllData() {
-            await Promise.all([loadDashboard(), loadPurchases(), loadSparepartsCatalog(), loadOwnerParts(), loadOwnerReport(), loadServiceRates()]);
+            await Promise.all([loadDashboard(), loadPurchases(), loadSparepartsCatalog(), loadOwnerParts(), loadOwnerReport(), loadServiceRates(), loadWarrantyPresets()]);
         }
 
         async function loadServiceRates() {
@@ -728,6 +763,114 @@
             } catch (error) {
                 message.textContent = error.message || 'Tarif jasa gagal disimpan.';
                 message.className = 'text-sm text-rose-700';
+            }
+        }
+
+        async function loadWarrantyPresets() {
+                const rows = document.getElementById('warrantyPresetRows');
+                try {
+                    const response = await fetch('/api/owner/warranty-presets');
+                    const result = await response.json();
+                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Preset garansi gagal dimuat.');
+                    warrantyPresetsCache = result.data;
+                    rows.replaceChildren();
+                    if (!warrantyPresetsCache.length) {
+                        const row = rows.insertRow();
+                        const cell = row.insertCell();
+                        cell.colSpan = 4;
+                        cell.className = 'p-4 text-center text-slate-500';
+                        cell.textContent = 'Belum ada preset garansi.';
+                        return;
+                    }
+                    warrantyPresetsCache.forEach(preset => {
+                        const row = rows.insertRow();
+                        const name = row.insertCell();
+                        const days = row.insertCell();
+                        const status = row.insertCell();
+                        const actions = row.insertCell();
+                        name.className = 'p-3 font-semibold';
+                        name.textContent = preset.name;
+                        days.className = 'p-3 text-right tabular-nums';
+                        days.textContent = `${preset.days} hari`;
+                        status.className = 'p-3';
+                        status.textContent = preset.active ? 'Aktif' : 'Nonaktif';
+                        actions.className = 'p-3';
+                        const edit = document.createElement('button');
+                        edit.type = 'button';
+                        edit.className = 'rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold';
+                        edit.textContent = 'Ubah';
+                        edit.addEventListener('click', () => {
+                            document.getElementById('warrantyPresetId').value = preset.id;
+                            document.getElementById('warrantyPresetName').value = preset.name;
+                            document.getElementById('warrantyPresetDays').value = preset.days;
+                            document.getElementById('warrantyPresetActive').checked = preset.active;
+                            document.getElementById('warrantyPresetName').focus();
+                        });
+                        const remove = document.createElement('button');
+                        remove.type = 'button';
+                        remove.className = 'ml-2 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-700';
+                        remove.textContent = 'Hapus';
+                        remove.addEventListener('click', () => deleteWarrantyPreset(preset.id));
+                        actions.append(edit, remove);
+                    });
+                } catch (error) {
+                    console.error('Gagal memuat preset garansi', error);
+                    rows.replaceChildren();
+                    const row = rows.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 4;
+                    cell.className = 'p-4 text-center text-rose-700';
+                    cell.textContent = error.message || 'Preset garansi gagal dimuat.';
+                }
+            }
+
+        function resetWarrantyPresetForm() {
+            document.getElementById('warrantyPresetForm').reset();
+            document.getElementById('warrantyPresetId').value = '';
+            document.getElementById('warrantyPresetActive').checked = true;
+        }
+
+        async function saveWarrantyPreset(event) {
+                event.preventDefault();
+                const id = document.getElementById('warrantyPresetId').value;
+                const payload = {
+                    name: document.getElementById('warrantyPresetName').value.trim(),
+                    days: Number(document.getElementById('warrantyPresetDays').value),
+                    active: document.getElementById('warrantyPresetActive').checked,
+                };
+                const message = document.getElementById('warrantyPresetMessage');
+                try {
+                    const response = await fetch(id ? `/api/owner/warranty-presets/${id}` : '/api/owner/warranty-presets', {
+                        method: id ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const result = await response.json();
+                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Preset garansi gagal disimpan.');
+                    message.textContent = 'Preset garansi berhasil disimpan.';
+                    message.className = 'text-sm text-emerald-700';
+                    resetWarrantyPresetForm();
+                    await loadWarrantyPresets();
+                } catch (error) {
+                    message.textContent = error.message || 'Preset garansi gagal disimpan.';
+                    message.className = 'text-sm text-rose-700';
+                }
+            }
+
+        async function deleteWarrantyPreset(id) {
+                if (!window.confirm('Hapus atau nonaktifkan preset garansi ini?')) return;
+                const message = document.getElementById('warrantyPresetMessage');
+                try {
+                    const response = await fetch(`/api/owner/warranty-presets/${id}`, { method: 'DELETE' });
+                    const result = await response.json();
+                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Preset garansi gagal dihapus.');
+                    message.textContent = result.message;
+                    message.className = 'text-sm text-emerald-700';
+                    resetWarrantyPresetForm();
+                    await loadWarrantyPresets();
+                } catch (error) {
+                    message.textContent = error.message || 'Preset garansi gagal dihapus.';
+                    message.className = 'text-sm text-rose-700';
             }
         }
 
@@ -1300,6 +1443,8 @@
         document.getElementById('loadReport').addEventListener('click', () => loadOwnerReport(1));
         document.getElementById('serviceRateForm').addEventListener('submit', saveServiceRate);
         document.getElementById('serviceRateReset').addEventListener('click', resetServiceRateForm);
+        document.getElementById('warrantyPresetForm').addEventListener('submit', saveWarrantyPreset);
+        document.getElementById('warrantyPresetReset').addEventListener('click', resetWarrantyPresetForm);
         document.getElementById('reportPeriod').addEventListener('change', () => loadOwnerReport(1));
         document.getElementById('reportCsv').addEventListener('click', () => openReportExport('/api/owner/reports.csv'));
         document.getElementById('reportPdf').addEventListener('click', () => openReportExport('/api/owner/reports/print'));
@@ -1328,7 +1473,8 @@
                 dashboard: 'Dashboard & Laporan',
                 staff: 'Manajemen Staf',
                 inventory: 'Stok Sparepart',
-                pricing: 'Tarif Jasa'
+                pricing: 'Tarif Jasa',
+                warranty: 'Kebijakan Garansi'
             };
 
             function setSidebarOpen(open) {

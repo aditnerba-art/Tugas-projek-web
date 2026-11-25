@@ -24,8 +24,11 @@ class UpdateServiceStatusRequest extends FormRequest
             'estimated_completion_at' => ['prohibited'],
             'warranty_days' => ['prohibited'],
             'warranty_preset_id' => ['nullable', 'integer', 'exists:warranty_presets,id'],
-            'sparepart_id' => ['nullable', 'integer', 'exists:spareparts,id'],
-            'jumlah_sparepart' => ['nullable', 'integer', 'min:1'],
+            'sparepart_items' => ['sometimes', 'array', 'max:20'],
+            'sparepart_items.*.sparepart_id' => ['required', 'integer', 'distinct', 'exists:spareparts,id'],
+            'sparepart_items.*.jumlah' => ['required', 'integer', 'min:1'],
+            'sparepart_id' => ['nullable', 'prohibited_with:sparepart_items', 'integer', 'exists:spareparts,id'],
+            'jumlah_sparepart' => ['nullable', 'prohibited_with:sparepart_items', 'required_with:sparepart_id', 'integer', 'min:1'],
         ];
     }
 }

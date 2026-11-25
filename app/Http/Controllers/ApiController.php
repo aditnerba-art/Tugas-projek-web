@@ -708,12 +708,17 @@ class ApiController extends Controller
                 $service->biaya_jasa = $rate->amount;
             }
 
+            $requestedParts = $data['sparepart_items'] ?? [];
             if (! empty($data['sparepart_id'])) {
-                $sparepart = Sparepart::whereKey($data['sparepart_id'])->lockForUpdate()->firstOrFail();
-                $quantity = (int) ($data['jumlah_sparepart'] ?? 0);
-                if ($quantity < 1) {
-                    abort(422, 'Jumlah sparepart harus lebih dari 0');
-                }
+                $requestedParts[] = [
+                    'sparepart_id' => $data['sparepart_id'],
+                    'jumlah' => $data['jumlah_sparepart'],
+                ];
+            }
+            usort($requestedParts, fn (array $first, array $second): int => (int) $first['sparepart_id'] <=> (int) $second['sparepart_id']);
+            foreach ($requestedParts as $requestedPart) {
+                $sparepart = Sparepart::whereKey($requestedPart['sparepart_id'])->lockForUpdate()->firstOrFail();
+                $quantity = (int) $requestedPart['jumlah'];
                 if ($sparepart->stok < $quantity) {
                     abort(422, "Stok sparepart \"{$sparepart->nama_barang}\" tidak mencukupi (sisa: {$sparepart->stok})");
                 }
@@ -731,7 +736,7 @@ class ApiController extends Controller
                 ]);
             }
 
-            if ($rate || ! empty($data['sparepart_id'])) {
+            if ($rate || $requestedParts) {
                 $partsTotal = $service->items()->where('approval_status', '<>', 'cancelled')->sum('subtotal');
                 $service->total_biaya = (int) $service->biaya_jasa + (int) $partsTotal;
             }
@@ -752,7 +757,7 @@ class ApiController extends Controller
             $service->save();
             $service->syncPaymentSummary();
             $costIncrease = (int) $service->total_biaya > (int) $oldServiceData['total_biaya'];
-            $requiresApproval = ! empty($data['sparepart_id']) || $costIncrease;
+            $requiresApproval = (bool) $requestedParts || $costIncrease;
             $requestedStatus = $data['status_baru'];
             if ($oldStatus === 'menunggu_persetujuan' && $requestedStatus !== 'menunggu_persetujuan') {
                 abort(409, 'Keputusan persetujuan hanya dapat diberikan oleh pelanggan melalui portal.');
@@ -950,7 +955,7 @@ class ApiController extends Controller
             ...$service->only([
                 'id', 'no_nota', 'jenis_unit', 'merek_tipe', 'status', 'biaya_jasa', 'total_biaya',
                 'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
-                'created_at', 'teknisi_id', 'customer_id', 'priority', 'estimated_completion_at', 'warranty_days',
+                'created_at', 'teknisi_id', 'customer_id', 'priority', 'estimated_completion_at', 'warranty_days', 'warranty_preset_id',
                 'initial_estimated_completion_at', 'actual_completed_at', 'service_rate_id', 'keluhan',
                 'warranty_expires_at', 'accessories', 'physical_condition',
             ]),

@@ -11,6 +11,7 @@ use App\Models\ServicePhoto;
 use App\Models\ServiceRate;
 use App\Models\Sparepart;
 use App\Models\User;
+use App\Models\WarrantyPreset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -270,6 +271,71 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         ])->assertForbidden();
 
         $this->assertDatabaseHas('service_rates', ['id' => $rateId, 'amount' => 50000]);
+    }
+
+    public function test_owner_controls_warranty_presets_and_services_keep_the_selected_duration_snapshot(): void
+    {
+        $owner = $this->user('owner', 'owner_warranty_presets');
+        $admin = $this->user('admin', 'admin_warranty_presets');
+        $technician = $this->user('teknisi', 'tech_warranty_presets');
+
+        $this->actingAs($admin)->postJson('/api/owner/warranty-presets', [
+            'name' => 'Garansi baterai',
+            'days' => 30,
+        ])->assertForbidden();
+
+        $presetResponse = $this->actingAs($owner)->postJson('/api/owner/warranty-presets', [
+            'name' => 'Garansi baterai',
+            'days' => 30,
+        ])->assertCreated();
+        $presetId = $presetResponse->json('data.id');
+
+        $this->actingAs($technician)->getJson('/api/warranty-presets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $presetId)
+            ->assertJsonPath('data.0.days', 30);
+
+        $this->actingAs($admin)->postJson('/api/admin/service', [
+            'nama' => 'Pelanggan Preset',
+            'no_wa' => '08123456789',
+            'jenis_unit' => 'Laptop',
+            'merek_tipe' => 'Laptop Preset',
+            'keluhan' => 'Baterai cepat habis',
+            'teknisi_id' => $technician->id,
+            'warranty_days' => 365,
+        ])->assertUnprocessable();
+
+        $serviceResponse = $this->postJson('/api/admin/service', [
+            'nama' => 'Pelanggan Preset',
+            'no_wa' => '08123456789',
+            'jenis_unit' => 'Laptop',
+            'merek_tipe' => 'Laptop Preset',
+            'keluhan' => 'Baterai cepat habis',
+            'teknisi_id' => $technician->id,
+            'warranty_preset_id' => $presetId,
+        ])->assertOk();
+        $service = Service::findOrFail($serviceResponse->json('service_id'));
+        $this->assertSame($presetId, $service->warranty_preset_id);
+        $this->assertSame(30, $service->warranty_days);
+
+        $this->actingAs($technician)->putJson('/api/admin/service/status', [
+            'service_id' => $service->id,
+            'status_baru' => 'diperiksa',
+            'warranty_days' => 365,
+        ])->assertUnprocessable();
+
+        $this->actingAs($owner)->putJson('/api/owner/warranty-presets/'.$presetId, [
+            'name' => 'Garansi baterai',
+            'days' => 90,
+        ])->assertOk();
+        $this->assertSame(30, $service->fresh()->warranty_days);
+        $this->assertSame(90, WarrantyPreset::findOrFail($presetId)->days);
+
+        $this->deleteJson('/api/owner/warranty-presets/'.$presetId)
+            ->assertOk()
+            ->assertJsonPath('message', 'Preset dinonaktifkan karena sudah dipakai servis.');
+        $this->assertDatabaseHas('warranty_presets', ['id' => $presetId, 'active' => false]);
+        $this->assertSame(30, $service->fresh()->warranty_days);
     }
 
     public function test_warranty_starts_on_handover_and_public_tracking_link_shows_it(): void

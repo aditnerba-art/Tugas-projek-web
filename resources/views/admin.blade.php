@@ -151,8 +151,10 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Garansi (hari setelah diambil)</label>
-                            <input type="number" id="warranty_days" min="0" max="3650" value="0" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                            <label for="warranty_preset_id" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Preset Garansi</label>
+                            <select id="warranty_preset_id" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm">
+                                <option value="">Tanpa garansi</option>
+                            </select>
                         </div>
                     </div>
 
@@ -997,7 +999,7 @@
                 estimated_completion_at: document.getElementById('estimated_completion_at').value || null,
                 priority: document.getElementById('priority').value,
                 teknisi_id: document.getElementById('teknisi_id').value || null,
-                warranty_days: Number(document.getElementById('warranty_days').value || 0)
+                warranty_preset_id: document.getElementById('warranty_preset_id').value || null
             };
 
             if (!payload.nama || !payload.no_wa || !payload.merek_tipe || !payload.keluhan) {
@@ -1315,6 +1317,21 @@
         });
         document.getElementById('teknisi_id').addEventListener('change', updateEstimateSuggestion);
         document.getElementById('jenis_unit').addEventListener('change', () => loadTechnicianWorkloads(false));
+        async function loadWarrantyPresets() {
+            const select = document.getElementById('warranty_preset_id');
+            try {
+                const response = await fetch('/api/warranty-presets');
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Preset garansi gagal dimuat.');
+                select.replaceChildren(new Option('Tanpa garansi', ''));
+                result.data.forEach(preset => {
+                    select.add(new Option(`${preset.name} · ${preset.days} hari`, preset.id));
+                });
+            } catch (error) {
+                select.replaceChildren(new Option('Preset garansi gagal dimuat', ''));
+                console.error('Gagal memuat preset garansi', error);
+            }
+        }
 
         let pencarianDaftarTimeout;
         document.getElementById('cariPelanggan').addEventListener('input', () => {
@@ -1329,6 +1346,7 @@
         // Inisialisasi data saat halaman dibuka
         loadActiveServices();
         loadCustomers();
+        loadWarrantyPresets();
         function formatTanggalSaran(value) {
             if (!value) return 'belum tersedia';
             const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);

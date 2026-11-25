@@ -180,8 +180,10 @@
                             <span class="text-[11px] text-slate-500">Tanggal baru perlu persetujuan pelanggan.</span>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Garansi (hari setelah diambil)</label>
-                            <input type="number" id="warranty_days" min="0" max="3650" value="0" disabled class="w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2.5 text-sm">
+                            <label for="warranty_preset_id" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Preset Garansi</label>
+                            <select id="warranty_preset_id" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                                <option value="">Tanpa garansi</option>
+                            </select>
                             <span class="text-[11px] text-slate-500">Durasi garansi dikelola Owner.</span>
                         </div>
                         <div>
@@ -540,8 +542,9 @@
             } catch (err) {
                 document.getElementById('sparepart_info').textContent = err.message || 'Sparepart gagal dimuat.';
             }
+        }
 
-            async function loadServiceRates() {
+        async function loadServiceRates() {
                 const select = document.getElementById('service_rate_id');
                 try {
                     const response = await fetch('/api/service-rates');
@@ -558,6 +561,21 @@
                     select.replaceChildren(new Option('Tarif jasa gagal dimuat', ''));
                     document.getElementById('sparepart_info').textContent = error.message || 'Tarif jasa gagal dimuat.';
                 }
+        }
+
+        async function loadWarrantyPresets() {
+                    const select = document.getElementById('warranty_preset_id');
+                    try {
+                        const response = await fetch('/api/warranty-presets');
+                        const result = await response.json();
+                        if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Preset garansi gagal dimuat.');
+                        select.replaceChildren(new Option('Tanpa garansi', ''));
+                        result.data.forEach(preset => {
+                            select.add(new Option(`${preset.name} · ${preset.days} hari`, preset.id));
+                        });
+                    } catch (error) {
+                        select.replaceChildren(new Option('Preset garansi gagal dimuat', ''));
+                        document.getElementById('sparepart_info').textContent = error.message || 'Preset garansi gagal dimuat.';
             }
         }
 
@@ -585,7 +603,7 @@
                 document.getElementById('estimated_completion_at').value = srv.estimated_completion_at
                     ? String(srv.estimated_completion_at).slice(0, 10)
                     : '';
-                document.getElementById('warranty_days').value = srv.warranty_days || 0;
+                document.getElementById('warranty_preset_id').value = srv.warranty_preset_id || '';
                 document.getElementById('status_baru').value = srv.status || 'diperiksa';
                 banner.classList.remove('hidden');
                 calculateEstimatedTotal();
@@ -674,7 +692,7 @@
         async function initData() {
             const select = document.getElementById('service_id');
             const selectedServiceId = select.value;
-            await Promise.all([loadPendingServices(), loadSpareparts(), loadServiceRates()]);
+            await Promise.all([loadPendingServices(), loadSpareparts(), loadServiceRates(), loadWarrantyPresets()]);
             if (servicesCache.some(service => String(service.id) === selectedServiceId)) {
                 select.value = selectedServiceId;
                 document.getElementById('serviceDetailWrap').classList.remove('hidden');
@@ -776,6 +794,7 @@
                 service_id: serviceId,
                 status_baru: statusBaru,
                 service_rate_id: rateId ? Number(rateId) : null,
+                warranty_preset_id: document.getElementById('warranty_preset_id').value || null,
                 catatan_teknis: catatanTeknis,
                 sparepart_id: sparepartId ? parseInt(sparepartId, 10) : null,
                 jumlah_sparepart: sparepartId ? parseInt(jumlahSparepart, 10) : null

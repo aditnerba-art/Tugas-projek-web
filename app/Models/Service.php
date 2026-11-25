@@ -69,6 +69,11 @@ class Service extends Model
         return $this->belongsTo(ServiceRate::class);
     }
 
+    public function warrantyPreset(): BelongsTo
+    {
+        return $this->belongsTo(WarrantyPreset::class);
+    }
+
     public function logs(): HasMany
     {
         return $this->hasMany(ServiceLog::class);
