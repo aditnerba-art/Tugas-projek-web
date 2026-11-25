@@ -55,6 +55,7 @@ class ServiceApplicationTest extends TestCase
         $this->getJson('/api/tracking?kode_akses='.$code)
             ->assertOk()
             ->assertJsonPath('data.unit.no_nota', $service->no_nota);
+        auth()->logout();
         $this->postJson('/api/customer/login', ['kode_akses' => $code, 'customer_name' => 'Pelanggan Tes 2'])
             ->assertOk()->assertJsonPath('status', 'success');
         $this->postJson('/api/customer/approval', [
@@ -63,6 +64,7 @@ class ServiceApplicationTest extends TestCase
         ])->assertOk();
         $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'dikerjakan']);
 
+        $this->actingAs($admin);
         $rotated = $this->postJson('/api/admin/customers/access-codes/'.$service->id)->assertOk();
         $newCode = $rotated->json('data.kode_akses');
         $this->assertMatchesRegularExpression('/^\d{5}$/', $newCode);

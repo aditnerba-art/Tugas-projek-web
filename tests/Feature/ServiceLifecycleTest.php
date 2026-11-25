@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Events\CustomerServiceStatusChanged;
 use App\Events\ServiceStatusChanged;
 use App\Models\Service;
+use App\Models\ServiceAccessToken;
 use App\Models\ServiceStatusLog;
 use App\Models\User;
 use App\Notifications\ServicePanelNotification;
@@ -33,9 +34,28 @@ class ServiceLifecycleTest extends TestCase
             'menunggu_sparepart', 'dikerjakan', 'selesai',
         ];
         Event::fake([ServiceStatusChanged::class, CustomerServiceStatusChanged::class]);
+        $code = '54321';
+        ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', $code, (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
 
         $this->actingAs($admin);
         foreach ($statuses as $status) {
+            if ($status === 'dikerjakan' && $service->fresh()->status === 'menunggu_persetujuan') {
+                auth()->logout();
+                $this->postJson('/api/customer/login', [
+                    'kode_akses' => $code,
+                    'customer_name' => $service->customer->nama,
+                ])->assertOk();
+                $this->postJson('/api/customer/approval', [
+                    'service_id' => $service->id,
+                    'status_baru' => 'dikerjakan',
+                ])->assertOk();
+                $this->actingAs($admin);
+                continue;
+            }
             $this->putJson('/api/admin/service/status', [
                 'service_id' => $service->id,
                 'status_baru' => $status,

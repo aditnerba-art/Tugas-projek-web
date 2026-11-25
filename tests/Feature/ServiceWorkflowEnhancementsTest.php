@@ -65,7 +65,7 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         $log = NotificationLog::sole();
         $this->assertSame('cost_approval', $log->message_type);
         $this->assertStringContainsString('150.000', $log->message);
-        $this->assertStringContainsString(today()->addDays(5)->format('d-m-Y'), $log->message);
+        $this->assertSame(today()->addDays(5)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
         $this->assertDatabaseHas('service_status_logs', [
             'service_id' => $service->id,
             'status_lama' => 'menunggu_persetujuan',
