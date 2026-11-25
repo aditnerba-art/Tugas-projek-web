@@ -622,66 +622,6 @@ class ApiController extends Controller
                 $query->where('teknisi_id', $request->user()->id);
             }
 
-            public function proposeEstimateChange(CreateEstimateChangeRequest $request): JsonResponse
-            {
-                $data = $request->validated();
-                $service = DB::transaction(function () use ($data, $request): Service {
-                    $query = Service::query()->whereKey($data['service_id']);
-                    if ($request->user()->role === 'teknisi') {
-                        $query->where('teknisi_id', $request->user()->id);
-                    }
-                    $service = $query->lockForUpdate()->firstOrFail();
-                    if (in_array($service->status, ['selesai', 'diambil', 'batal'], true)) {
-                        abort(409, 'Estimasi tidak dapat diubah setelah servis selesai atau dibatalkan.');
-                    }
-                    if ($service->estimateChanges()->where('status', 'pending')->exists()) {
-                        abort(409, 'Perubahan estimasi sebelumnya masih menunggu keputusan pelanggan.');
-                    }
-
-                    $oldEstimate = $service->estimated_completion_at?->copy()
-                        ?? Carbon::today(config('app.timezone'));
-                    $baseDate = $oldEstimate->greaterThan(Carbon::today(config('app.timezone')))
-                        ? $oldEstimate
-                        : Carbon::today(config('app.timezone'));
-                    $proposedDate = $baseDate->copy()->addDays((int) $data['additional_days']);
-                    $change = $service->estimateChanges()->create([
-                        'proposed_by' => $request->user()->id,
-                        'previous_estimated_completion_at' => $service->estimated_completion_at,
-                        'proposed_estimated_completion_at' => $proposedDate,
-                        'additional_days' => $data['additional_days'],
-                        'reason' => trim($data['reason']),
-                        'status' => 'pending',
-                    ]);
-                    $oldLabel = $service->estimated_completion_at?->format('d-m-Y') ?? 'belum ditentukan';
-                    $note = "Usulan perubahan estimasi: {$oldLabel} menjadi ".$proposedDate->format('d-m-Y')
-                        ." (+{$data['additional_days']} hari). Alasan: {$change->reason}. Menunggu persetujuan pelanggan.";
-                    $timeline = $service->recordTimelineEvent($note, $request->user());
-                    event(new CustomerServiceStatusChanged($timeline));
-                    $this->logActivity($request, 'usulkan_perubahan_estimasi', 'service:'.$service->id, null, [
-                        'estimate_change_id' => $change->id,
-                        'estimated_completion_at' => $proposedDate->toDateString(),
-                        'additional_days' => $change->additional_days,
-                        'reason' => $change->reason,
-                    ]);
-
-                    return $service->load('customer');
-                });
-
-                app(WhatsAppNotificationService::class)->queue($service, 'estimate_approval', [
-                    'estimasi_lama' => $service->estimated_completion_at?->format('d-m-Y') ?? 'Belum ditentukan',
-                    'estimasi_baru' => $service->estimateChanges()->where('status', 'pending')->latest('id')->value('proposed_estimated_completion_at')
-                        ? Carbon::parse($service->estimateChanges()->where('status', 'pending')->latest('id')->value('proposed_estimated_completion_at'))->format('d-m-Y')
-                        : 'Belum ditentukan',
-                    'tambahan_hari' => (string) $data['additional_days'],
-                    'alasan' => trim($data['reason']),
-                ]);
-
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Usulan perubahan estimasi dikirim untuk persetujuan pelanggan.',
-                    'data' => $service->estimateChanges()->latest('id')->first(),
-                ], 201);
-            }
             $service = $query->lockForUpdate()->firstOrFail();
             $oldStatus = $service->status;
             $oldServiceData = [
@@ -799,6 +739,63 @@ class ApiController extends Controller
             'biaya_jasa' => $service->biaya_jasa,
             'total_biaya' => $service->total_biaya,
         ]);
+    }
+
+    public function proposeEstimateChange(CreateEstimateChangeRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        [$service, $change] = DB::transaction(function () use ($data, $request): array {
+            $query = Service::query()->whereKey($data['service_id']);
+            if ($request->user()->role === 'teknisi') {
+                $query->where('teknisi_id', $request->user()->id);
+            }
+            $service = $query->lockForUpdate()->firstOrFail();
+            if (in_array($service->status, ['selesai', 'diambil', 'batal'], true)) {
+                abort(409, 'Estimasi tidak dapat diubah setelah servis selesai atau dibatalkan.');
+            }
+            if ($service->estimateChanges()->where('status', 'pending')->exists()) {
+                abort(409, 'Perubahan estimasi sebelumnya masih menunggu keputusan pelanggan.');
+            }
+
+            $today = Carbon::today(config('app.timezone'));
+            $oldEstimate = $service->estimated_completion_at?->copy() ?? $today->copy();
+            $baseDate = $oldEstimate->greaterThan($today) ? $oldEstimate : $today;
+            $proposedDate = $baseDate->copy()->addDays((int) $data['additional_days']);
+            $change = $service->estimateChanges()->create([
+                'proposed_by' => $request->user()->id,
+                'previous_estimated_completion_at' => $service->estimated_completion_at,
+                'proposed_estimated_completion_at' => $proposedDate,
+                'additional_days' => $data['additional_days'],
+                'reason' => trim($data['reason']),
+                'status' => 'pending',
+            ]);
+            $oldLabel = $service->estimated_completion_at?->format('d-m-Y') ?? 'belum ditentukan';
+            $note = "Usulan perubahan estimasi: {$oldLabel} menjadi ".$proposedDate->format('d-m-Y')
+                ." (+{$data['additional_days']} hari). Alasan: {$change->reason}. Menunggu persetujuan pelanggan.";
+            $timeline = $service->recordTimelineEvent($note, $request->user());
+            event(new CustomerServiceStatusChanged($timeline));
+            $this->logActivity($request, 'usulkan_perubahan_estimasi', 'service:'.$service->id, null, [
+                'estimate_change_id' => $change->id,
+                'estimated_completion_at' => $proposedDate->toDateString(),
+                'additional_days' => $change->additional_days,
+                'reason' => $change->reason,
+            ]);
+
+            return [$service->load('customer'), $change];
+        });
+
+        app(WhatsAppNotificationService::class)->queue($service, 'estimate_approval', [
+            'estimasi_lama' => $change->previous_estimated_completion_at?->format('d-m-Y') ?? 'Belum ditentukan',
+            'estimasi_baru' => $change->proposed_estimated_completion_at->format('d-m-Y'),
+            'tambahan_hari' => (string) $change->additional_days,
+            'alasan' => $change->reason,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Usulan perubahan estimasi dikirim untuk persetujuan pelanggan.',
+            'data' => $change,
+        ], 201);
     }
 
     public function activeServices(Request $request): JsonResponse
