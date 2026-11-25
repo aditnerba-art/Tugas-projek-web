@@ -393,7 +393,7 @@
                         <p class="mt-1 text-sm text-slate-500">Pantau stok tersedia dan lanjutkan ke pengelolaan lengkap atau pencatatan barang masuk.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <a href="/spareparts.html" class="inline-flex items-center justify-center rounded-xl border border-amber-400/80 bg-[#0B1E3F] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#132F63]">Kelola Sparepart</a>
+                        <a href="/spareparts" class="inline-flex items-center justify-center rounded-xl border border-amber-400/80 bg-[#0B1E3F] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#132F63]">Kelola Sparepart</a>
                         <button type="button" onclick="openModalPengadaan()" class="rounded-xl border border-amber-400 bg-amber-400 px-4 py-2.5 text-xs font-bold text-[#0B1E3F] transition hover:bg-amber-300">+ Catat Pengadaan</button>
                     </div>
                 </div>

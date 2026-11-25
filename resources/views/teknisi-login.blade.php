@@ -39,7 +39,7 @@
         <button class="btn" type="submit">Masuk sebagai Teknisi</button>
         <div id="loginMessage" class="message" role="alert" aria-live="polite"></div>
     </form>
-    <div class="links"><a href="/login.html">← Pilih peran staf lain</a></div>
+    <div class="links"><a href="{{ route('staff.login') }}">← Pilih peran staf lain</a></div>
 </main>
 <script src="/role-login.js"></script>
 </body>

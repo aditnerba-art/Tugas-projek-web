@@ -16,20 +16,17 @@ Route::get('/service-photos/{photo}/{variant?}', ServicePhotoController::class)
     ->whereNumber('photo')
     ->where('variant', 'original|thumbnail')
     ->name('service-photos.show');
-Route::get('/index.html', fn () => redirect('/', 301));
-Route::view('/login.html', 'login');
-Route::view('/admin-login.html', 'admin-login');
-Route::view('/teknisi-login.html', 'teknisi-login');
-Route::view('/owner-login.html', 'owner-login');
+Route::view('/login', 'login')->name('staff.login');
+Route::view('/admin/login', 'admin-login')->name('admin.login');
+Route::view('/teknisi/login', 'teknisi-login')->name('teknisi.login');
+Route::view('/owner/login', 'owner-login')->name('owner.login');
 Route::view('/password/change', 'password-change')->middleware('auth');
+Route::view('/offline-teknisi', 'offline-teknisi');
 
 Route::view('/admin', 'admin')->middleware(['auth', 'password.changed', 'role:admin'])->name('admin.dashboard');
 Route::view('/teknisi', 'teknisi')->middleware(['auth', 'password.changed', 'role:teknisi'])->name('teknisi.dashboard');
 Route::view('/owner', 'owner')->middleware(['auth', 'password.changed', 'role:owner'])->name('owner.dashboard');
-Route::redirect('/admin.html', '/admin', 301);
-Route::redirect('/teknisi.html', '/teknisi', 301);
-Route::redirect('/owner.html', '/owner', 301);
-Route::view('/spareparts.html', 'spareparts')->middleware(['auth', 'password.changed', 'role:admin,owner']);
+Route::view('/spareparts', 'spareparts')->middleware(['auth', 'password.changed', 'role:admin,owner']);
 Route::get('/owner/activity-logs', function (Request $request) {
     $filters = $request->validate([
         'search' => ['nullable', 'string', 'max:100'],

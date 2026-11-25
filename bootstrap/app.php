@@ -24,11 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(function (Request $request): ?string {
             return match ($request->path()) {
-                'admin' => '/admin-login.html',
-                'teknisi' => '/teknisi-login.html',
-                'owner' => '/owner-login.html',
-                'spareparts.html' => '/login.html',
-                default => $request->is('api/*') ? null : '/login.html',
+                'admin' => '/admin/login',
+                'teknisi' => '/teknisi/login',
+                'owner' => '/owner/login',
+                default => $request->is('api/*') ? null : '/login',
             };
         });
         $middleware->alias([

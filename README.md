@@ -2,7 +2,7 @@
 
 Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admin/kasir, panel teknisi, dan dashboard owner.
 
-Panel staf tersedia melalui route Laravel `/admin`, `/teknisi`, dan `/owner`. URL `.html` sebelumnya tetap aktif sebagai redirect permanen ke route masing-masing.
+Panel staf tersedia melalui route Laravel `/admin`, `/teknisi`, dan `/owner`. Halaman login tersedia di `/login`, `/admin/login`, `/teknisi/login`, dan `/owner/login`; URL panel dan login tidak menggunakan suffix file.
 
 ### Instalasi dan menjalankan aplikasi
 
@@ -140,7 +140,7 @@ Aktifkan dengan `sudo systemctl daemon-reload && sudo systemctl enable --now tec
 
 Ganti kata sandi awal sebelum aplikasi digunakan di lingkungan produksi.
 
-Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal publik tersedia di `/` dan `/lacak`; alamat lama `/index.html` dialihkan permanen ke beranda. Percobaan kode akses dan login staf dibatasi, dan persetujuan pelanggan memerlukan sesi portal yang sah.
+Pelanggan menerima kode akses servis 5 digit saat servis didaftarkan. Portal publik tersedia di `/` dan `/lacak`. Percobaan kode akses dan login staf dibatasi, dan persetujuan pelanggan memerlukan sesi portal yang sah.
 
 Tampilan utama serta halaman pengelolaan sparepart menggunakan Blade; request `fetch()` menyertakan token CSRF Laravel. Akun seed wajib mengganti kata sandi saat login pertama. Owner dapat mengatur kata sandi staf dan melihat log aktivitas di `/owner/activity-logs`.
 

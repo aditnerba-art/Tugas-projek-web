@@ -486,7 +486,7 @@
             const nomor = formatNomorWA(noHp);
             if (!nomor) return '';
 
-            const linkStatus = `${window.location.origin}/index.html`;
+            const linkStatus = `${window.location.origin}/`;
             const pesan = `Halo *${namaPelanggan}*,\n\nPerangkat Anda (*${perangkat}*) telah terdaftar di sistem servis kami.\n\n*Kode Akses Pelanggan:* *${kodeAkses}*\n*Link Cek Status:* ${linkStatus}\n\nMelalui link di atas, Anda dapat:\n1. Memantau progres pengerjaan servis secara real-time.\n2. Melihat hasil pengecekan teknisi & rincian estimasi biaya.\n3. Melakukan *konfirmasi setuju (lanjut servis) atau batal* setelah pengecekan selesai.\n\nSimpan kode akses Anda untuk pengecekan berkala. Terima kasih!`;
             return `https://wa.me/${nomor}?text=${encodeURIComponent(pesan)}`;
         }

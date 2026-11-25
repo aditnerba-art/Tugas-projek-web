@@ -1,5 +1,5 @@
-const CACHE_NAME = 'teckfo-technician-shell-v2';
-const OFFLINE_PAGE = '/offline-teknisi.html';
+const CACHE_NAME = 'teckfo-technician-shell-v3';
+const OFFLINE_PAGE = '/offline-teknisi';
 
 self.addEventListener('install', event => {
     event.waitUntil(

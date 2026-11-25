@@ -15,7 +15,7 @@
     `;
     document.head.appendChild(styles);
 
-    function loginPath(role) { return `/${role}-login.html`; }
+    function loginPath(role) { return `/${role}/login`; }
 
     async function start() {
         let response;

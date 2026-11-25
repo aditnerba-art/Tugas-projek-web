@@ -17,8 +17,8 @@ class RoleMiddleware
             }
 
             return count($roles) === 1
-                ? redirect('/'.$roles[0].'-login.html')
-                : redirect('/login.html');
+                ? redirect('/'.$roles[0].'/login')
+                : redirect('/login');
         }
 
         if (! in_array($user->role, $roles, true)) {

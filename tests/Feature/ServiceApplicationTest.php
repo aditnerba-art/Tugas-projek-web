@@ -30,7 +30,7 @@ class ServiceApplicationTest extends TestCase
             'role' => 'admin',
         ]);
         $this->actingAs($admin)->get('/admin')->assertOk()->assertSee('Daftar Unit Servis Aktif');
-        $this->get('/admin.html')->assertStatus(301)->assertRedirect('/admin');
+        $this->get('/admin.html')->assertNotFound();
         $this->actingAs($admin)->postJson('/api/admin/service', [
             'nama' => 'Pelanggan Tes',
             'no_wa' => '08123456789',
@@ -145,6 +145,12 @@ class ServiceApplicationTest extends TestCase
 
     public function test_role_middleware_blocks_other_roles_and_laravel_views_include_csrf_support(): void
     {
+        $this->get('/login')->assertOk()->assertSee('Pilih Halaman Masuk');
+        $this->get('/admin/login')->assertOk()->assertSee('Masuk sebagai Admin');
+        $this->get('/teknisi/login')->assertOk()->assertSee('Masuk sebagai Teknisi');
+        $this->get('/owner/login')->assertOk()->assertSee('Masuk sebagai Owner');
+        $this->get('/offline-teknisi')->assertOk()->assertSee('Anda sedang offline');
+
         $technician = User::create([
             'nama' => 'Teknisi Tes',
             'username' => 'teknisi_test',
@@ -152,17 +158,30 @@ class ServiceApplicationTest extends TestCase
             'role' => 'teknisi',
         ]);
         $this->actingAs($technician)->get('/teknisi')->assertOk()->assertSee('Riwayat Status Servis');
-        $this->get('/teknisi.html')->assertStatus(301)->assertRedirect('/teknisi');
+        $this->get('/teknisi.html')->assertNotFound();
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
-        $this->get('/index.html')->assertStatus(301)->assertRedirect('/');
+        $this->get('/index.html')->assertNotFound();
         $this->get('/')->assertOk()->assertSee('name="csrf-token"', false)
             ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->get('/lacak')->assertOk();
         $this->get('/missing-page')->assertNotFound()->assertSee('Halaman Tidak Ditemukan');
         $this->get('/owner/activity-logs')->assertForbidden()->assertSee('Akses Ditolak');
         auth()->logout();
-        $this->get('/admin.html')->assertStatus(301)->assertRedirect('/admin');
-        $this->get('/admin')->assertRedirect('/admin-login.html');
+        $this->get('/admin')->assertRedirect('/admin/login');
+        foreach ([
+            '/admin.html',
+            '/teknisi.html',
+            '/owner.html',
+            '/index.html',
+            '/login.html',
+            '/admin-login.html',
+            '/teknisi-login.html',
+            '/owner-login.html',
+            '/spareparts.html',
+            '/offline-teknisi.html',
+        ] as $legacyPath) {
+            $this->get($legacyPath)->assertNotFound();
+        }
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
     }
 
@@ -198,7 +217,7 @@ class ServiceApplicationTest extends TestCase
             ->assertSee('Distribusi Status Servis')
             ->assertSee('reportStatusChart')
             ->assertSee('reportTechnicianChart');
-        $this->get('/owner.html')->assertStatus(301)->assertRedirect('/owner');
+        $this->get('/owner.html')->assertNotFound();
         $this->get('/owner/activity-logs')->assertOk()->assertSee('Log Aktivitas');
 
         $staffResponse = $this->postJson('/api/owner/staff', [

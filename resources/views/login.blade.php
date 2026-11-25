@@ -28,9 +28,9 @@
     <h1>Pilih Halaman Masuk</h1>
     <p>Silakan pilih gerbang masuk yang sesuai dengan peran dan tanggung jawab Anda.</p>
     <nav class="role-list" aria-label="Pilih peran">
-        <a class="role" href="/admin-login.html"><strong>Admin</strong><span>Panel administrasi & kasir →</span></a>
-        <a class="role" href="/teknisi-login.html"><strong>Teknisi</strong><span>Panel pengerjaan & servis →</span></a>
-        <a class="role" href="/owner-login.html"><strong>Owner</strong><span>Dashboard eksekutif & staf →</span></a>
+        <a class="role" href="{{ route('admin.login') }}"><strong>Admin</strong><span>Panel administrasi & kasir →</span></a>
+        <a class="role" href="{{ route('teknisi.login') }}"><strong>Teknisi</strong><span>Panel pengerjaan & servis →</span></a>
+        <a class="role" href="{{ route('owner.login') }}"><strong>Owner</strong><span>Dashboard eksekutif & staf →</span></a>
     </nav>
     <p class="small">Gunakan username dan kata sandi akun yang telah didaftarkan.</p>
 </main>

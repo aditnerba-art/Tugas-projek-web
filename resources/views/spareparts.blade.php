@@ -59,7 +59,7 @@
     <!-- Topbar Nav -->
     <div class="app-topbar">
         <span class="text-amber-400 font-bold text-sm mr-1">📦</span>
-        <a href="/spareparts.html" class="app-nav-link">Stok Sparepart</a>
+        <a href="/spareparts" class="app-nav-link">Stok Sparepart</a>
     </div>
 
     <!-- Main Content -->

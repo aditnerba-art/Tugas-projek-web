@@ -53,7 +53,7 @@
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || Object.values(result.errors || {}).flat()[0] || 'Kata sandi gagal diperbarui.');
             const panelPaths = { admin: '/admin', teknisi: '/teknisi', owner: '/owner' };
-            window.location.replace(panelPaths[result.user.role] || '/login.html');
+            window.location.replace(panelPaths[result.user.role] || '/login');
         } catch (error) {
             message.textContent = error.message || 'Tidak dapat menyimpan kata sandi.';
         } finally {
