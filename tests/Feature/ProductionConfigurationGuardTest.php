@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Providers\AppServiceProvider;
+use Illuminate\Support\Facades\RateLimiter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
-use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 class ProductionConfigurationGuardTest extends TestCase

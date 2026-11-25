@@ -3,6 +3,7 @@
 use App\Services\LegacyPaymentImporter;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -32,10 +33,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        \Illuminate\Support\Facades\DB::table('services')
+        DB::table('services')
             ->where('status_pembayaran', 'belum')
             ->update(['status_pembayaran' => 'belum_bayar']);
-        \Illuminate\Support\Facades\DB::table('services')
+        DB::table('services')
             ->where('status_pembayaran', 'sebagian')
             ->update(['status_pembayaran' => 'dp']);
 

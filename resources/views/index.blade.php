@@ -16,19 +16,18 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal Pelanggan - Login & Pelacakan Servis</title>
-    @include('partials.realtime-scripts')
+    <title>Portal Pelanggan TECKFO Service | Lacak Servis</title>
+    @include('partials.realtime-scripts', ['withStyles' => true])
     <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
             color-scheme: light;
-            --portal-ink: #132b4f;
-            --portal-muted: #647a96;
-            --portal-line: #d7e3f1;
-            --portal-paper: #ffffff;
-            --portal-bg: #071a35;
-            --portal-blue: #2563eb;
+            --portal-ink: var(--color-portal-ink-on-light);
+            --portal-muted: var(--color-portal-muted-on-light);
+            --portal-line: var(--color-portal-line-on-light);
+            --portal-paper: var(--color-portal-surface-light);
+            --portal-bg: var(--color-portal-bg);
+            --portal-blue: var(--color-portal-accent-dark);
             --portal-blue-dark: #1d4ed8;
         }
 
@@ -36,27 +35,12 @@
             position: relative;
             isolation: isolate;
             margin: 0;
-            background: var(--portal-bg) url('/portal-background-poster.jpg') center / cover fixed;
+            background:
+                radial-gradient(ellipse at 15% 5%, rgba(37, 99, 235, .22), transparent 42%),
+                radial-gradient(ellipse at 95% 55%, rgba(14, 116, 144, .17), transparent 38%),
+                var(--portal-bg);
             color: #f4f8ff;
-            font-family: "Segoe UI", system-ui, sans-serif;
-        }
-
-        .portal-background-video {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: .9;
-            pointer-events: none;
-        }
-        .portal-background-wash {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            background: rgba(4, 13, 31, .08);
-            pointer-events: none;
+            font-family: var(--font-sans);
         }
 
         #loginPage, #resultPage {
@@ -211,7 +195,7 @@
             letter-spacing: .02em;
             transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
         }
-        .login-card input::placeholder { color: #91a1aa; font: 400 13px/1.4 "Segoe UI", system-ui, sans-serif; letter-spacing: 0; }
+        .login-card input::placeholder { color: #91a1aa; font: 400 13px/1.4 var(--font-sans); letter-spacing: 0; }
         .login-card input:focus { border-color: var(--portal-blue); background: white; box-shadow: 0 0 0 4px #2563eb1c; }
         .login-card .field-help { margin: 8px 0 0; color: #748691; font-size: 11px; line-height: 1.5; }
         #loginBtn {
@@ -291,14 +275,14 @@
             isolation: isolate;
             overflow: hidden;
             border: 1px solid rgba(101, 164, 244, .34) !important;
-            background: linear-gradient(145deg, #ffffff, #f4f8ff);
+            background: linear-gradient(145deg, #102b4d, #0b2340);
             box-shadow: 0 18px 42px rgba(1, 9, 26, .28), inset 0 1px 0 rgba(255, 255, 255, .045);
             backdrop-filter: blur(14px);
             transition: border-color .22s ease, box-shadow .22s ease, background .22s ease;
         }
         #resultPage .portal-feature-card:hover, .portal-feature-card:hover {
             border-color: rgba(117, 190, 255, .68) !important;
-            background: linear-gradient(145deg, rgba(19, 54, 101, .98), rgba(7, 28, 59, .98)) !important;
+            background: linear-gradient(145deg, #102b4d, #0b2340) !important;
             box-shadow: 0 22px 48px rgba(1, 9, 26, .36), inset 0 1px 0 rgba(255, 255, 255, .07);
         }
         #resultPage .portal-feature-card::before {
@@ -423,7 +407,10 @@
             .login-card { padding: 21px; }
             #resultPage .grid.grid-cols-5 > div > div { width: 28px; height: 28px; }
             #resultPage .grid.grid-cols-5::before { top: 20px; }
-            #resultPage table { min-width: 560px; }
+            #resultPage table { min-width: 0; width: 100%; table-layout: fixed; }
+            #resultPage table th:nth-child(3), #resultPage table td:nth-child(3) { display: none; }
+            #resultPage th, #resultPage td { padding: 8px 4px; overflow-wrap: anywhere; }
+            #resultPage th:first-child, #resultPage td:first-child { width: 62%; }
         }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -432,19 +419,14 @@
                 animation-duration: .01ms !important;
                 animation-iteration-count: 1 !important;
             }
-            .portal-background-video, .portal-background-wash { display: none !important; }
         }
     </style>
 </head>
 
-<body class="bg-slate-900 text-white min-h-screen flex flex-col font-sans">
-    <video class="portal-background-video" autoplay loop muted playsinline aria-hidden="true" tabindex="-1" preload="metadata" poster="/portal-background-poster.jpg">
-        <source src="/portal-background.mp4" type="video/mp4">
-    </video>
-    <div class="portal-background-wash" aria-hidden="true"></div>
+<body class="customer-portal bg-slate-900 text-white min-h-screen flex flex-col font-sans">
 
     <header class="portal-nav">
-        <a class="portal-brand" href="index.html" aria-label="TECKFO Service - Portal Pelanggan">
+        <a class="portal-brand" href="/" aria-label="TECKFO Service - Portal Pelanggan">
             <img class="portal-brand-logo" src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer">
             <span>Servis Komputer<small>Portal Pelanggan</small></span>
         </a>
@@ -464,25 +446,41 @@
                 </ul>
             </section>
 
-            <section class="login-card" aria-labelledby="loginTitle">
+            <x-ui.card class="login-card" aria-labelledby="loginTitle">
                 <h2 id="loginTitle">Masuk ke portal</h2>
                 <p class="card-description">Masukkan nama sesuai data servis dan kode akses yang diberikan bengkel.</p>
-                <div id="loginError" class="hidden" role="alert" aria-live="polite"></div>
+                <x-ui.alert id="loginContext" tone="info" class="hidden" role="status" aria-live="polite"></x-ui.alert>
+                <p id="portalLoadStatus" class="portal-status hidden" role="status" aria-live="polite">Memeriksa sesi tersimpan…</p>
+                <x-ui.alert id="loginError" class="hidden" role="alert" aria-live="assertive"></x-ui.alert>
                 <form id="loginForm" onsubmit="doLogin(event)" class="space-y-4">
-                    <div>
-                        <label for="loginName">Nama pelanggan</label>
-                        <input type="text" id="loginName" name="customer_name" placeholder="Nama sesuai data servis" autocomplete="name" maxlength="100" required>
-                        <p class="field-help">Ketik nama yang digunakan saat servis didaftarkan.</p>
-                    </div>
-                    <div>
-                        <label for="loginToken">Kode akses pelanggan</label>
-                        <input type="password" id="loginToken" placeholder="Masukkan 5 angka" autocomplete="current-password" maxlength="16" required>
-                        <p class="field-help">Kode baru terdiri dari 5 angka. Kode lama tetap bisa digunakan.</p>
-                    </div>
-                    <button type="submit" id="loginBtn" class="w-full">Masuk & cek status servis</button>
+                    <x-ui.input
+                        id="loginName"
+                        label="Nama pelanggan"
+                        help="Ketik nama yang digunakan saat servis didaftarkan."
+                        name="customer_name"
+                        placeholder="Nama sesuai data servis"
+                        autocomplete="name"
+                        maxlength="100"
+                        required
+                        autofocus
+                    />
+                    <x-ui.input
+                        id="loginToken"
+                        label="Kode akses pelanggan"
+                        help="Masukkan 5 angka yang dikirim bengkel. Kode lama tetap dapat digunakan."
+                        name="token"
+                        placeholder="Contoh: 01234"
+                        autocomplete="one-time-code"
+                        inputmode="numeric"
+                        pattern="[0-9]{5}"
+                        maxlength="5"
+                        enterkeyhint="go"
+                        required
+                    />
+                    <x-ui.button type="submit" id="loginBtn" class="w-full">Masuk & cek status servis</x-ui.button>
                 </form>
                 <p class="login-support"><strong>Belum menerima kode akses?</strong><br>Hubungi bengkel tempat Anda mendaftarkan perangkat.</p>
-            </section>
+            </x-ui.card>
         </div>
     </div>
 
@@ -491,16 +489,21 @@
         <div class="max-w-3xl mx-auto space-y-6">
 
             <!-- Header Selamat Datang -->
-            <div class="portal-feature-card portal-welcome-card flex items-center justify-between rounded-2xl px-5 py-4 border">
+            <div class="portal-feature-card portal-welcome-card flex flex-wrap items-center justify-between gap-3 rounded-2xl px-5 py-4 border">
                 <div>
                     <p class="text-xs text-slate-400">Selamat datang,</p>
                     <p id="welcomeName" class="font-bold text-white text-base"></p>
                 </div>
-                <button onclick="doLogout()"
-                    class="text-xs text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400 px-3.5 py-1.5 rounded-lg transition font-semibold bg-rose-500/10">
-                    🚪 Keluar
-                </button>
+                <div class="flex flex-wrap items-center gap-3">
+                    <p id="realtimeStatus" class="portal-status" role="status" aria-live="polite">Diperbarui otomatis</p>
+                    <x-ui.button id="logoutBtn" variant="secondary" onclick="doLogout()">Keluar</x-ui.button>
+                </div>
             </div>
+
+            <x-ui.alert id="sessionExpiredNotice" tone="info" class="hidden" role="status" aria-live="polite">
+                Sesi portal berakhir. Masuk kembali dengan nama dan kode akses servis untuk melanjutkan.
+                <x-ui.button id="btnReturnLogin" variant="secondary" class="mt-3">Masuk kembali</x-ui.button>
+            </x-ui.alert>
 
             <!-- Card Banner Konfirmasi Persetujuan Pelanggan -->
             <div id="persetujuanCard" class="hidden portal-feature-card rounded-2xl p-6 border shadow-2xl space-y-4">
@@ -523,15 +526,19 @@
                     </div>
                 </div>
 
-                <div class="flex flex-col sm:flex-row gap-3 pt-3 border-t border-amber-500/20">
-                    <button type="button" id="btnSetujui" onclick="kirimPersetujuan('dikerjakan')"
-                        class="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl transition shadow-lg shadow-emerald-600/30 text-sm">
-                        <span>✅</span> Setujui Perbaikan
-                    </button>
-                    <button type="button" id="btnBatal" onclick="kirimPersetujuan('batal')"
-                        class="flex-1 inline-flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold py-3 px-5 rounded-xl transition shadow-lg shadow-rose-600/30 text-sm border border-rose-500/40">
-                        <span>❌</span> Batalkan Servis
-                    </button>
+                <div id="approvalCostBreakdown" class="grid gap-2 rounded-xl border border-amber-500/30 bg-slate-950/30 p-4 text-sm"></div>
+                <p id="approvalFeedback" class="hidden" role="status" aria-live="polite"></p>
+                <div id="approvalActions" class="flex flex-col gap-3 border-t border-amber-500/20 pt-3 sm:flex-row">
+                    <x-ui.button type="button" id="btnSetujui" variant="success" class="flex-1" onclick="mintaPersetujuan('dikerjakan')">
+                        Setujui perbaikan
+                    </x-ui.button>
+                    <x-ui.button type="button" id="btnBatal" variant="danger" class="flex-1" onclick="mintaPersetujuan('batal')">
+                        Batalkan servis
+                    </x-ui.button>
+                </div>
+                <div id="approvalLoginPrompt" class="hidden border-t border-amber-500/20 pt-4">
+                    <p class="mb-3 text-sm text-amber-100">Untuk menyetujui atau membatalkan, masuk dengan nama dan kode akses servis ini.</p>
+                    <x-ui.button type="button" id="btnPortalLogin" variant="secondary">Masuk untuk memberi persetujuan</x-ui.button>
                 </div>
             </div>
 
@@ -539,34 +546,34 @@
             <div class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-700/80 pb-4">
                     <div>
-                        <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Kode Akses Servis</span>
+                        <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Nomor nota</span>
                         <div id="resNota" class="text-xl font-mono font-extrabold text-blue-400 tracking-tight"></div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span id="resStatusBadge" class="px-3.5 py-1.5 text-xs font-bold rounded-full uppercase tracking-wider border"></span>
+                        <x-ui.badge id="resStatusBadge" tone="neutral" aria-live="polite"></x-ui.badge>
                     </div>
                 </div>
 
                 <!-- Progress Stepper Tracker -->
                 <div class="py-2">
-                    <div class="grid grid-cols-5 gap-2 text-center text-xs">
-                        <div id="step_masuk" class="flex flex-col items-center">
+                    <div id="serviceStepper" class="grid grid-cols-5 gap-2 text-center text-xs" role="list" aria-label="Tahapan servis">
+                        <div id="step_masuk" class="flex flex-col items-center" role="listitem">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 bg-slate-700 text-slate-400">1</div>
                             <span class="text-[11px] font-medium text-slate-400">Masuk</span>
                         </div>
-                        <div id="step_diperiksa" class="flex flex-col items-center">
+                        <div id="step_diperiksa" class="flex flex-col items-center" role="listitem">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 bg-slate-700 text-slate-400">2</div>
                             <span class="text-[11px] font-medium text-slate-400">Diperiksa</span>
                         </div>
-                        <div id="step_dikerjakan" class="flex flex-col items-center">
+                        <div id="step_dikerjakan" class="flex flex-col items-center" role="listitem">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 bg-slate-700 text-slate-400">3</div>
                             <span class="text-[11px] font-medium text-slate-400">Dikerjakan</span>
                         </div>
-                        <div id="step_selesai" class="flex flex-col items-center">
+                        <div id="step_selesai" class="flex flex-col items-center" role="listitem">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 bg-slate-700 text-slate-400">4</div>
                             <span class="text-[11px] font-medium text-slate-400">Selesai</span>
                         </div>
-                        <div id="step_diambil" class="flex flex-col items-center">
+                        <div id="step_diambil" class="flex flex-col items-center" role="listitem">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 bg-slate-700 text-slate-400">5</div>
                             <span class="text-[11px] font-medium text-slate-400">Diambil</span>
                         </div>
@@ -594,7 +601,7 @@
                 </div>
             </div>
 
-            <section class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
+            <x-ui.card class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
                 <h2 class="text-base font-bold text-slate-100">Estimasi, garansi &amp; kondisi unit</h2>
                 <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                     <p>Estimasi biaya: <strong id="resEstimatedCost">-</strong></p>
@@ -605,9 +612,9 @@
                 </div>
                 <div>
                     <h3 class="mb-2 text-sm font-bold text-slate-100">Foto kondisi unit</h3>
-                    <div id="servicePhotos" class="grid grid-cols-2 gap-3 sm:grid-cols-4"></div>
+                    <div id="servicePhotos" class="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-live="polite"></div>
                 </div>
-            </section>
+            </x-ui.card>
 
             <!-- 2. Rincian Biaya -->
             <div class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-4">
@@ -619,7 +626,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="portal-table-wrap" role="region" aria-label="Rincian biaya, geser tabel ke samping bila diperlukan" tabindex="0">
                     <table class="w-full text-left text-xs">
                         <thead>
                             <tr>
@@ -643,7 +650,7 @@
                 <div class="portal-payment-panel p-4 rounded-xl border space-y-2.5 text-xs">
                     <div class="flex justify-between items-center">
                         <span class="text-slate-400">Status Pembayaran:</span>
-                        <span id="resStatusBayarBadge"></span>
+                        <x-ui.badge id="resStatusBayarBadge" tone="neutral"></x-ui.badge>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-slate-400">Metode Pembayaran:</span>
@@ -673,27 +680,107 @@
                         <p class="text-xs text-slate-400">Catatan kronologis diagnosa dan perbaikan dari teknisi</p>
                     </div>
                 </div>
-                <ul id="timelineList" class="relative border-l-2 border-blue-500/40 ml-3 space-y-5 pl-5 text-xs"></ul>
+                <ul id="timelineList" class="relative border-l-2 border-blue-500/40 ml-3 space-y-5 pl-5 text-xs" aria-live="polite"></ul>
             </div>
         </div>
     </div>
 
+    <dialog id="approvalDialog" aria-labelledby="approvalDialogTitle" aria-describedby="approvalDialogDescription">
+        <h2 id="approvalDialogTitle" class="text-lg font-bold">Konfirmasi keputusan</h2>
+        <p id="approvalDialogDescription" class="my-3 text-sm text-slate-200"></p>
+        <div class="mt-5 flex flex-col-reverse justify-end gap-3 sm:flex-row">
+            <x-ui.button id="approvalDialogCancel" variant="secondary">Kembali</x-ui.button>
+            <x-ui.button id="approvalDialogConfirm" variant="success">Ya, lanjutkan</x-ui.button>
+        </div>
+    </dialog>
+
+    <dialog id="photoDialog" aria-label="Pratinjau foto servis">
+        <div class="flex items-center justify-between gap-3">
+            <p id="photoDialogCaption" class="font-semibold"></p>
+            <x-ui.button id="photoDialogClose" variant="secondary" aria-label="Tutup pratinjau foto">Tutup</x-ui.button>
+        </div>
+        <div id="photoDialogContent" class="mt-4"></div>
+    </dialog>
+
     <script>
         window.initialTrackingKey = @json($trackingKey ?? null);
         let currentServiceData = null;
+        let pendingApprovalAction = null;
+        const customerSessionFlag = 'teckfo.customer-session-active';
+
+        function setLoginMessage(message) {
+            const error = document.getElementById('loginError');
+            error.textContent = message;
+            error.classList.toggle('hidden', !message);
+        }
+
+        function setLoginContext(message) {
+            const context = document.getElementById('loginContext');
+            context.textContent = message;
+            context.classList.toggle('hidden', !message);
+        }
+
+        function setRealtimeStatus(state) {
+            const status = document.getElementById('realtimeStatus');
+            const expiredNotice = document.getElementById('sessionExpiredNotice');
+            if (!expiredNotice.classList.contains('hidden') && state !== 'session-expired') return;
+            const labels = {
+                realtime: 'Diperbarui otomatis · langsung',
+                polling: 'Diperbarui otomatis · tiap 12 detik',
+                offline: 'Terputus, mencoba lagi…',
+                'session-expired': 'Sesi berakhir',
+                manual: 'Masuk dengan kode untuk pembaruan otomatis',
+            };
+            status.textContent = labels[state] || 'Diperbarui otomatis';
+            status.dataset.state = state;
+            if (state === 'session-expired') {
+                document.getElementById('sessionExpiredNotice').classList.remove('hidden');
+            }
+        }
+
+        function formatDateWib(value, includeTime = false) {
+            if (!value) return '-';
+            const rawDate = String(value);
+            const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+                ? new Date(`${rawDate}T00:00:00+07:00`)
+                : new Date(rawDate);
+            return date.toLocaleString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                dateStyle: 'medium',
+                ...(includeTime ? { timeStyle: 'short' } : {}),
+            });
+        }
+
+        function showLogin(message = '') {
+            if (window.customerRealtimeStop) window.customerRealtimeStop();
+            window.customerRealtimeStop = null;
+            window.customerRealtimeKey = null;
+            document.getElementById('resultPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            setLoginMessage(message);
+            document.getElementById('loginName').focus({ preventScroll: true });
+        }
 
         // ===================== LOGIN DENGAN KODE AKSES =====================
         async function doLogin(e) {
             e.preventDefault();
             const token = document.getElementById('loginToken').value.trim();
             const customerName = document.getElementById('loginName').value.trim();
-            const errEl = document.getElementById('loginError');
             const btn = document.getElementById('loginBtn');
-            if (!token || !customerName) return;
+            if (!/^\d{5}$/.test(token)) {
+                setLoginMessage('Kode akses harus terdiri dari tepat 5 angka.');
+                document.getElementById('loginToken').focus();
+                return;
+            }
+            if (!customerName) {
+                setLoginMessage('Masukkan nama sesuai data servis.');
+                document.getElementById('loginName').focus();
+                return;
+            }
 
             btn.disabled = true;
             btn.textContent = 'Memverifikasi…';
-            errEl.classList.add('hidden');
+            setLoginMessage('');
             try {
                 const loginRes = await fetch('/api/customer/login', {
                     method: 'POST',
@@ -701,17 +788,35 @@
                     body: JSON.stringify({ token, customer_name: customerName })
                 });
                 const loginResult = await loginRes.json();
-                if (!loginRes.ok) throw new Error(loginResult.message || 'Kode akses tidak valid.');
+                if (!loginRes.ok) {
+                    if (loginRes.status === 429) {
+                        const seconds = Number(loginRes.headers.get('Retry-After'));
+                        const wait = seconds > 0
+                            ? ` Coba kembali dalam ${Math.ceil(seconds / 60)} menit.`
+                            : '';
+                        throw new Error(`Terlalu banyak percobaan kode akses.${wait}`);
+                    }
+                    throw new Error(loginResult.message || 'Nama dan kode akses tidak cocok. Periksa kembali keduanya.');
+                }
 
                 const dataRes = await fetch('/api/customer/me', {
                     headers: { 'Accept': 'application/json' }
                 });
                 const dataResult = await dataRes.json();
                 if (!dataRes.ok) throw new Error(dataResult.message || 'Data servis tidak dapat dimuat.');
+                if (window.trackingServiceId && Number(dataResult.data.unit.id) !== Number(window.trackingServiceId)) {
+                    await fetch('/api/customer/logout', { method: 'POST' });
+                    throw new Error('Kode akses tersebut bukan untuk servis pada tautan ini. Periksa kembali kode yang diberikan bengkel.');
+                }
+                sessionStorage.setItem(customerSessionFlag, '1');
+                setLoginContext('');
+                document.getElementById('sessionExpiredNotice').classList.add('hidden');
                 tampilkanHasil(dataResult.data);
             } catch (err) {
-                errEl.textContent = `❌ ${err.message || 'Gagal terhubung ke server. Coba lagi.'}`;
-                errEl.classList.remove('hidden');
+                const message = ['TypeError', 'SyntaxError'].includes(err.name)
+                    ? 'Tidak dapat terhubung ke server. Periksa koneksi, lalu coba lagi.'
+                    : err.message;
+                setLoginMessage(message || 'Tidak dapat memverifikasi kode akses. Coba kembali.');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Masuk & Cek Status Servis';
@@ -721,11 +826,16 @@
         async function doLogout() {
             if (window.customerRealtimeStop) window.customerRealtimeStop();
             window.customerRealtimeKey = null;
-            try { await fetch('/api/customer/logout', { method: 'POST' }); } catch {}
-            document.getElementById('resultPage').classList.add('hidden');
-            document.getElementById('loginPage').classList.remove('hidden');
+            sessionStorage.removeItem(customerSessionFlag);
+            try {
+                await fetch('/api/customer/logout', { method: 'POST' });
+            } catch (error) {
+                console.error('Sesi portal gagal ditutup di server', error);
+            }
             document.getElementById('loginForm').reset();
-            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('sessionExpiredNotice').classList.add('hidden');
+            setLoginMessage('');
+            showLogin();
         }
 
         // ===================== TAMPILKAN HASIL =====================
@@ -735,6 +845,7 @@
 
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('resultPage').classList.remove('hidden');
+            document.getElementById('sessionExpiredNotice').classList.add('hidden');
 
             // Sambutan
             document.getElementById('welcomeName').textContent = unit.nama_pelanggan;
@@ -746,32 +857,44 @@
             document.getElementById('resKeluhan').innerText = unit.keluhan;
             document.getElementById('resEstimatedCost').textContent = `Rp ${Number(unit.total_biaya || 0).toLocaleString('id-ID')}`;
             document.getElementById('resEstimatedCompletion').textContent = unit.estimated_completion_at
-                ? new Date(`${String(unit.estimated_completion_at).slice(0, 10)}T00:00:00`).toLocaleDateString('id-ID')
+                ? formatDateWib(String(unit.estimated_completion_at).slice(0, 10))
                 : 'Belum ditentukan';
             document.getElementById('resWarranty').textContent = unit.warranty_expires_at
-                ? `${unit.warranty_active ? 'Aktif' : 'Berakhir'} sampai ${new Date(`${String(unit.warranty_expires_at).slice(0, 10)}T00:00:00`).toLocaleDateString('id-ID')}`
+                ? `${unit.warranty_active ? 'Aktif' : 'Berakhir'} sampai ${formatDateWib(String(unit.warranty_expires_at).slice(0, 10))}`
                 : `${Number(unit.warranty_days || 0)} hari setelah unit diambil`;
-            const accessories = (unit.accessories || []).join(', ');
-            document.getElementById('resAccessories').textContent = [accessories, unit.kelengkapan].filter(Boolean).join(' · ') || 'Tidak dicatat';
+            const accessories = [...new Set([...(unit.accessories || []), unit.kelengkapan].filter(Boolean))].join(', ');
+            document.getElementById('resAccessories').textContent = accessories || 'Tidak dicatat';
             document.getElementById('resPhysicalCondition').textContent = unit.physical_condition || 'Tidak dicatat';
             const photosWrap = document.getElementById('servicePhotos');
             photosWrap.replaceChildren();
             (photos || []).forEach(photo => {
-                const link = document.createElement('a');
-                link.href = photo.url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.className = 'block overflow-hidden rounded-lg border border-slate-600';
+                const trigger = document.createElement('button');
+                trigger.type = 'button';
+                trigger.className = 'photo-trigger block w-full overflow-hidden border border-slate-600';
+                trigger.setAttribute('aria-label', `Lihat foto ${photo.kind === 'intake' ? 'saat unit masuk' : 'setelah servis'}`);
+                const skeleton = document.createElement('span');
+                skeleton.className = 'photo-skeleton block';
+                skeleton.setAttribute('aria-hidden', 'true');
                 const image = document.createElement('img');
                 image.src = photo.thumbnail_url;
                 image.alt = photo.kind === 'intake' ? 'Kondisi unit saat masuk' : 'Kondisi unit setelah selesai';
                 image.loading = 'lazy';
-                image.className = 'h-28 w-full object-cover';
+                image.className = 'h-32 w-full object-cover';
                 const caption = document.createElement('span');
                 caption.className = 'block p-2 text-xs text-slate-200';
                 caption.textContent = photo.kind === 'intake' ? 'Saat masuk' : 'Setelah selesai';
-                link.append(image, caption);
-                photosWrap.append(link);
+                image.addEventListener('load', () => skeleton.remove(), { once: true });
+                image.addEventListener('error', () => {
+                    image.remove();
+                    skeleton.remove();
+                    const failed = document.createElement('span');
+                    failed.className = 'block p-4 text-sm text-rose-200';
+                    failed.textContent = 'Foto tidak dapat dimuat. Coba muat ulang halaman.';
+                    trigger.prepend(failed);
+                }, { once: true });
+                trigger.addEventListener('click', () => bukaFoto(photo.url, caption.textContent));
+                trigger.append(skeleton, image, caption);
+                photosWrap.append(trigger);
             });
             if (!photosWrap.childElementCount) {
                 const empty = document.createElement('p');
@@ -782,8 +905,11 @@
 
             // Teknisi PIC
             const teknisiEl = document.getElementById('resTeknisi');
+            teknisiEl.replaceChildren();
             if (unit.nama_teknisi) {
-                teknisiEl.innerHTML = `<span>👤</span> ${unit.nama_teknisi}`;
+                const icon = document.createElement('span');
+                icon.textContent = '👤';
+                teknisiEl.append(icon, document.createTextNode(` ${unit.nama_teknisi}`));
                 teknisiEl.className = 'font-bold text-blue-400 flex items-center gap-1.5 mt-0.5';
             } else {
                 teknisiEl.innerText = 'Menunggu penugasan teknisi';
@@ -794,22 +920,39 @@
             const statusBadge = document.getElementById('resStatusBadge');
             const rawStatus = (unit.status || 'masuk').toString().trim();
             const st = rawStatus.toLowerCase();
+            const statusDetails = {
+                masuk: ['📥', 'Servis diterima'],
+                diperiksa: ['🔎', 'Sedang diperiksa'],
+                dikerjakan: ['🔧', 'Sedang dikerjakan'],
+                menunggu_persetujuan: ['📝', 'Menunggu persetujuan'],
+                'menunggu persetujuan': ['📝', 'Menunggu persetujuan'],
+                menunggu_sparepart: ['📦', 'Menunggu sparepart'],
+                selesai: ['✅', 'Selesai'],
+                diambil: ['📤', 'Unit diambil'],
+                batal: ['✖️', 'Servis dibatalkan'],
+            };
+            const [statusIcon, statusLabel] = statusDetails[st] || ['ℹ️', rawStatus.replace(/_/g, ' ')];
             let badgeClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
             if (st === 'selesai') badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
             else if (st === 'diambil') badgeClass = 'bg-purple-500/20 text-purple-400 border-purple-500/30';
             else if (st === 'batal') badgeClass = 'bg-rose-500/20 text-rose-400 border-rose-500/30';
             else if (st === 'menunggu_sparepart' || st === 'menunggu_persetujuan' || st === 'menunggu persetujuan') badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-            statusBadge.className = `px-3.5 py-1.5 text-xs font-bold rounded-full uppercase tracking-wider border ${badgeClass}`;
-            statusBadge.innerText = rawStatus.replace(/_/g, ' ');
+            statusBadge.className = `ui-badge ${badgeClass}`;
+            statusBadge.textContent = `${statusIcon} ${statusLabel}`;
             updateStepper(st);
 
             // Banner Konfirmasi Persetujuan Pelanggan
             const persetujuanCard = document.getElementById('persetujuanCard');
             const totalBiaya = parseFloat(unit.total_biaya || 0);
+            const approvalFeedback = document.getElementById('approvalFeedback');
             if (persetujuanCard) {
                 if (st === 'menunggu_persetujuan' || st === 'menunggu persetujuan') {
                     persetujuanCard.classList.remove('hidden');
                     document.getElementById('persetujuanTotalBiaya').innerText = `Rp ${totalBiaya.toLocaleString('id-ID')}`;
+                    isiRingkasanPersetujuan(onderdil, Number(unit.biaya_jasa || 0), totalBiaya);
+                    document.getElementById('approvalActions').classList.toggle('hidden', !unit.status_channel_key);
+                    document.getElementById('approvalLoginPrompt').classList.toggle('hidden', Boolean(unit.status_channel_key));
+                    approvalFeedback.classList.add('hidden');
                 } else {
                     persetujuanCard.classList.add('hidden');
                 }
@@ -819,34 +962,63 @@
             const tbody = document.getElementById('rincianBiayaTable');
             tbody.innerHTML = '';
             const biayaJasa = parseFloat(unit.biaya_jasa || 0);
-            tbody.innerHTML += `
-                <tr>
-                    <td class="p-2.5">
-                        <div class="font-bold text-slate-100">🔧 Biaya Jasa Servis & Analisa</div>
-                        <div class="text-[10px] text-slate-400">Pengerjaan teknis, diagnosa, dan perbaikan perangkat</div>
-                    </td>
-                    <td class="p-2.5 text-center font-semibold">1</td>
-                    <td class="p-2.5 text-right font-medium">Rp ${biayaJasa.toLocaleString('id-ID')}</td>
-                    <td class="p-2.5 text-right font-bold text-blue-300">Rp ${biayaJasa.toLocaleString('id-ID')}</td>
-                </tr>`;
+            const addCostRow = ({ name, detail = '', quantity, unitPrice, subtotal, nameClass, subtotalClass }) => {
+                const row = document.createElement('tr');
+                const itemCell = document.createElement('td');
+                itemCell.className = 'p-2.5';
+                const itemName = document.createElement('div');
+                itemName.className = nameClass;
+                itemName.textContent = name;
+                itemCell.append(itemName);
+                if (detail) {
+                    const itemDetail = document.createElement('div');
+                    itemDetail.className = 'text-xs text-slate-400';
+                    itemDetail.textContent = detail;
+                    itemCell.append(itemDetail);
+                }
+                const quantityCell = document.createElement('td');
+                quantityCell.className = 'p-2.5 text-center font-semibold';
+                quantityCell.textContent = String(quantity);
+                const priceCell = document.createElement('td');
+                priceCell.className = 'p-2.5 text-right';
+                priceCell.textContent = `Rp ${Number(unitPrice || 0).toLocaleString('id-ID')}`;
+                const subtotalCell = document.createElement('td');
+                subtotalCell.className = `p-2.5 text-right font-bold ${subtotalClass}`;
+                subtotalCell.textContent = `Rp ${Number(subtotal || 0).toLocaleString('id-ID')}`;
+                row.append(itemCell, quantityCell, priceCell, subtotalCell);
+                tbody.append(row);
+            };
+
+            addCostRow({
+                name: '🔧 Biaya Jasa Servis & Analisa',
+                detail: 'Pengerjaan teknis, diagnosa, dan perbaikan perangkat',
+                quantity: 1,
+                unitPrice: biayaJasa,
+                subtotal: biayaJasa,
+                nameClass: 'font-bold text-slate-100',
+                subtotalClass: 'text-blue-300',
+            });
 
             if (onderdil && onderdil.length > 0) {
                 onderdil.forEach(item => {
-                    const hargaSatuan = parseFloat(item.harga_satuan || 0);
-                    const subtotal = parseFloat(item.subtotal || 0);
-                    tbody.innerHTML += `
-                        <tr>
-                            <td class="p-2.5">
-                                <div class="font-semibold text-slate-200">📦 ${item.nama_barang}</div>
-                                <div class="text-[10px] text-slate-400 font-mono">Kode: ${item.kode_barang}</div>
-                            </td>
-                            <td class="p-2.5 text-center font-bold text-slate-300">${item.jumlah}</td>
-                            <td class="p-2.5 text-right text-slate-300">Rp ${hargaSatuan.toLocaleString('id-ID')}</td>
-                            <td class="p-2.5 text-right font-bold text-emerald-400">Rp ${subtotal.toLocaleString('id-ID')}</td>
-                        </tr>`;
+                    addCostRow({
+                        name: `📦 ${item.nama_barang || 'Sparepart'}`,
+                        detail: item.kode_barang ? `Kode: ${item.kode_barang}` : '',
+                        quantity: item.jumlah,
+                        unitPrice: item.harga_satuan,
+                        subtotal: item.subtotal,
+                        nameClass: 'font-semibold text-slate-200',
+                        subtotalClass: 'text-emerald-300',
+                    });
                 });
             } else {
-                tbody.innerHTML += `<tr><td colspan="4" class="p-2 text-center text-[11px] text-slate-500 italic">Tidak ada penggantian onderdil/sparepart</td></tr>`;
+                const emptyRow = document.createElement('tr');
+                const emptyCell = document.createElement('td');
+                emptyCell.colSpan = 4;
+                emptyCell.className = 'p-2 text-center text-xs text-slate-400 italic';
+                emptyCell.textContent = 'Tidak ada penggantian onderdil atau sparepart.';
+                emptyRow.append(emptyCell);
+                tbody.append(emptyRow);
             }
 
             document.getElementById('resTotalBiaya').innerText = `Rp ${totalBiaya.toLocaleString('id-ID')}`;
@@ -860,14 +1032,14 @@
             rowDp.classList.add('hidden'); rowSisa.classList.add('hidden'); rowKembalian.classList.add('hidden');
 
             if (unit.status_pembayaran === 'lunas') {
-                payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                payBadge.className = 'ui-badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
                 payBadge.innerText = '✅ Lunas';
                 if (parseFloat(unit.kembalian) > 0) {
                     rowKembalian.classList.remove('hidden');
                     document.getElementById('resKembalian').innerText = `Rp ${parseFloat(unit.kembalian).toLocaleString('id-ID')}`;
                 }
             } else if (unit.status_pembayaran === 'sebagian') {
-                payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30';
+                payBadge.className = 'ui-badge bg-blue-500/20 text-blue-200 border border-blue-500/40';
                 payBadge.innerText = '⏳ Dibayar Sebagian';
                 rowDp.classList.remove('hidden'); rowSisa.classList.remove('hidden');
                 const dp = parseFloat(unit.dp_dibayar || 0);
@@ -875,7 +1047,7 @@
                 document.getElementById('resDP').innerText = `Rp ${dp.toLocaleString('id-ID')}`;
                 document.getElementById('resSisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
             } else {
-                payBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30';
+                payBadge.className = 'ui-badge bg-amber-500/20 text-amber-100 border border-amber-500/40';
                 payBadge.innerText = '⚠️ Belum Bayar';
                 rowSisa.classList.remove('hidden');
                 document.getElementById('resSisa').innerText = `Rp ${totalBiaya.toLocaleString('id-ID')}`;
@@ -894,11 +1066,13 @@
                     heading.className = 'flex items-center justify-between gap-3';
                     const status = document.createElement('span');
                     status.className = 'font-bold text-slate-100 uppercase tracking-wide text-xs';
-                    status.textContent = (log.status_baru || 'UPDATE').replaceAll('_', ' ');
+                    const timelineStatus = (log.status_baru || 'UPDATE').toLowerCase();
+                    const [timelineIcon, timelineLabel] = statusDetails[timelineStatus] || ['ℹ️', timelineStatus.replaceAll('_', ' ')];
+                    status.textContent = `${timelineIcon} ${timelineLabel}`;
                     const timestamp = document.createElement('time');
-                    timestamp.className = 'text-[10px] text-slate-400';
+                    timestamp.className = 'text-xs text-slate-400';
                     timestamp.dateTime = log.created_at || '';
-                    timestamp.textContent = log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-';
+                    timestamp.textContent = formatDateWib(log.created_at, true);
                     heading.append(status, timestamp);
 
                     const actor = document.createElement('div');
@@ -907,7 +1081,7 @@
                         ? `${log.user}${log.user_role ? ` · ${log.user_role}` : ''}`
                         : 'Pelanggan / sistem';
                     const note = document.createElement('div');
-                    note.className = 'mt-1 text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60';
+                    note.className = 'mt-1 break-words text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60';
                     note.textContent = log.catatan || log.catatan_teknis || '-';
                     item.append(dot, heading, actor, note);
                     timelineList.appendChild(item);
@@ -924,14 +1098,69 @@
                         tampilkanHasil(update.data);
                     } else if (source === 'reverb') {
                         fetch('/api/customer/me')
-                            .then(response => response.ok ? response.json() : null)
+                            .then(response => {
+                                if (response.status === 401) {
+                                    setRealtimeStatus('session-expired');
+                                    return null;
+                                }
+                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                                return response.json();
+                            })
                             .then(result => {
                                 if (result?.status === 'success') tampilkanHasil(result.data);
                             })
-                            .catch(error => console.error('Gagal memperbarui status servis', error));
+                            .catch(error => {
+                                setRealtimeStatus('offline');
+                                console.error('Gagal memperbarui status servis', error);
+                            });
                     }
-                });
+                }, setRealtimeStatus);
+            } else if (!unit.status_channel_key) {
+                setRealtimeStatus('manual');
             }
+        }
+
+        function isiRingkasanPersetujuan(onderdil, biayaJasa, total) {
+            const container = document.getElementById('approvalCostBreakdown');
+            container.replaceChildren();
+            const addRow = (label, amount, emphasis = false) => {
+                const row = document.createElement('div');
+                row.className = `flex items-start justify-between gap-4 ${emphasis ? 'border-t border-amber-500/30 pt-2 font-bold text-amber-100' : 'text-amber-50'}`;
+                const name = document.createElement('span');
+                name.textContent = label;
+                const price = document.createElement('span');
+                price.className = 'shrink-0 text-right';
+                price.textContent = `Rp ${Number(amount || 0).toLocaleString('id-ID')}`;
+                row.append(name, price);
+                container.append(row);
+            };
+
+            addRow('Biaya jasa', biayaJasa);
+            (onderdil || []).forEach(item => {
+                addRow(item.nama_barang || 'Sparepart', item.subtotal);
+            });
+            addRow('Total estimasi', total, true);
+        }
+
+        function bukaFoto(url, caption) {
+            const dialog = document.getElementById('photoDialog');
+            const content = document.getElementById('photoDialogContent');
+            content.replaceChildren();
+            document.getElementById('photoDialogCaption').textContent = caption;
+            const loading = document.createElement('p');
+            loading.className = 'portal-status';
+            loading.textContent = 'Memuat foto…';
+            const image = document.createElement('img');
+            image.src = url;
+            image.alt = caption;
+            image.className = 'mx-auto max-h-[72dvh] w-auto max-w-full rounded-lg object-contain';
+            image.addEventListener('load', () => loading.remove(), { once: true });
+            image.addEventListener('error', () => {
+                loading.textContent = 'Foto tidak dapat dimuat. Coba muat ulang halaman.';
+                loading.classList.add('text-rose-200');
+            }, { once: true });
+            content.append(loading, image);
+            dialog.showModal();
         }
 
         function updateStepper(status) {
@@ -950,6 +1179,15 @@
                 if (!el) return;
                 const circle = el.querySelector('div');
                 const label = el.querySelector('span');
+                const baseLabel = label.dataset.label || label.textContent.replace(' · saat ini', '');
+                label.dataset.label = baseLabel;
+                if (idx === currentIndex) {
+                    el.setAttribute('aria-current', 'step');
+                    label.textContent = `${baseLabel} · saat ini`;
+                } else {
+                    el.removeAttribute('aria-current');
+                    label.textContent = baseLabel;
+                }
                 if (currentIndex >= idx && s !== 'batal') {
                     circle.className = 'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 bg-blue-600 text-white shadow-md shadow-blue-500/30';
                     label.className = 'text-[11px] font-bold text-blue-400';
@@ -961,35 +1199,53 @@
         }
 
         // ===================== HANDLER PERSETUJUAN / PEMBATALAN =====================
-        async function kirimPersetujuan(aksi) {
+        function mintaPersetujuan(aksi) {
             if (!currentServiceData) {
-                alert('Data servis tidak ditemukan.');
+                tampilkanFeedbackPersetujuan('Data servis tidak ditemukan. Muat ulang halaman dan coba kembali.', 'error');
+                return;
+            }
+            if (!currentServiceData.status_channel_key) {
+                document.getElementById('approvalLoginPrompt').classList.remove('hidden');
                 return;
             }
 
-            const isSetuju = aksi.toLowerCase() === 'dikerjakan';
+            pendingApprovalAction = aksi;
+            const isSetuju = aksi === 'dikerjakan';
+            document.getElementById('approvalDialogTitle').textContent = isSetuju
+                ? 'Setujui estimasi perbaikan?'
+                : 'Batalkan servis?';
+            document.getElementById('approvalDialogDescription').textContent = isSetuju
+                ? `Anda menyetujui estimasi total Rp ${Number(currentServiceData.total_biaya || 0).toLocaleString('id-ID')}. Teknisi akan melanjutkan pengerjaan.`
+                : 'Servis akan dibatalkan. Keputusan ini akan dikirim ke bengkel.';
+            const confirmButton = document.getElementById('approvalDialogConfirm');
+            confirmButton.textContent = isSetuju ? 'Ya, setujui' : 'Ya, batalkan servis';
+            confirmButton.className = `ui-button ${isSetuju ? 'ui-button--success' : 'ui-button--danger'}`;
+            document.getElementById('approvalDialog').showModal();
+        }
+
+        function tampilkanFeedbackPersetujuan(message, tone = 'info') {
+            const feedback = document.getElementById('approvalFeedback');
+            feedback.textContent = message;
+            feedback.className = `ui-alert ui-alert--${tone}`;
+            feedback.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+        }
+
+        async function kirimPersetujuan(aksi) {
+            if (!currentServiceData || !currentServiceData.status_channel_key) {
+                tampilkanFeedbackPersetujuan('Masuk dengan kode akses servis sebelum mengirim keputusan.', 'error');
+                return;
+            }
+
+            const isSetuju = aksi === 'dikerjakan';
             const statusTarget = isSetuju ? 'DIKERJAKAN' : 'BATAL';
-            const totalBiayaFormatted = Number(currentServiceData.total_biaya || 0).toLocaleString('id-ID');
-
-            const konfirmasiPesan = isSetuju
-                ? `Apakah Anda yakin menyetujui estimasi perbaikan sebesar Rp ${totalBiayaFormatted} ini?\n\nTeknisi akan segera melanjutkan proses pengerjaan.`
-                : `Apakah Anda yakin ingin membatalkan servis ini?\n\nStatus servis akan diubah menjadi BATAL.`;
-
-            if (!confirm(konfirmasiPesan)) {
-                return;
-            }
-
-            const btnSetujui = document.getElementById('btnSetujui');
-            const btnBatal = document.getElementById('btnBatal');
-
-            if (btnSetujui) {
-                btnSetujui.disabled = true;
-                btnSetujui.classList.add('opacity-50', 'cursor-not-allowed');
-            }
-            if (btnBatal) {
-                btnBatal.disabled = true;
-                btnBatal.classList.add('opacity-50', 'cursor-not-allowed');
-            }
+            const buttons = [
+                document.getElementById('btnSetujui'),
+                document.getElementById('btnBatal'),
+                document.getElementById('approvalDialogConfirm'),
+            ];
+            buttons.forEach(button => { button.disabled = true; });
+            document.getElementById('approvalDialog').close();
+            tampilkanFeedbackPersetujuan('Mengirim keputusan Anda…');
 
             try {
                 const response = await fetch('/api/customer/approval', {
@@ -998,96 +1254,149 @@
                     body: JSON.stringify({
                         status_baru: statusTarget,
                         service_id: currentServiceData.id,
-                        no_nota: currentServiceData.no_nota
-                    })
+                        no_nota: currentServiceData.no_nota,
+                    }),
                 });
-
                 const result = await response.json();
-
-                if (result.status === 'success') {
-                    alert(isSetuju
-                        ? '✅ Terima kasih! Anda telah menyetujui estimasi perbaikan. Status servis kini DIKERJAKAN.'
-                        : '❌ Servis telah berhasil dibatalkan. Status servis kini BATAL.');
-
-                    // Muat ulang data servis yang terikat pada sesi token pelanggan atau kode servis
-                    let reloaded = false;
-                    try {
-                        const resReload = await fetch('/api/customer/me');
-                        if (resReload.ok) {
-                            const dataReload = await resReload.json();
-                            if (dataReload.status === 'success') {
-                                tampilkanHasil(dataReload.data);
-                                reloaded = true;
-                            }
-                        }
-                    } catch (e) {}
-
-                    if (!reloaded && currentServiceData?.no_nota) {
-                        try {
-                            const resNota = await fetch(`/api/tracking/${currentServiceData.no_nota}`);
-                            if (resNota.ok) {
-                                const dataNota = await resNota.json();
-                                if (dataNota.status === 'success') {
-                                    tampilkanHasil(dataNota.data);
-                                    reloaded = true;
-                                }
-                            }
-                        } catch (e) {}
+                if (!response.ok || result.status !== 'success') {
+                    if (response.status === 401) {
+                        setRealtimeStatus('session-expired');
+                        tampilkanFeedbackPersetujuan('Sesi portal berakhir. Masuk kembali untuk mengirim persetujuan.', 'error');
+                    } else {
+                        tampilkanFeedbackPersetujuan(result.message || 'Keputusan tidak dapat disimpan. Coba kembali.', 'error');
                     }
-                } else {
-                    alert('⚠️ Gagal memperbarui status: ' + (result.message || 'Terjadi kesalahan sistem'));
+                    return;
                 }
-            } catch (err) {
-                console.error('Error konfirmasi persetujuan:', err);
-                alert('❌ Terjadi kesalahan koneksi ke server. Silakan coba lagi.');
+
+                tampilkanFeedbackPersetujuan(isSetuju
+                    ? 'Terima kasih, persetujuan Anda sudah diterima bengkel.'
+                    : 'Permintaan pembatalan servis sudah dikirim ke bengkel.');
+                const reload = await fetch('/api/customer/me');
+                if (reload.status === 401) {
+                    setRealtimeStatus('session-expired');
+                    return;
+                }
+                if (!reload.ok) {
+                    tampilkanFeedbackPersetujuan('Keputusan tersimpan, tetapi status terbaru belum dapat dimuat. Muat ulang halaman untuk memperbarui.', 'info');
+                    return;
+                }
+                const refreshed = await reload.json();
+                if (refreshed.status === 'success') tampilkanHasil(refreshed.data);
+            } catch (error) {
+                console.error('Gagal mengirim keputusan persetujuan', error);
+                tampilkanFeedbackPersetujuan('Tidak dapat terhubung ke server. Periksa koneksi, lalu coba kembali.', 'error');
             } finally {
-                if (btnSetujui) {
-                    btnSetujui.disabled = false;
-                    btnSetujui.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-                if (btnBatal) {
-                    btnBatal.disabled = false;
-                    btnBatal.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
+                buttons.forEach(button => { button.disabled = false; });
             }
         }
 
-        // Restore customer session from the HttpOnly cookie or stored session when the page reopens.
+        document.getElementById('btnPortalLogin').addEventListener('click', () => {
+            const note = currentServiceData
+                ? `Masuk untuk servis ${currentServiceData.no_nota}. Gunakan nama dan kode akses yang diterima untuk servis ini.`
+                : 'Masukkan nama dan kode akses servis untuk melanjutkan.';
+            setLoginContext(note);
+            showLogin();
+        });
+        document.getElementById('btnReturnLogin').addEventListener('click', () => {
+            sessionStorage.removeItem(customerSessionFlag);
+            showLogin('Sesi portal berakhir. Masuk kembali dengan nama dan kode akses servis.');
+        });
+
+        document.getElementById('approvalDialogCancel').addEventListener('click', () => {
+            pendingApprovalAction = null;
+            document.getElementById('approvalDialog').close();
+        });
+        document.getElementById('approvalDialogConfirm').addEventListener('click', () => {
+            const action = pendingApprovalAction;
+            pendingApprovalAction = null;
+            if (action) kirimPersetujuan(action);
+        });
+        document.getElementById('photoDialogClose').addEventListener('click', () => {
+            document.getElementById('photoDialog').close();
+        });
+        document.getElementById('photoDialog').addEventListener('click', event => {
+            if (event.target === event.currentTarget) event.currentTarget.close();
+        });
+        const loginNameInput = document.getElementById('loginName');
+        const loginTokenInput = document.getElementById('loginToken');
+        loginNameInput.addEventListener('invalid', () => {
+            loginNameInput.setCustomValidity('Masukkan nama sesuai data servis.');
+            setLoginMessage('Masukkan nama sesuai data servis.');
+        });
+        loginNameInput.addEventListener('input', () => {
+            loginNameInput.setCustomValidity('');
+            setLoginMessage('');
+        });
+        loginTokenInput.addEventListener('invalid', () => {
+            loginTokenInput.setCustomValidity('Kode akses harus terdiri dari tepat 5 angka.');
+            setLoginMessage('Kode akses harus terdiri dari tepat 5 angka.');
+        });
+        loginTokenInput.addEventListener('input', () => {
+            loginTokenInput.setCustomValidity('');
+            setLoginMessage('');
+        });
+
+        // Pulihkan sesi dari cookie HttpOnly atau muat tautan tracking acak.
         window.addEventListener('load', async () => {
-            if (window.initialTrackingKey) {
+            const loading = document.getElementById('portalLoadStatus');
+            loading.classList.remove('hidden');
+            let loadError = '';
+            try {
+                if (window.initialTrackingKey) {
+                    try {
+                        const response = await fetch(`/api/tracking-link/${encodeURIComponent(window.initialTrackingKey)}`);
+                        const tracked = await response.json();
+                        if (response.ok && tracked.status === 'success') {
+                            window.trackingServiceId = tracked.data.unit.id;
+                            tampilkanHasil(tracked.data);
+                            return;
+                        }
+                        loadError = response.status === 404
+                            ? 'Tautan pelacakan tidak ditemukan. Periksa kembali tautan dari bengkel.'
+                            : 'Tautan pelacakan tidak dapat dimuat. Periksa koneksi internet, lalu coba lagi.';
+                    } catch (error) {
+                        console.error('Gagal memuat tautan pelacakan', error);
+                        loadError = 'Tautan pelacakan tidak dapat dimuat. Periksa koneksi internet, lalu coba lagi.';
+                    }
+                }
+
                 try {
-                    const response = await fetch(`/api/tracking-link/${encodeURIComponent(window.initialTrackingKey)}`);
-                    const tracked = await response.json();
-                    if (response.ok && tracked.status === 'success') {
-                        tampilkanHasil(tracked.data);
-                        return;
+                    const response = await fetch('/api/customer/me');
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            sessionStorage.setItem(customerSessionFlag, '1');
+                            tampilkanHasil(result.data);
+                            return;
+                        }
+                    } else if (response.status === 401 && sessionStorage.getItem(customerSessionFlag)) {
+                        loadError = 'Sesi portal telah berakhir. Masuk kembali dengan nama dan kode akses servis.';
+                        sessionStorage.removeItem(customerSessionFlag);
                     }
                 } catch (error) {
-                    console.error('Gagal memuat tautan pelacakan', error);
+                    console.error('Gagal memulihkan sesi portal pelanggan', error);
+                    loadError = 'Tidak dapat menghubungi server. Periksa koneksi internet, lalu coba lagi.';
                 }
-            }
-            try {
-                const res = await fetch('/api/customer/me');
-                if (res.ok) {
-                    const result = await res.json();
-                    if (result.status === 'success') {
-                        tampilkanHasil(result.data);
-                        return;
-                    }
-                }
-            } catch (e) { /* biarkan tampil login */ }
 
-            const storedNota = sessionStorage.getItem('pelanggan_nota');
-            if (storedNota) {
-                try {
-                    const resNota = await fetch(`/api/tracking/${storedNota}`);
-                    if (resNota.ok) {
-                        const resultNota = await resNota.json();
-                        if (resultNota.status === 'success') {
-                            tampilkanHasil(resultNota.data);
+                const storedNota = sessionStorage.getItem('pelanggan_nota');
+                if (storedNota) {
+                    try {
+                        const response = await fetch(`/api/tracking/${encodeURIComponent(storedNota)}`);
+                        if (response.ok) {
+                            const result = await response.json();
+                            if (result.status === 'success') {
+                                tampilkanHasil(result.data);
+                                return;
+                            }
                         }
+                    } catch (error) {
+                        console.error('Gagal memulihkan pelacakan servis tersimpan', error);
                     }
-                } catch (e) {}
+                }
+
+                setLoginMessage(loadError);
+            } finally {
+                loading.classList.add('hidden');
             }
         });
     </script>

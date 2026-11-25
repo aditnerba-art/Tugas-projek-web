@@ -8,4 +8,296 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-portal-bg: #071a35;
+    --color-portal-surface: #102b4d;
+    --color-portal-surface-raised: #17385f;
+    --color-portal-ink: #f4f8ff;
+    --color-portal-muted: #b7c9df;
+    --color-portal-line: #315174;
+    --color-portal-ink-on-light: #132b4f;
+    --color-portal-muted-on-light: #647a96;
+    --color-portal-line-on-light: #d7e3f1;
+    --color-portal-accent: #60a5fa;
+    --color-portal-accent-dark: #2563eb;
+    --color-portal-success: #34d399;
+    --color-portal-warning: #fbbf24;
+    --color-portal-danger: #fb7185;
+    --color-portal-surface-light: #ffffff;
+    --radius-portal-card: 1.125rem;
+    --shadow-portal-card: 0 18px 42px rgb(1 9 26 / 28%);
+}
+
+.customer-portal {
+    color-scheme: dark;
+    min-height: 100vh;
+    background:
+        radial-gradient(ellipse at 15% 5%, rgb(37 99 235 / 22%), transparent 42%),
+        radial-gradient(ellipse at 95% 55%, rgb(14 116 144 / 17%), transparent 38%),
+        var(--color-portal-bg);
+    color: var(--color-portal-ink);
+    font-family: var(--font-sans);
+}
+
+.customer-portal .ui-card,
+.customer-portal .login-card {
+    border: 1px solid var(--color-portal-line);
+    border-radius: var(--radius-portal-card);
+    background: var(--color-portal-surface);
+    color: var(--color-portal-ink);
+    box-shadow: var(--shadow-portal-card);
+}
+
+.customer-portal .login-card {
+    padding: clamp(1.25rem, 5vw, 1.875rem);
+    border-color: var(--color-portal-line-on-light);
+    background: var(--color-portal-surface-light);
+    color: var(--color-portal-ink-on-light);
+}
+
+.customer-portal .portal-feature-card {
+    border-color: var(--color-portal-line) !important;
+    border-radius: var(--radius-portal-card);
+    background: linear-gradient(145deg, #102b4d, #0b2340) !important;
+    color: var(--color-portal-ink);
+    box-shadow: var(--shadow-portal-card);
+}
+
+.customer-portal .portal-feature-card:hover {
+    border-color: #4b76a4 !important;
+    background: linear-gradient(145deg, #102b4d, #0b2340) !important;
+}
+
+.customer-portal .portal-feature-card h2,
+.customer-portal .portal-feature-card [class~="text-slate-100"] {
+    color: #f4f8ff !important;
+}
+
+.customer-portal .portal-feature-card [class~="text-slate-200"] {
+    color: #d7e6f7 !important;
+}
+
+.customer-portal .portal-feature-card [class~="text-slate-300"] {
+    color: #c4d6eb !important;
+}
+
+.customer-portal .portal-feature-card [class~="text-slate-400"] {
+    color: #b0c5dd !important;
+}
+
+.customer-portal .portal-feature-card [class~="text-slate-500"] {
+    color: #9bb4d0 !important;
+}
+
+.customer-portal .ui-label,
+.customer-portal .login-card label {
+    display: block;
+    margin-bottom: .5rem;
+    color: #344c5a;
+    font-size: .875rem;
+    font-weight: 700;
+}
+
+.customer-portal .ui-input,
+.customer-portal .login-card input {
+    width: 100%;
+    min-height: 3rem;
+    border: 1px solid #8da3b8;
+    border-radius: .75rem;
+    background: #fff;
+    padding: .7rem .85rem;
+    color: #132b4f;
+    font: 500 1rem/1.4 var(--font-sans);
+}
+
+.customer-portal .ui-input:focus-visible,
+.customer-portal .login-card input:focus-visible,
+.customer-portal .ui-button:focus-visible,
+.customer-portal a:focus-visible,
+.customer-portal [tabindex]:focus-visible {
+    outline: 3px solid #60a5fa;
+    outline-offset: 3px;
+}
+
+.customer-portal .ui-help {
+    margin-top: .5rem;
+    color: #536b82;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.customer-portal .ui-button {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid transparent;
+    border-radius: .75rem;
+    padding: .65rem 1rem;
+    font-size: .9rem;
+    font-weight: 700;
+    line-height: 1.25;
+    transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.customer-portal .ui-button:disabled {
+    cursor: wait;
+    opacity: .65;
+}
+
+.customer-portal .ui-button--primary {
+    background: var(--color-portal-accent-dark);
+    color: #fff;
+}
+
+.customer-portal .ui-button--primary:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.customer-portal .ui-button--success {
+    background: #047857;
+    color: #fff;
+}
+
+.customer-portal .ui-button--success:hover:not(:disabled) {
+    background: #059669;
+}
+
+.customer-portal .ui-button--danger {
+    background: #be123c;
+    color: #fff;
+}
+
+.customer-portal .ui-button--danger:hover:not(:disabled) {
+    background: #e11d48;
+}
+
+.customer-portal .ui-button--secondary {
+    border-color: #56708e;
+    background: #17385f;
+    color: #f4f8ff;
+}
+
+.customer-portal .ui-badge {
+    display: inline-flex;
+    min-height: 1.75rem;
+    align-items: center;
+    gap: .35rem;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: .3rem .7rem;
+    font-size: .75rem;
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+.customer-portal .ui-badge--neutral {
+    border-color: #56708e;
+    background: #17385f;
+    color: #e6f0fc;
+}
+
+.customer-portal .ui-alert {
+    border: 1px solid;
+    border-radius: .75rem;
+    padding: .75rem 1rem;
+    font-size: .875rem;
+    line-height: 1.5;
+}
+
+.customer-portal .ui-alert--error {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #9f1239;
+}
+
+.customer-portal .ui-alert--info {
+    border-color: #456b96;
+    background: #102b4d;
+    color: #d7e6f7;
+}
+
+.customer-portal .portal-status {
+    min-height: 1.5rem;
+    color: var(--color-portal-muted);
+    font-size: .8125rem;
+}
+
+.customer-portal .portal-status[data-state="offline"],
+.customer-portal .portal-status[data-state="session-expired"] {
+    color: #fecaca;
+}
+
+.customer-portal .portal-status[data-state="realtime"] {
+    color: #a7f3d0;
+}
+
+.customer-portal .photo-trigger {
+    min-height: 44px;
+    border-radius: .75rem;
+    background: #17385f;
+    color: #f4f8ff;
+    text-align: left;
+}
+
+.customer-portal .photo-skeleton {
+    min-height: 7rem;
+    border-radius: .5rem;
+    background: linear-gradient(100deg, #17385f 30%, #244a73 50%, #17385f 70%);
+    background-size: 200% 100%;
+    animation: portal-shimmer 1.2s ease-in-out infinite;
+}
+
+.customer-portal dialog {
+    width: min(92vw, 42rem);
+    max-height: 90dvh;
+    border: 1px solid #456b96;
+    border-radius: var(--radius-portal-card);
+    background: #0b2340;
+    color: #f4f8ff;
+    padding: 1rem;
+}
+
+.customer-portal dialog::backdrop {
+    background: rgb(2 8 23 / 78%);
+    backdrop-filter: blur(3px);
+}
+
+.customer-portal .portal-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+}
+
+@keyframes portal-shimmer {
+    to { background-position: -200% 0; }
+}
+
+@media (max-width: 760px) {
+    .customer-portal .login-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.5rem;
+        width: min(100%, 34rem);
+        padding: 2rem 1rem 3rem;
+    }
+
+    .customer-portal .login-benefit:nth-child(n+3) {
+        display: none;
+    }
+
+    .customer-portal #resultPage .max-w-3xl > div,
+    .customer-portal #resultPage section {
+        padding: 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .customer-portal *,
+    .customer-portal *::before,
+    .customer-portal *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
 }

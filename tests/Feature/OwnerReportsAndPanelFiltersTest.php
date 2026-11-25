@@ -127,9 +127,14 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             ->assertJsonPath('data.cash_summary.0.tunai', 250);
 
         $csv = $this->get('/api/owner/reports.csv'.$filters)->assertOk();
-        $this->assertStringContainsString('Laba kotor', $csv->streamedContent());
-        $this->assertStringContainsString('Rekonsiliasi kas harian per kasir', $csv->streamedContent());
-        $this->assertStringContainsString('SRV-REPORT-001', $csv->streamedContent());
+        $csvContent = $csv->streamedContent();
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $csvContent);
+        $this->assertSame(
+            ['Periode pembayaran', 'Omzet pembayaran bersih', 'Modal sparepart proporsional', 'Laba kotor', 'Servis terdaftar'],
+            str_getcsv(preg_split('/\r\n|\r|\n/', substr($csvContent, 3))[0], ';'),
+        );
+        $this->assertStringContainsString('Rekonsiliasi kas harian per kasir', $csvContent);
+        $this->assertStringContainsString('SRV-REPORT-001', $csvContent);
 
         $this->get('/api/owner/reports/print'.$filters)
             ->assertOk()

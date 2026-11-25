@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\CustomerServiceStatusChanged;
 use App\Events\ServiceStatusChanged;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -178,6 +179,9 @@ class Service extends Model
             $this->setRawAttributes($service->getAttributes(), true);
 
             event(new ServiceStatusChanged($statusLog));
+            if ($oldStatus !== $newStatus) {
+                event(new CustomerServiceStatusChanged($statusLog));
+            }
 
             return $statusLog;
         });

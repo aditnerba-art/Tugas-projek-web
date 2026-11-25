@@ -68,6 +68,22 @@ return [
             'report' => false,
         ],
 
+        'sftp' => [
+            'driver' => 'sftp',
+            'host' => env('SFTP_HOST'),
+            'username' => env('SFTP_USERNAME'),
+            'password' => env('SFTP_PASSWORD'),
+            'privateKey' => env('SFTP_PRIVATE_KEY'),
+            'passphrase' => env('SFTP_PASSPHRASE'),
+            'port' => env('SFTP_PORT', 22),
+            'root' => env('SFTP_ROOT', '/backups/teckfo-service'),
+            'timeout' => 30,
+            'hostFingerprint' => env('SFTP_HOST_FINGERPRINT'),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
+        ],
+
     ],
 
     /*

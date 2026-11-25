@@ -7,17 +7,55 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: sqlite
+            db_connection: sqlite
+            db_database: ':memory:'
+          - database: mysql
+            db_connection: mysql
+            db_database: laravel_test
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=$$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DB_CONNECTION: ${{ matrix.db_connection }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: ${{ matrix.db_database }}
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_URL: ''
     steps:
       - uses: actions/checkout@v4
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: fileinfo, gd, mbstring, pdo_sqlite
+          extensions: fileinfo, gd, mbstring, pdo_mysql, pdo_sqlite
           coverage: none
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Build frontend
+        run: npm ci && npm run build
       - name: Check code style
-        run: vendor/bin/pint --test
+        run: ./vendor/bin/pint --test
       - name: Run tests
         run: php artisan test

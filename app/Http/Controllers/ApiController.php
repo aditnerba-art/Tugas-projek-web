@@ -31,7 +31,6 @@ use App\Models\PurchaseDetail;
 use App\Models\Service;
 use App\Models\ServiceAccessToken;
 use App\Models\ServiceItem;
-use App\Models\ServiceLog;
 use App\Models\ServicePhoto;
 use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
@@ -40,12 +39,12 @@ use App\Notifications\ServicePanelNotification;
 use App\Services\ServicePhotoImageProcessor;
 use App\Services\WhatsApp\PhoneNumber;
 use App\Services\WhatsApp\WhatsAppNotificationService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -497,7 +496,7 @@ class ApiController extends Controller
                     ['teknisi_id' => $oldTechnicianId, 'priority' => $oldPriority],
                     ['teknisi_id' => $service->teknisi_id, 'priority' => $service->priority]);
                 $service->recordTimelineEvent(
-                    "Penugasan teknisi diperbarui: ".($service->technician?->nama ?? 'Belum Ditugaskan')."; prioritas ".strtoupper($service->priority).'.',
+                    'Penugasan teknisi diperbarui: '.($service->technician?->nama ?? 'Belum Ditugaskan').'; prioritas '.strtoupper($service->priority).'.',
                     $request->user(),
                 );
             }
@@ -1685,7 +1684,7 @@ class ApiController extends Controller
         return response()->streamDownload(function () use ($report, $from, $to): void {
             $output = fopen('php://output', 'w');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Periode pembayaran', 'Omzet pembayaran bersih', 'Modal sparepart proporsional', 'Laba kotor', 'Servis terdaftar']);
+            fputcsv($output, ['Periode pembayaran', 'Omzet pembayaran bersih', 'Modal sparepart proporsional', 'Laba kotor', 'Servis terdaftar'], ';');
             foreach ($report['series'] as $row) {
                 fputcsv($output, [
                     $row['label'],
@@ -1693,26 +1692,26 @@ class ApiController extends Controller
                     $row['modal'],
                     $row['laba_kotor'],
                     $row['jumlah_servis'],
-                ]);
+                ], ';');
             }
-            fputcsv($output, []);
-            fputcsv($output, ['Status servis', 'Jumlah']);
+            fputcsv($output, [], ';');
+            fputcsv($output, ['Status servis', 'Jumlah'], ';');
             foreach ($report['status_counts'] as $row) {
-                fputcsv($output, [$row->status, $row->jumlah]);
+                fputcsv($output, [$row->status, $row->jumlah], ';');
             }
-            fputcsv($output, []);
-            fputcsv($output, ['Teknisi', 'Jumlah servis', 'Omzet']);
+            fputcsv($output, [], ';');
+            fputcsv($output, ['Teknisi', 'Jumlah servis', 'Omzet'], ';');
             foreach ($report['technician_counts'] as $row) {
-                fputcsv($output, [$row->teknisi, $row->jumlah_servis, $row->omzet]);
+                fputcsv($output, [$row->teknisi, $row->jumlah_servis, $row->omzet], ';');
             }
-            fputcsv($output, []);
-            fputcsv($output, ['Sparepart terlaris', 'Jumlah terjual', 'Nilai jual', 'Modal']);
+            fputcsv($output, [], ';');
+            fputcsv($output, ['Sparepart terlaris', 'Jumlah terjual', 'Nilai jual', 'Modal'], ';');
             foreach ($report['top_parts'] as $part) {
-                fputcsv($output, [$part['nama_barang'], $part['jumlah_terjual'], $part['nilai_jual'], $part['modal']]);
+                fputcsv($output, [$part['nama_barang'], $part['jumlah_terjual'], $part['nilai_jual'], $part['modal']], ';');
             }
-            fputcsv($output, []);
-            fputcsv($output, ['Rekonsiliasi kas harian per kasir']);
-            fputcsv($output, ['Tanggal', 'Kasir', 'Tunai bersih', 'Non-tunai bersih', 'Total bersih', 'Jumlah transaksi']);
+            fputcsv($output, [], ';');
+            fputcsv($output, ['Rekonsiliasi kas harian per kasir'], ';');
+            fputcsv($output, ['Tanggal', 'Kasir', 'Tunai bersih', 'Non-tunai bersih', 'Total bersih', 'Jumlah transaksi'], ';');
             foreach ($report['cash_summary'] as $cash) {
                 fputcsv($output, [
                     $cash['tanggal'],
@@ -1721,11 +1720,11 @@ class ApiController extends Controller
                     $cash['non_tunai'],
                     $cash['total_bersih'],
                     $cash['jumlah_transaksi'],
-                ]);
+                ], ';');
             }
-            fputcsv($output, []);
-            fputcsv($output, ['Piutang / belum lunas']);
-            fputcsv($output, ['Nota', 'Pelanggan', 'Tanggal servis', 'Status pembayaran', 'Tagihan', 'Piutang']);
+            fputcsv($output, [], ';');
+            fputcsv($output, ['Piutang / belum lunas'], ';');
+            fputcsv($output, ['Nota', 'Pelanggan', 'Tanggal servis', 'Status pembayaran', 'Tagihan', 'Piutang'], ';');
             $this->receivablesQuery($from, $to)->with('customer:id,nama')->orderBy('created_at')
                 ->chunk(500, function ($services) use ($output): void {
                     foreach ($services as $service) {
@@ -1736,7 +1735,7 @@ class ApiController extends Controller
                             $service->status_pembayaran,
                             $service->total_biaya,
                             $service->piutang,
-                        ]);
+                        ], ';');
                     }
                 });
 

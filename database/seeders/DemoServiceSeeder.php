@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Customer;
-use App\Models\Payment;
 use App\Models\Service;
 use App\Models\ServiceItem;
 use App\Models\ServiceStatusLog;

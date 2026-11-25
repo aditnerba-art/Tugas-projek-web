@@ -10,6 +10,7 @@ use App\Models\ServiceLog;
 use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
+use App\Notifications\ServicePanelNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Broadcast;
@@ -162,6 +163,18 @@ class ServiceApplicationTest extends TestCase
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
     }
 
+    public function test_customer_portal_exposes_accessible_code_and_approval_controls(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('inputmode="numeric"', false)
+            ->assertSee('autocomplete="one-time-code"', false)
+            ->assertSee('maxlength="5"', false)
+            ->assertSee('id="approvalDialog"', false)
+            ->assertSee('id="approvalLoginPrompt"', false)
+            ->assertDontSee('cdn.tailwindcss.com');
+    }
+
     public function test_unauthenticated_api_requests_return_json_without_accept_header(): void
     {
         $this->get('/api/admin/services-active')
@@ -178,7 +191,10 @@ class ServiceApplicationTest extends TestCase
             'role' => 'owner',
         ]);
         $this->actingAs($owner);
-        $this->get('/owner.html')->assertOk()->assertSee('Distribusi Status Servis');
+        $this->get('/owner.html')->assertOk()
+            ->assertSee('Distribusi Status Servis')
+            ->assertSee('reportStatusChart')
+            ->assertSee('reportTechnicianChart');
         $this->get('/owner/activity-logs')->assertOk()->assertSee('Log Aktivitas');
 
         $staffResponse = $this->postJson('/api/owner/staff', [
@@ -345,7 +361,7 @@ class ServiceApplicationTest extends TestCase
 
         $this->assertDatabaseHas('notifications', [
             'notifiable_id' => $admin->id,
-            'type' => \App\Notifications\ServicePanelNotification::class,
+            'type' => ServicePanelNotification::class,
         ]);
     }
 
@@ -447,6 +463,17 @@ class ServiceApplicationTest extends TestCase
             'kode_akses' => '51999',
             'customer_name' => 'Nama tidak cocok',
         ])->assertUnauthorized();
+
+        for ($attempt = 0; $attempt < 4; $attempt++) {
+            $this->postJson('/api/customer/login', [
+                'kode_akses' => (string) (52000 + $attempt),
+                'customer_name' => 'Nama tidak cocok',
+            ])->assertUnauthorized();
+        }
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '52999',
+            'customer_name' => 'Nama tidak cocok',
+        ])->assertTooManyRequests();
         $this->travelBack();
     }
 
@@ -535,6 +562,48 @@ class ServiceApplicationTest extends TestCase
         ]);
     }
 
+    public function test_customer_session_cannot_access_or_approve_another_service(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = Customer::create(['nama' => 'Pelanggan Sama', 'no_wa' => '08123456789']);
+        $serviceA = Service::create([
+            'no_nota' => 'SRV-CROSS-001',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop A',
+            'keluhan' => 'Rusak',
+            'status' => 'menunggu_persetujuan',
+        ]);
+        $serviceB = Service::create([
+            'no_nota' => 'SRV-CROSS-002',
+            'customer_id' => $customer->id,
+            'merek_tipe' => 'Laptop B',
+            'keluhan' => 'Rusak',
+            'status' => 'menunggu_persetujuan',
+        ]);
+        $accessCode = $this->actingAs($admin)
+            ->postJson('/api/admin/customers/access-codes/'.$serviceA->id)
+            ->assertOk()
+            ->json('data.kode_akses');
+
+        auth()->logout();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => $accessCode,
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+
+        $this->getJson('/api/customer/status-updates')
+            ->assertOk()
+            ->assertJsonPath('data.unit.no_nota', $serviceA->no_nota);
+        $this->postJson('/api/customer/approval', [
+            'service_id' => $serviceB->id,
+            'status_baru' => 'setuju',
+        ])->assertForbidden();
+        $this->assertDatabaseHas('services', [
+            'id' => $serviceB->id,
+            'status' => 'menunggu_persetujuan',
+        ]);
+    }
+
     public function test_seed_style_account_must_change_password_before_using_staff_routes(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -560,5 +629,17 @@ class ServiceApplicationTest extends TestCase
             'subjek' => 'user:'.$user->id,
             'ip' => '127.0.0.1',
         ]);
+    }
+
+    public function test_password_change_page_is_available_to_every_staff_role(): void
+    {
+        foreach (['owner', 'admin', 'teknisi'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+
+            $this->actingAs($user)
+                ->get('/password/change')
+                ->assertOk()
+                ->assertSee('Ubah Kata Sandi');
+        }
     }
 }

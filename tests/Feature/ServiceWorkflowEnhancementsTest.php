@@ -208,7 +208,7 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         ]);
 
         $this->artisan('service-photos:migrate-private', ['--dry-run' => true])
-            ->expectsOutputToContain("1 foto, 0 gagal")
+            ->expectsOutputToContain('1 foto, 0 gagal')
             ->assertSuccessful();
         $this->assertSame($legacyPath, $photo->fresh()->path);
         Storage::disk('public')->assertExists($legacyPath);

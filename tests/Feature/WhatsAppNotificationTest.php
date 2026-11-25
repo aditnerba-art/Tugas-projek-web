@@ -150,6 +150,72 @@ class WhatsAppNotificationTest extends TestCase
         }
     }
 
+    public function test_pickup_reminders_are_limited_to_three_and_spaced_at_least_three_days_apart(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-22 09:00:00', 'Asia/Jakarta'));
+
+        try {
+            $customer = Customer::create(['nama' => 'Pelanggan Tes', 'no_wa' => '08123456789']);
+            $service = Service::create([
+                'no_nota' => 'SRV-WA-REMIND-LIMIT',
+                'customer_id' => $customer->id,
+                'merek_tipe' => 'Laptop',
+                'keluhan' => 'Rusak',
+                'status' => 'selesai',
+                'created_at' => now()->subDays(10),
+                'updated_at' => now()->subDays(10),
+            ]);
+            $recentlyReminded = Service::create([
+                'no_nota' => 'SRV-WA-REMIND-GAP',
+                'customer_id' => $customer->id,
+                'merek_tipe' => 'Tablet',
+                'keluhan' => 'Rusak',
+                'status' => 'selesai',
+                'created_at' => now()->subDays(10),
+                'updated_at' => now()->subDays(10),
+            ]);
+            DB::table('services')->whereIn('id', [$service->id, $recentlyReminded->id])
+                ->update(['updated_at' => now()->subDays(10)]);
+
+            foreach ([10, 6] as $daysAgo) {
+                $log = NotificationLog::create([
+                    'service_id' => $service->id,
+                    'message_type' => 'pickup_reminder',
+                    'recipient' => '628123456789',
+                    'message' => 'Pengingat',
+                    'status' => 'sent',
+                ]);
+                DB::table('notification_logs')->where('id', $log->id)->update([
+                    'created_at' => now()->subDays($daysAgo),
+                    'updated_at' => now()->subDays($daysAgo),
+                ]);
+            }
+            $recentReminder = NotificationLog::create([
+                'service_id' => $recentlyReminded->id,
+                'message_type' => 'pickup_reminder',
+                'recipient' => '628123456789',
+                'message' => 'Pengingat',
+                'status' => 'sent',
+            ]);
+            DB::table('notification_logs')->where('id', $recentReminder->id)->update([
+                'created_at' => now()->subDays(2),
+                'updated_at' => now()->subDays(2),
+            ]);
+
+            $notifications = app(WhatsAppNotificationService::class);
+            $this->assertSame(1, $notifications->queuePickupReminders());
+            $this->assertSame(3, NotificationLog::where('service_id', $service->id)->where('message_type', 'pickup_reminder')->count());
+            $this->assertSame(1, NotificationLog::where('service_id', $recentlyReminded->id)->where('message_type', 'pickup_reminder')->count());
+            $this->assertSame(0, $notifications->queuePickupReminders());
+
+            Carbon::setTestNow(now()->addDay());
+            $this->assertSame(1, $notifications->queuePickupReminders());
+            $this->assertCount(2, $this->whatsAppGateway->messages);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_owner_can_edit_templates_and_retry_a_failed_notification(): void
     {
         $owner = User::create([

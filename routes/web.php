@@ -3,7 +3,9 @@
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\ServicePhotoController;
 use App\Models\ActivityLog;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 
 Route::view('/', 'index');
 Route::view('/lacak', 'index');
@@ -25,14 +27,14 @@ Route::view('/admin.html', 'admin')->middleware(['auth', 'password.changed', 'ro
 Route::view('/teknisi.html', 'teknisi')->middleware(['auth', 'password.changed', 'role:teknisi']);
 Route::view('/owner.html', 'owner')->middleware(['auth', 'password.changed', 'role:owner']);
 Route::view('/spareparts.html', 'spareparts')->middleware(['auth', 'password.changed', 'role:admin,owner']);
-Route::get('/owner/activity-logs', function (\Illuminate\Http\Request $request) {
+Route::get('/owner/activity-logs', function (Request $request) {
     $filters = $request->validate([
         'search' => ['nullable', 'string', 'max:100'],
         'action' => ['nullable', 'string', 'max:50'],
         'date_from' => ['nullable', 'date'],
         'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-        'sort' => ['nullable', \Illuminate\Validation\Rule::in(['created_at', 'aksi', 'subjek'])],
-        'direction' => ['nullable', \Illuminate\Validation\Rule::in(['asc', 'desc'])],
+        'sort' => ['nullable', Rule::in(['created_at', 'aksi', 'subjek'])],
+        'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         'per_page' => ['nullable', 'integer', 'between:10,100'],
     ]);
     $query = ActivityLog::with('user');

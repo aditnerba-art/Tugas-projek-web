@@ -3,20 +3,23 @@
 namespace App\Events;
 
 use App\Models\ServiceStatusLog;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 
-class ServiceStatusChanged implements ShouldBroadcast, ShouldDispatchAfterCommit
+class ServiceStatusChanged implements ShouldBroadcast, ShouldDispatchAfterCommit, ShouldRescue
 {
+    public int $tries = 3;
+
+    public array $backoff = [1, 5, 15];
+
     public function __construct(ServiceStatusLog $statusLog)
     {
         $statusLog->loadMissing(['service', 'user']);
         $this->serviceId = $statusLog->service_id;
         $this->serviceNumber = $statusLog->service->no_nota;
         $this->technicianId = $statusLog->service->teknisi_id;
-        $this->customerChannelKey = $statusLog->service->customerStatusChannelKey();
         $this->oldStatus = $statusLog->status_lama;
         $this->newStatus = $statusLog->status_baru;
         $this->note = $statusLog->catatan;
@@ -29,8 +32,6 @@ class ServiceStatusChanged implements ShouldBroadcast, ShouldDispatchAfterCommit
     public string $serviceNumber;
 
     public ?int $technicianId;
-
-    public ?string $customerChannelKey;
 
     public ?string $oldStatus;
 
@@ -50,16 +51,17 @@ class ServiceStatusChanged implements ShouldBroadcast, ShouldDispatchAfterCommit
             $channels[] = new PrivateChannel('staff.technician.'.$this->technicianId);
         }
 
-        if ($this->customerChannelKey) {
-            $channels[] = new Channel('customer-status.'.$this->customerChannelKey);
-        }
-
         return $channels;
     }
 
     public function broadcastAs(): string
     {
         return 'service.status.changed';
+    }
+
+    public function broadcastQueue(): string
+    {
+        return 'realtime';
     }
 
     public function broadcastWith(): array

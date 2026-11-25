@@ -19,43 +19,58 @@ if (driver === 'reverb') {
     });
 }
 
-function listen({ endpoint, channel, onUpdate }) {
+function listen({ endpoint, channel, eventName = '.service.status.changed', onUpdate, onConnectionChange }) {
     let etag = '';
     let timer = null;
     let subscribedChannel = null;
+    const updateConnection = state => onConnectionChange?.(state);
 
     const poll = async () => {
         const headers = etag ? { 'If-None-Match': etag } : {};
 
         try {
             const response = await fetch(endpoint, { headers });
-            if (response.status === 304) return;
+            if (response.status === 304) {
+                updateConnection('polling');
+                return;
+            }
             if (!response.ok) {
+                if (response.status === 401) {
+                    stopPolling();
+                    updateConnection('session-expired');
+                    return;
+                }
+                updateConnection('offline');
                 console.error(`Realtime polling gagal dengan HTTP ${response.status}`);
                 return;
             }
 
             etag = response.headers.get('ETag') || etag;
             onUpdate(await response.json(), 'polling');
+            updateConnection('polling');
         } catch (error) {
+            updateConnection('offline');
             console.error('Realtime polling gagal', error);
         }
     };
 
     const startPolling = () => {
         if (timer !== null) return;
+        updateConnection('polling');
         poll();
         timer = window.setInterval(poll, 12000);
     };
     const stopPolling = () => {
-        if (timer === null) return;
-        window.clearInterval(timer);
-        timer = null;
+        if (timer !== null) {
+            window.clearInterval(timer);
+            timer = null;
+        }
+        updateConnection('realtime');
     };
 
     if (window.Echo && channel) {
         subscribedChannel = channel;
-        channel.listen('.service.status.changed', event => onUpdate(event, 'reverb'));
+        channel.listen(eventName, event => onUpdate(event, 'reverb'));
         channel.subscribed(stopPolling);
         channel.error(startPolling);
 
@@ -92,8 +107,14 @@ window.ServiceRealtime = {
             });
     },
 
-    startCustomer(channelKey, onUpdate) {
+    startCustomer(channelKey, onUpdate, onConnectionChange) {
         const channel = channelKey ? window.Echo?.channel(`customer-status.${channelKey}`) : null;
-        return listen({ endpoint: '/api/customer/status-updates', channel, onUpdate });
+        return listen({
+            endpoint: '/api/customer/status-updates',
+            channel,
+            eventName: '.customer.status.changed',
+            onUpdate,
+            onConnectionChange,
+        });
     },
 };

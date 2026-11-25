@@ -6,6 +6,7 @@ use App\Jobs\SendWhatsAppMessage;
 use App\Models\MessageTemplate;
 use App\Models\NotificationLog;
 use App\Models\Service;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 
 class WhatsAppNotificationService
@@ -48,18 +49,20 @@ class WhatsAppNotificationService
     {
         $queued = 0;
         $now = now(config('app.timezone'));
-        $today = $now->toDateString();
 
         Service::with('customer')
             ->where('status', 'selesai')
             ->where('updated_at', '<=', $now->copy()->subDay())
-            ->chunkById(100, function ($services) use (&$queued, $today): void {
+            ->chunkById(100, function ($services) use (&$queued, $now): void {
                 foreach ($services as $service) {
-                    $alreadyRemindedToday = NotificationLog::where('service_id', $service->id)
-                        ->where('message_type', 'pickup_reminder')
-                        ->whereDate('created_at', $today)
-                        ->exists();
-                    if ($alreadyRemindedToday) {
+                    $reminders = NotificationLog::where('service_id', $service->id)
+                        ->where('message_type', 'pickup_reminder');
+                    if ($reminders->count() >= 3) {
+                        continue;
+                    }
+
+                    $lastReminder = $reminders->max('created_at');
+                    if ($lastReminder && Carbon::parse($lastReminder, config('app.timezone'))->gt($now->copy()->subDays(3))) {
                         continue;
                     }
 

@@ -344,6 +344,16 @@
                 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
                     <svg id="reportChart" class="h-56 min-w-[640px] w-full" viewBox="0 0 800 240" role="img" aria-label="Grafik omzet servis"></svg>
                 </div>
+                <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
+                        <h3 class="mb-2 text-sm font-bold text-[#0B1E3F]">Grafik servis per status</h3>
+                        <svg id="reportStatusChart" class="h-auto min-w-[560px] w-full" role="img" aria-label="Grafik jumlah servis per status"></svg>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
+                        <h3 class="mb-2 text-sm font-bold text-[#0B1E3F]">Grafik servis per teknisi</h3>
+                        <svg id="reportTechnicianChart" class="h-auto min-w-[560px] w-full" role="img" aria-label="Grafik jumlah servis per teknisi"></svg>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
                     <div class="overflow-x-auto rounded-xl border border-slate-200">
                         <h3 class="p-3 text-sm font-bold text-[#0B1E3F]">Servis per status</h3>
@@ -857,6 +867,62 @@
             });
         }
 
+        function renderReportCategoryChart(svgId, rows, labelFor, valueFor, emptyMessage) {
+            const svg = document.getElementById(svgId);
+            const namespace = 'http://www.w3.org/2000/svg';
+            const rowHeight = 32;
+            const height = Math.max(100, rows.length * rowHeight + 20);
+            svg.replaceChildren();
+            svg.setAttribute('viewBox', `0 0 640 ${height}`);
+            svg.setAttribute('height', String(height));
+
+            if (!rows.length) {
+                const empty = document.createElementNS(namespace, 'text');
+                empty.setAttribute('x', '320');
+                empty.setAttribute('y', String(height / 2));
+                empty.setAttribute('text-anchor', 'middle');
+                empty.setAttribute('fill', '#64748b');
+                empty.textContent = emptyMessage;
+                svg.append(empty);
+                return;
+            }
+
+            const values = rows.map(row => Math.max(0, Number(valueFor(row)) || 0));
+            const maximum = Math.max(...values, 1);
+            rows.forEach((row, index) => {
+                const y = 16 + index * rowHeight;
+                const labelText = String(labelFor(row));
+                const label = document.createElementNS(namespace, 'text');
+                label.setAttribute('x', '8');
+                label.setAttribute('y', String(y + 15));
+                label.setAttribute('font-size', '12');
+                label.setAttribute('fill', '#334155');
+                label.textContent = labelText.length > 26 ? `${labelText.slice(0, 23)}…` : labelText;
+                const labelTitle = document.createElementNS(namespace, 'title');
+                labelTitle.textContent = labelText;
+                label.append(labelTitle);
+                svg.append(label);
+
+                const bar = document.createElementNS(namespace, 'rect');
+                bar.setAttribute('x', '230');
+                bar.setAttribute('y', String(y + 2));
+                bar.setAttribute('width', String(330 * values[index] / maximum));
+                bar.setAttribute('height', '20');
+                bar.setAttribute('rx', '4');
+                bar.setAttribute('fill', '#0b1e3f');
+                svg.append(bar);
+
+                const count = document.createElementNS(namespace, 'text');
+                count.setAttribute('x', '570');
+                count.setAttribute('y', String(y + 16));
+                count.setAttribute('font-size', '12');
+                count.setAttribute('font-weight', '700');
+                count.setAttribute('fill', '#0b1e3f');
+                count.textContent = String(values[index]);
+                svg.append(count);
+            });
+        }
+
         function renderReportRows(elementId, rows, columns, emptyMessage) {
             const tbody = document.getElementById(elementId);
             tbody.replaceChildren();
@@ -894,6 +960,20 @@
                 document.getElementById('reportProfit').textContent = currency(report.summary.laba_kotor);
                 document.getElementById('reportReceivable').textContent = currency(report.summary.piutang);
                 renderReportChart(report.series);
+                renderReportCategoryChart(
+                    'reportStatusChart',
+                    report.status_counts,
+                    item => String(item.status).replaceAll('_', ' '),
+                    item => item.jumlah,
+                    'Belum ada servis.'
+                );
+                renderReportCategoryChart(
+                    'reportTechnicianChart',
+                    report.technician_counts,
+                    item => item.teknisi,
+                    item => item.jumlah_servis,
+                    'Belum ada penugasan.'
+                );
                 renderReportRows('reportStatusRows', report.status_counts.map(item => [
                     String(item.status).replaceAll('_', ' '), item.jumlah,
                 ]), ['Status', 'Jumlah'], 'Belum ada servis.');

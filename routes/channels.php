@@ -14,4 +14,3 @@ Broadcast::channel('staff.services', function (User $user): bool {
 Broadcast::channel('staff.technician.{userId}', function (User $user, int $userId): bool {
     return ! $user->must_change_password && $user->role === 'teknisi' && $user->id === $userId;
 });
-
