@@ -10,6 +10,7 @@ use App\Models\ServiceStatusLog;
 use App\Models\User;
 use App\Notifications\ServicePanelNotification;
 use Database\Seeders\DemoServiceSeeder;
+use Database\Seeders\DemoYearServiceSeeder;
 use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -151,5 +152,20 @@ class ServiceLifecycleTest extends TestCase
         $this->seed(DemoServiceSeeder::class);
         $this->assertDatabaseCount('services', 8);
         $this->assertSame(8, ServiceStatusLog::count());
+    }
+
+    public function test_year_demo_seeder_covers_about_one_year_and_is_idempotent(): void
+    {
+        $this->seed(DemoYearServiceSeeder::class);
+        $this->assertDatabaseCount('services', 52);
+        $oldest = \Illuminate\Support\Carbon::parse(
+            \Illuminate\Support\Facades\DB::table('services')->min('created_at'),
+            config('app.timezone'),
+        );
+        $this->assertGreaterThanOrEqual(360, $oldest->diffInDays(now(config('app.timezone'))));
+
+        $this->seed(DemoYearServiceSeeder::class);
+        $this->assertDatabaseCount('services', 52);
+        $this->assertSame(52, ServiceStatusLog::count());
     }
 }

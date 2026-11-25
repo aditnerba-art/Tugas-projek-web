@@ -114,6 +114,13 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.series.0.jumlah_servis', 1)
             ->assertJsonPath('data.status_counts.0.jumlah', 1);
+        $this->getJson('/api/owner/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.service_periods.today', 1)
+            ->assertJsonPath('data.summary.service_periods.week', 1)
+            ->assertJsonPath('data.summary.service_periods.month', 1)
+            ->assertJsonPath('data.summary.service_periods.year', 1)
+            ->assertJsonPath('data.summary.service_periods.last_year', 0);
 
         $this->getJson('/api/owner/reports'.$filters)
             ->assertOk()

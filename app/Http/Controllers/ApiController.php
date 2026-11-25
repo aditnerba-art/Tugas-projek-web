@@ -1900,6 +1900,19 @@ class ApiController extends Controller
     public function ownerDashboard(): JsonResponse
     {
         $services = Service::query();
+        $timezone = config('app.timezone');
+        $now = Carbon::now($timezone);
+        $servicePeriods = [
+            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'week' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+            'month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'last_year' => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear()],
+        ];
+        $servicePeriodCounts = [];
+        foreach ($servicePeriods as $period => [$from, $to]) {
+            $servicePeriodCounts[$period] = (clone $services)->whereBetween('created_at', [$from, $to])->count();
+        }
         $recognizedPayments = DB::query()->fromSub($this->paymentRecognitionBaseQuery(), 'recognized_payments');
         $revenue = (float) $recognizedPayments->sum('signed_amount');
         $recognizedPartCost = (float) $recognizedPayments->sum('modal_share');
@@ -1918,6 +1931,7 @@ class ApiController extends Controller
             'total_piutang' => (float) (clone $serviceBalances)
                 ->whereRaw('services.total_biaya > COALESCE(payment_totals.net_paid, 0)')
                 ->sum(DB::raw('services.total_biaya - COALESCE(payment_totals.net_paid, 0)')),
+            'service_periods' => $servicePeriodCounts,
         ];
         $statusCounts = Service::select('status', DB::raw('COUNT(id) AS jumlah'))->groupBy('status')->get();
 

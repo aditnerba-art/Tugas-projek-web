@@ -316,6 +316,17 @@
                 </div>
             </div>
 
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="servicePeriodSummaryTitle">
+                <h2 id="servicePeriodSummaryTitle" class="mb-3 text-sm font-bold text-[#0B1E3F]">Jumlah Servis Berdasarkan Tanggal Masuk</h2>
+                <div class="grid grid-cols-2 gap-3 text-center sm:grid-cols-3 lg:grid-cols-5">
+                    <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Hari ini</p><p id="serviceCountToday" class="mt-1 text-xl font-extrabold text-[#0B1E3F]">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Minggu ini</p><p id="serviceCountWeek" class="mt-1 text-xl font-extrabold text-[#0B1E3F]">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Bulan ini</p><p id="serviceCountMonth" class="mt-1 text-xl font-extrabold text-[#0B1E3F]">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Tahun ini</p><p id="serviceCountYear" class="mt-1 text-xl font-extrabold text-[#0B1E3F]">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Tahun lalu</p><p id="serviceCountLastYear" class="mt-1 text-xl font-extrabold text-[#0B1E3F]">—</p></div>
+                </div>
+            </section>
+
             <!-- Breakdown Status Servis -->
             <div class="bg-white p-7 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-400 space-y-4">
                 <h2 class="text-base font-bold text-[#0B1E3F]">Distribusi Status Servis Saat Ini</h2>
@@ -889,6 +900,12 @@
 
                     document.getElementById('totalUnit').innerText = summary.total_unit || 0;
                     document.getElementById('unitSelesai').innerText = summary.unit_selesai || 0;
+                    const servicePeriods = summary.service_periods || {};
+                    document.getElementById('serviceCountToday').textContent = servicePeriods.today ?? 0;
+                    document.getElementById('serviceCountWeek').textContent = servicePeriods.week ?? 0;
+                    document.getElementById('serviceCountMonth').textContent = servicePeriods.month ?? 0;
+                    document.getElementById('serviceCountYear').textContent = servicePeriods.year ?? 0;
+                    document.getElementById('serviceCountLastYear').textContent = servicePeriods.last_year ?? 0;
 
                     const nominalPendapatan = summary.total_pendapatan ? parseFloat(summary.total_pendapatan) : 0;
                     document.getElementById('totalPendapatan').innerText = `Rp ${nominalPendapatan.toLocaleString('id-ID')}`;

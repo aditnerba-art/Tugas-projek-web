@@ -29,6 +29,14 @@ php artisan db:seed --class=DemoServiceSeeder
 
 Seeder demo dapat dijalankan ulang tanpa menggandakan servis contoh. Gunakan hanya di lingkungan pengembangan atau demo.
 
+Untuk grafik laporan dan ringkasan tren sekitar satu tahun, jalankan seeder simulasi tambahan secara terpisah:
+
+```sh
+php artisan db:seed --class=DemoYearServiceSeeder
+```
+
+Seeder ini idempoten dan tidak dipanggil oleh `migrate --seed`; jangan jalankan pada data produksi.
+
 ### Realtime dan notifikasi
 
 Status servis dicatat di timeline terpusat dan dikirim melalui Laravel Reverb saat `REALTIME_DRIVER=reverb`. Staf memakai private channel sesuai peran. Portal pelanggan menerima nama channel opaque berbasis HMAC hanya dari sesi portal yang sudah valid; endpoint polling tetap memverifikasi sesi dan token akses pelanggan. Jika WebSocket tidak tersambung, frontend otomatis memakai polling JSON dengan ETag setiap 12 detik.
