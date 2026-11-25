@@ -129,16 +129,18 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Biaya Jasa Servis (Rp)</label>
-                            <input type="number" id="biaya_jasa" placeholder="0" min="0" oninput="calculateEstimatedTotal()"
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Tarif Jasa (ditetapkan Owner)</label>
+                            <select id="service_rate_id" onchange="calculateEstimatedTotal()"
                                 class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 font-bold">
+                                <option value="">Tarif jasa belum dipilih</option>
+                            </select>
                         </div>
 
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-[#0B1E3F] mb-1.5">Estimasi Total Biaya (Rp)</label>
-                            <input type="number" id="total_biaya" placeholder="0" min="0"
+                            <input type="number" id="total_biaya" placeholder="0" min="0" readonly
                                 class="w-full py-2.5 px-3.5 bg-slate-50 border-2 border-amber-400/80 rounded-xl text-sm text-emerald-700 font-black focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500">
-                            <span class="text-[11px] text-slate-500 font-medium">Jasa + total onderdil terpasang</span>
+                            <span class="text-[11px] text-slate-500 font-medium">Dihitung dari tarif Owner dan sparepart</span>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -148,7 +150,8 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Garansi (hari setelah diambil)</label>
-                            <input type="number" id="warranty_days" min="0" max="3650" value="0" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+                            <input type="number" id="warranty_days" min="0" max="3650" value="0" disabled class="w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2.5 text-sm">
+                            <span class="text-[11px] text-slate-500">Durasi garansi dikelola Owner.</span>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Foto setelah servis (maks. 5 foto)</label>
@@ -197,6 +200,7 @@
     <script>
         let servicesCache = [];
         let sparepartsCache = [];
+        let serviceRatesCache = [];
         let pendingServicePage = 1;
 
         function renderStatusTimeline(logs) {
@@ -327,6 +331,25 @@
             } catch (err) {
                 document.getElementById('sparepart_info').textContent = err.message || 'Sparepart gagal dimuat.';
             }
+
+            async function loadServiceRates() {
+                const select = document.getElementById('service_rate_id');
+                try {
+                    const response = await fetch('/api/service-rates');
+                    const result = await response.json();
+                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Tarif jasa gagal dimuat.');
+                    serviceRatesCache = result.data;
+                    select.replaceChildren(new Option('Gunakan tarif servis saat ini', ''));
+                    serviceRatesCache.forEach(rate => {
+                        const option = new Option(`${rate.name} · Rp ${Number(rate.amount).toLocaleString('id-ID')}`, rate.id);
+                        option.dataset.amount = rate.amount;
+                        select.add(option);
+                    });
+                } catch (error) {
+                    select.replaceChildren(new Option('Tarif jasa gagal dimuat', ''));
+                    document.getElementById('sparepart_info').textContent = error.message || 'Tarif jasa gagal dimuat.';
+                }
+            }
         }
 
         // Saat unit servis dipilih dari dropdown
@@ -336,7 +359,7 @@
 
             if (!srvId) {
                 banner.classList.add('hidden');
-                document.getElementById('biaya_jasa').value = '';
+                document.getElementById('service_rate_id').value = '';
                 document.getElementById('total_biaya').value = '';
                 return;
             }
@@ -348,7 +371,7 @@
                 document.getElementById('banner_teknisi').innerText = srv.nama_teknisi || 'Belum Ditugaskan';
                 document.getElementById('banner_status').innerText = (srv.status || '').replace('_', ' ');
                 document.getElementById('banner_keluhan').innerText = srv.keluhan || '-';
-                document.getElementById('biaya_jasa').value = srv.biaya_jasa || 0;
+                document.getElementById('service_rate_id').value = srv.service_rate_id || '';
                 document.getElementById('total_biaya').value = srv.total_biaya || 0;
                 document.getElementById('estimated_completion_at').value = srv.estimated_completion_at
                     ? String(srv.estimated_completion_at).slice(0, 10)
@@ -356,6 +379,7 @@
                 document.getElementById('warranty_days').value = srv.warranty_days || 0;
                 document.getElementById('status_baru').value = srv.status || 'diperiksa';
                 banner.classList.remove('hidden');
+                calculateEstimatedTotal();
 
                 // Ambil info onderdil yang sudah dipasang lewat endpoint nota
                 try {
@@ -412,7 +436,9 @@
             const baseTotalBiaya = currentSrv ? parseFloat(currentSrv.total_biaya || 0) : 0;
             const currentJasa = currentSrv ? parseFloat(currentSrv.biaya_jasa || 0) : 0;
 
-            const inputJasa = parseFloat(document.getElementById('biaya_jasa').value) || 0;
+            const rateSelect = document.getElementById('service_rate_id');
+            const selectedRate = serviceRatesCache.find(rate => String(rate.id) === rateSelect.value);
+            const inputJasa = selectedRate ? Number(selectedRate.amount) : Number(currentSrv?.biaya_jasa || 0);
             
             const select = document.getElementById('sparepart_id');
             let sparepartSubtotal = 0;
@@ -432,7 +458,7 @@
         async function initData() {
             const select = document.getElementById('service_id');
             const selectedServiceId = select.value;
-            await Promise.all([loadPendingServices(), loadSpareparts()]);
+            await Promise.all([loadPendingServices(), loadSpareparts(), loadServiceRates()]);
             if (servicesCache.some(service => String(service.id) === selectedServiceId)) {
                 select.value = selectedServiceId;
                 await onSelectService();
@@ -467,14 +493,12 @@
         async function submitUpdate() {
             const serviceId = document.getElementById('service_id').value;
             const statusBaru = document.getElementById('status_baru').value;
-            const biayaJasa = document.getElementById('biaya_jasa').value;
-            const totalBiaya = document.getElementById('total_biaya').value;
             const catatanTeknis = document.getElementById('catatan_teknis').value;
             const estimatedCompletion = document.getElementById('estimated_completion_at').value;
-            const warrantyDays = document.getElementById('warranty_days').value;
             const completionPhotos = document.getElementById('completion_photos').files;
             const sparepartId = document.getElementById('sparepart_id').value;
             const jumlahSparepart = document.getElementById('jumlah_sparepart').value;
+            const rateId = document.getElementById('service_rate_id').value;
 
             if (!serviceId || !catatanTeknis) {
                 return alert('Pilih unit servis dan isi catatan diagnosa / pengerjaan!');
@@ -496,10 +520,8 @@
             const payload = {
                 service_id: serviceId,
                 status_baru: statusBaru,
-                biaya_jasa: biayaJasa ? parseFloat(biayaJasa) : 0,
-                total_biaya: totalBiaya ? parseFloat(totalBiaya) : 0,
                 estimated_completion_at: estimatedCompletion || null,
-                warranty_days: Number(warrantyDays || 0),
+                service_rate_id: rateId ? Number(rateId) : null,
                 catatan_teknis: catatanTeknis,
                 sparepart_id: sparepartId ? parseInt(sparepartId, 10) : null,
                 jumlah_sparepart: sparepartId ? parseInt(jumlahSparepart, 10) : null
@@ -530,7 +552,9 @@
                     }
                     alert(photoError
                         ? `Progres tersimpan, tetapi ${photoError}`
-                        : '✅ Progres pengerjaan, estimasi, dan onderdil berhasil diperbarui!');
+                        : data.status_baru === 'menunggu_persetujuan'
+                            ? 'Perubahan biaya menunggu persetujuan pelanggan.'
+                            : '✅ Progres pengerjaan, estimasi, dan onderdil berhasil diperbarui!');
                     document.getElementById('formUpdate').reset();
                     document.getElementById('sparepart_info').innerText = '';
                     document.getElementById('unitInfoBanner').classList.add('hidden');

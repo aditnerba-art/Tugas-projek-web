@@ -11,7 +11,7 @@ class Purchase extends Model
 
     protected function casts(): array
     {
-        return ['tanggal_pembelian' => 'date', 'total_biaya' => 'decimal:2'];
+        return ['tanggal_pembelian' => 'date', 'total_biaya' => 'integer'];
     }
 
     public function items(): HasMany

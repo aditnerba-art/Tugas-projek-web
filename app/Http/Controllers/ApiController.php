@@ -13,6 +13,7 @@ use App\Http\Requests\PaymentRequest;
 use App\Http\Requests\PublicTrackingRequest;
 use App\Http\Requests\SparepartRequest;
 use App\Http\Requests\SparepartsIndexRequest;
+use App\Http\Requests\ServiceRateRequest;
 use App\Http\Requests\StaffLoginRequest;
 use App\Http\Requests\StaffStoreRequest;
 use App\Http\Requests\StaffUpdateRequest;
@@ -32,6 +33,7 @@ use App\Models\Service;
 use App\Models\ServiceAccessToken;
 use App\Models\ServiceItem;
 use App\Models\ServicePhoto;
+use App\Models\ServiceRate;
 use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
@@ -389,6 +391,53 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'data' => $query->get(['id', 'nama', 'username', 'role'])]);
     }
 
+    public function activeServiceRates(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => ServiceRate::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'amount']),
+        ]);
+    }
+
+    public function serviceRates(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => ServiceRate::query()->orderBy('name')->get(['id', 'name', 'amount', 'active']),
+        ]);
+    }
+
+    public function createServiceRate(ServiceRateRequest $request): JsonResponse
+    {
+        $rate = ServiceRate::create($request->validated());
+        $this->logActivity($request, 'buat_tarif_jasa', 'service-rate:'.$rate->id, null, $rate->only(['name', 'amount', 'active']));
+
+        return response()->json(['status' => 'success', 'data' => $rate], 201);
+    }
+
+    public function updateServiceRate(ServiceRateRequest $request, ServiceRate $serviceRate): JsonResponse
+    {
+        $old = $serviceRate->only(['name', 'amount', 'active']);
+        $serviceRate->update($request->validated());
+        $this->logActivity($request, 'ubah_tarif_jasa', 'service-rate:'.$serviceRate->id, $old, $serviceRate->only(['name', 'amount', 'active']));
+
+        return response()->json(['status' => 'success', 'data' => $serviceRate]);
+    }
+
+    public function deleteServiceRate(Request $request, ServiceRate $serviceRate): JsonResponse
+    {
+        if (Service::where('service_rate_id', $serviceRate->id)->exists()) {
+            $serviceRate->update(['active' => false]);
+
+            return response()->json(['status' => 'success', 'message' => 'Tarif dinonaktifkan karena sudah dipakai servis.']);
+        }
+
+        $this->logActivity($request, 'hapus_data', 'service-rate:'.$serviceRate->id, $serviceRate->only(['name', 'amount', 'active']));
+        $serviceRate->delete();
+
+        return response()->json(['status' => 'success', 'message' => 'Tarif jasa berhasil dihapus.']);
+    }
+
     public function users(): JsonResponse
     {
         return response()->json(['status' => 'success', 'data' => User::orderBy('role')->orderBy('nama')->get(['id', 'nama', 'username', 'role', 'created_at'])]);
@@ -538,6 +587,19 @@ class ApiController extends Controller
                 'estimated_completion_at' => $service->estimated_completion_at?->toDateString(),
             ];
 
+            $rate = null;
+            if (! empty($data['service_rate_id'])) {
+                $rate = ServiceRate::query()
+                    ->where('active', true)
+                    ->whereKey($data['service_rate_id'])
+                    ->first();
+                if (! $rate) {
+                    abort(422, 'Tarif jasa tidak aktif atau tidak ditemukan.');
+                }
+                $service->service_rate_id = $rate->id;
+                $service->biaya_jasa = $rate->amount;
+            }
+
             if (! empty($data['sparepart_id'])) {
                 $sparepart = Sparepart::whereKey($data['sparepart_id'])->lockForUpdate()->firstOrFail();
                 $quantity = (int) ($data['jumlah_sparepart'] ?? 0);
@@ -557,15 +619,13 @@ class ApiController extends Controller
                     'harga_modal' => $sparepart->harga_beli,
                     'harga_satuan' => $sparepart->harga_jual,
                     'subtotal' => $sparepart->harga_jual * $quantity,
+                    'approval_status' => 'pending_approval',
                 ]);
             }
 
-            $service->biaya_jasa = $data['biaya_jasa'] ?? $service->biaya_jasa;
-            $partsTotal = $service->items()->sum('subtotal');
-            if (array_key_exists('total_biaya', $data)) {
-                $service->total_biaya = $data['total_biaya'];
-            } elseif (array_key_exists('biaya_jasa', $data) || ! empty($data['sparepart_id'])) {
-                $service->total_biaya = (float) $service->biaya_jasa + (float) $partsTotal;
+            if ($rate || ! empty($data['sparepart_id'])) {
+                $partsTotal = $service->items()->where('approval_status', '<>', 'cancelled')->sum('subtotal');
+                $service->total_biaya = (int) $service->biaya_jasa + (int) $partsTotal;
             }
             if (array_key_exists('estimated_completion_at', $data)) {
                 $service->estimated_completion_at = $data['estimated_completion_at'];
@@ -575,7 +635,16 @@ class ApiController extends Controller
             }
             $service->save();
             $service->syncPaymentSummary();
-            $service->changeStatus($data['status_baru'], $request->user(), $data['catatan_teknis'] ?? null);
+            $costIncrease = (int) $service->total_biaya > (int) $oldServiceData['total_biaya'];
+            $requiresApproval = ! empty($data['sparepart_id']) || $costIncrease;
+            $requestedStatus = $data['status_baru'];
+            if ($oldStatus === 'menunggu_persetujuan' && $requestedStatus !== 'menunggu_persetujuan') {
+                abort(409, 'Keputusan persetujuan hanya dapat diberikan oleh pelanggan melalui portal.');
+            }
+            if ($requiresApproval) {
+                $requestedStatus = 'menunggu_persetujuan';
+            }
+            $service->changeStatus($requestedStatus, $request->user(), $data['catatan_teknis'] ?? null);
             $estimateChanged = $oldEstimate['total_biaya'] !== (float) $service->total_biaya
                 || $oldEstimate['estimated_completion_at'] !== $service->estimated_completion_at?->toDateString();
             if ($estimateChanged) {
@@ -600,7 +669,7 @@ class ApiController extends Controller
         $notifications = app(WhatsAppNotificationService::class);
         $statusChanged = $service->status !== $oldStatus;
         $waitingForApproval = in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true);
-        if ($statusChanged && $waitingForApproval) {
+        if ($waitingForApproval && ($statusChanged || $estimateChanged)) {
             $notifications->queue($service, 'cost_approval');
         } elseif ($estimateChanged && $service->status !== 'selesai') {
             $notifications->queue($service, 'estimate_changed');
@@ -615,6 +684,7 @@ class ApiController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Status servis berhasil diperbarui',
+            'status_baru' => $service->status,
             'biaya_jasa' => $service->biaya_jasa,
             'total_biaya' => $service->total_biaya,
         ]);
@@ -675,6 +745,7 @@ class ApiController extends Controller
                 'id', 'no_nota', 'jenis_unit', 'merek_tipe', 'status', 'biaya_jasa', 'total_biaya',
                 'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
                 'created_at', 'teknisi_id', 'customer_id', 'priority', 'estimated_completion_at', 'warranty_days',
+                'service_rate_id',
                 'warranty_expires_at', 'accessories', 'physical_condition',
             ]),
             'nama_teknisi' => $service->technician?->nama,
@@ -1200,6 +1271,8 @@ class ApiController extends Controller
     public function customerApproval(CustomerApprovalRequest $request): JsonResponse
     {
         $data = $request->validated();
+        abort_if($request->user(), 403, 'Persetujuan harus diberikan melalui sesi portal pelanggan.');
+
         $customerSession = CustomerSession::with('accessToken')
             ->where('session_hash', $request->session()->get('customer_session_hash'))
             ->where('expires_at', '>', now())
@@ -1209,21 +1282,12 @@ class ApiController extends Controller
             && ! $customerSession->accessToken->expires_at->isPast()
                 ? $request->session()->get('customer_service_id')
                 : null;
-        $user = $request->user();
-        $isStaff = $user && in_array($user->role, ['admin', 'teknisi'], true);
-        if ($user && ! $isStaff) {
-            abort(403);
-        }
-
-        $serviceId = $isStaff ? ($data['service_id'] ?? null) : $sessionServiceId;
+        $serviceId = $sessionServiceId;
         if (! $serviceId) {
             return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
         }
         if ($sessionServiceId && ! empty($data['service_id']) && (int) $data['service_id'] !== (int) $sessionServiceId) {
             return response()->json(['status' => 'error', 'message' => 'Kode akses tidak sesuai dengan servis'], 403);
-        }
-        if ($user?->role === 'teknisi' && ! Service::whereKey($serviceId)->where('teknisi_id', $user->id)->exists()) {
-            abort(403, 'Teknisi hanya dapat mengubah persetujuan servis yang ditugaskan kepadanya.');
         }
         $serviceQuery = Service::query();
         if ($serviceId) {
@@ -1236,13 +1300,34 @@ class ApiController extends Controller
             }
             $oldStatus = $service->status;
             $newStatus = in_array($data['status_baru'], ['batal', 'batalkan'], true) ? 'batal' : 'dikerjakan';
+            $pendingItems = $service->items()
+                ->where('approval_status', 'pending_approval')
+                ->lockForUpdate()
+                ->get();
+            if ($newStatus === 'dikerjakan') {
+                $service->items()
+                    ->where('approval_status', 'pending_approval')
+                    ->update(['approval_status' => 'approved']);
+            } else {
+                foreach ($pendingItems as $item) {
+                    $sparepart = Sparepart::whereKey($item->sparepart_id)->lockForUpdate()->firstOrFail();
+                    $oldStock = $sparepart->stok;
+                    $sparepart->increment('stok', $item->jumlah);
+                    $item->update(['approval_status' => 'cancelled']);
+                    $this->logActivity($request, 'pengembalian_stok', 'sparepart:'.$sparepart->id,
+                        ['stok' => $oldStock], ['stok' => $sparepart->fresh()->stok, 'jumlah_dikembalikan' => $item->jumlah]);
+                }
+                $service->total_biaya = (int) $service->biaya_jasa
+                    + (int) $service->items()->where('approval_status', '<>', 'cancelled')->sum('subtotal');
+                $service->save();
+            }
             $note = $newStatus === 'dikerjakan'
                 ? 'Pelanggan menyetujui estimasi perbaikan sebesar Rp '.number_format((float) $service->total_biaya, 0, ',', '.').'.'
                 : 'Pelanggan membatalkan servis melalui portal pelanggan.';
             $service->changeStatus($newStatus, $request->user(), $note);
             $this->logActivity($request, 'ubah_status_servis', 'service:'.$service->id,
                 ['status' => $oldStatus], ['status' => $newStatus]);
-            if (! $request->user() && in_array($newStatus, ['dikerjakan', 'batal'], true)) {
+            if (in_array($newStatus, ['dikerjakan', 'batal'], true)) {
                 $action = $newStatus === 'dikerjakan' ? 'menyetujui' : 'membatalkan';
                 User::where('role', 'admin')->get()->each(fn (User $admin) => $admin->notify(new ServicePanelNotification(
                     $newStatus === 'dikerjakan' ? 'Pelanggan menyetujui servis' : 'Pelanggan membatalkan servis',
@@ -1358,7 +1443,12 @@ class ApiController extends Controller
     public function createSparepart(SparepartRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $part = Sparepart::create([...$data, 'stok' => $data['stok'] ?? 0, 'harga_beli' => $data['harga_beli'] ?? 0, 'harga_jual' => $data['harga_jual'] ?? 0]);
+        $part = Sparepart::create([
+            ...$data,
+            'stok' => $data['stok'] ?? 0,
+            'harga_beli' => $data['harga_beli'] ?? 0,
+            'harga_jual' => $data['harga_jual'] ?? 0,
+        ]);
         $this->logActivity($request, 'ubah_stok', 'sparepart:'.$part->id, null, [
             'stok' => $part->stok, 'kode_barang' => $part->kode_barang,
         ]);
@@ -1370,7 +1460,7 @@ class ApiController extends Controller
     {
         $data = $request->validated();
         $old = ['stok' => $sparepart->stok, 'kode_barang' => $sparepart->kode_barang];
-        $sparepart->update([...$data, 'stok' => $data['stok'] ?? 0, 'harga_beli' => $data['harga_beli'] ?? 0, 'harga_jual' => $data['harga_jual'] ?? 0]);
+        $sparepart->update($data);
         if ((int) $old['stok'] !== (int) $sparepart->stok) {
             $this->logActivity($request, 'ubah_stok', 'sparepart:'.$sparepart->id, $old, [
                 'stok' => $sparepart->stok, 'kode_barang' => $sparepart->kode_barang,

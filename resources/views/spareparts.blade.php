@@ -140,12 +140,17 @@
                                 <input type="number" id="stok_minimum" min="0" value="5"
                                     class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs">
                             </div>
+                            @if(auth()->user()->role === 'owner')
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Beli (Rp)</label>
                                 <input type="number" id="harga_beli" placeholder="0" min="0" required
                                     class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                             </div>
+                            @else
+                            <div class="self-center text-xs text-slate-500 md:col-span-2">Harga beli dan jual hanya dapat dikelola Owner.</div>
+                            @endif
                         </div>
+                        @if(auth()->user()->role === 'owner')
                         <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                             <div class="md:col-span-3">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Jual ke Pelanggan (Rp) <span class="text-red-500">*</span></label>
@@ -158,6 +163,11 @@
                                 </button>
                             </div>
                         </div>
+                        @else
+                        <button type="submit" class="btn-gold w-full rounded-lg px-4 py-2.5 text-sm shadow-sm">
+                            Simpan Sparepart
+                        </button>
+                        @endif
                     </form>
                 </div>
             </div>
@@ -252,6 +262,7 @@
                             class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs">
                     </div>
                 </div>
+                @if(auth()->user()->role === 'owner')
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Beli</label>
@@ -264,6 +275,7 @@
                             class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs font-bold text-emerald-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                     </div>
                 </div>
+                @endif
 
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="closeModalEdit()"
@@ -281,6 +293,7 @@
     <script>
         let sparepartsCache = [];
         let sparepartPage = 1;
+        const canManagePrices = @json(auth()->user()->role === 'owner');
 
         function toggleNavbarMenu() {
             const menu = document.getElementById('navMobileMenu');
@@ -409,10 +422,12 @@
                 kode_barang: document.getElementById('kode_barang').value.trim(),
                 nama_barang: document.getElementById('nama_barang').value.trim(),
                 stok: parseInt(document.getElementById('stok').value, 10) || 0,
-                stok_minimum: parseInt(document.getElementById('stok_minimum').value, 10) || 0,
-                harga_beli: parseFloat(document.getElementById('harga_beli').value) || 0,
-                harga_jual: parseFloat(document.getElementById('harga_jual').value) || 0
+                stok_minimum: parseInt(document.getElementById('stok_minimum').value, 10) || 0
             };
+            if (canManagePrices) {
+                payload.harga_beli = parseInt(document.getElementById('harga_beli').value, 10) || 0;
+                payload.harga_jual = parseInt(document.getElementById('harga_jual').value, 10) || 0;
+            }
 
             try {
                 const res = await fetch('/api/spareparts', {
@@ -445,8 +460,10 @@
             document.getElementById('edit_nama_barang').value = item.nama_barang;
             document.getElementById('edit_stok').value = item.stok;
             document.getElementById('edit_stok_minimum').value = item.stok_minimum;
-            document.getElementById('edit_harga_beli').value = item.harga_beli;
-            document.getElementById('edit_harga_jual').value = item.harga_jual;
+            if (canManagePrices) {
+                document.getElementById('edit_harga_beli').value = item.harga_beli;
+                document.getElementById('edit_harga_jual').value = item.harga_jual;
+            }
 
             document.getElementById('modalEditSparepart').classList.remove('hidden');
         }
@@ -463,10 +480,12 @@
                 kode_barang: document.getElementById('edit_kode_barang').value.trim(),
                 nama_barang: document.getElementById('edit_nama_barang').value.trim(),
                 stok: parseInt(document.getElementById('edit_stok').value, 10) || 0,
-                stok_minimum: parseInt(document.getElementById('edit_stok_minimum').value, 10) || 0,
-                harga_beli: parseFloat(document.getElementById('edit_harga_beli').value) || 0,
-                harga_jual: parseFloat(document.getElementById('edit_harga_jual').value) || 0
+                stok_minimum: parseInt(document.getElementById('edit_stok_minimum').value, 10) || 0
             };
+            if (canManagePrices) {
+                payload.harga_beli = parseInt(document.getElementById('edit_harga_beli').value, 10) || 0;
+                payload.harga_jual = parseInt(document.getElementById('edit_harga_jual').value, 10) || 0;
+            }
 
             try {
                 const res = await fetch(`/api/spareparts/${id}`, {

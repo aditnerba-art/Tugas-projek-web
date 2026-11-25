@@ -13,9 +13,9 @@ class ServiceItem extends Model
     {
         return [
             'jumlah' => 'integer',
-            'harga_modal' => 'decimal:2',
-            'harga_satuan' => 'decimal:2',
-            'subtotal' => 'decimal:2',
+            'harga_modal' => 'integer',
+            'harga_satuan' => 'integer',
+            'subtotal' => 'integer',
         ];
     }
 

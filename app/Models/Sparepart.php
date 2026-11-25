@@ -17,8 +17,8 @@ class Sparepart extends Model
         return [
             'stok' => 'integer',
             'stok_minimum' => 'integer',
-            'harga_beli' => 'decimal:2',
-            'harga_jual' => 'decimal:2',
+            'harga_beli' => 'integer',
+            'harga_jual' => 'integer',
         ];
     }
 

@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('service_rates', function (Blueprint $table) {
             $table->id();
             $table->string('name', 100)->unique();
-            $table->unsignedInteger('amount');
+            $table->unsignedBigInteger('amount');
             $table->boolean('active')->default(true);
             $table->timestamps();
         });

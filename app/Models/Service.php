@@ -27,11 +27,11 @@ class Service extends Model
     protected function casts(): array
     {
         return [
-            'biaya_jasa' => 'decimal:2',
-            'total_biaya' => 'decimal:2',
-            'dp_dibayar' => 'decimal:2',
-            'nominal_dibayar' => 'decimal:2',
-            'kembalian' => 'decimal:2',
+            'biaya_jasa' => 'integer',
+            'total_biaya' => 'integer',
+            'dp_dibayar' => 'integer',
+            'nominal_dibayar' => 'integer',
+            'kembalian' => 'integer',
             'estimated_completion_at' => 'date',
             'warranty_expires_at' => 'date',
             'accessories' => 'array',

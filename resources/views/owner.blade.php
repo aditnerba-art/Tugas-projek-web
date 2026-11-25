@@ -80,6 +80,9 @@
             <button type="button" data-owner-nav="inventory" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
                 <span aria-hidden="true">📦</span> Stok Sparepart
             </button>
+            <button type="button" data-owner-nav="pricing" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">💵</span> Tarif Jasa
+            </button>
             <a href="/owner/activity-logs" class="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-sm font-medium text-slate-200 no-underline transition hover:bg-[#132F63] hover:text-white">
                 <span aria-hidden="true">🧾</span> Log Aktivitas
             </a>
@@ -386,6 +389,37 @@
             </section>
             </div>
 
+            <section data-owner-panel="pricing" hidden class="space-y-5 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-5 shadow-sm sm:p-7">
+                <div>
+                    <h2 class="text-xl font-extrabold text-[#0B1E3F]">Tarif Jasa Servis</h2>
+                    <p class="mt-1 text-sm text-slate-600">Owner menentukan tarif. Admin dan teknisi hanya dapat memilih tarif aktif.</p>
+                </div>
+                <form id="serviceRateForm" class="grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-4">
+                    <input id="serviceRateId" type="hidden">
+                    <label class="text-xs font-semibold text-slate-700 sm:col-span-2">Nama tarif
+                        <input id="serviceRateName" required maxlength="100" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+                    </label>
+                    <label class="text-xs font-semibold text-slate-700">Harga (Rp)
+                        <input id="serviceRateAmount" type="number" min="0" step="1" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+                    </label>
+                    <label class="flex items-center gap-2 self-end pb-2 text-sm">
+                        <input id="serviceRateActive" type="checkbox" checked class="h-4 w-4">
+                        Tarif aktif
+                    </label>
+                    <div class="flex flex-wrap gap-2 sm:col-span-4">
+                        <button type="submit" class="rounded-lg bg-[#0B1E3F] px-4 py-2.5 text-sm font-bold text-white">Simpan tarif</button>
+                        <button id="serviceRateReset" type="button" class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold">Batal / tarif baru</button>
+                    </div>
+                </form>
+                <p id="serviceRateMessage" role="status" aria-live="polite" class="text-sm"></p>
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100"><tr><th class="p-3">Nama tarif</th><th class="p-3 text-right">Harga</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead>
+                        <tbody id="serviceRateRows"><tr><td colspan="4" class="p-4 text-center text-slate-500">Memuat tarif…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
             <section data-owner-panel="inventory" hidden class="space-y-8">
                 <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -564,6 +598,7 @@
         let purchasePage = 1;
         let ownerPartsPage = 1;
         let reportPage = 1;
+        let serviceRatesCache = [];
 
         function renderOwnerPagination(elementId, meta, onPage) {
             const container = document.getElementById(elementId);
@@ -605,7 +640,93 @@
         }
 
         async function loadAllData() {
-            await Promise.all([loadDashboard(), loadPurchases(), loadSparepartsCatalog(), loadOwnerParts(), loadOwnerReport()]);
+            await Promise.all([loadDashboard(), loadPurchases(), loadSparepartsCatalog(), loadOwnerParts(), loadOwnerReport(), loadServiceRates()]);
+        }
+
+        async function loadServiceRates() {
+            const rows = document.getElementById('serviceRateRows');
+            try {
+                const response = await fetch('/api/owner/service-rates');
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Tarif jasa gagal dimuat.');
+                serviceRatesCache = result.data;
+                rows.replaceChildren();
+                if (!serviceRatesCache.length) {
+                    const row = rows.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 4;
+                    cell.className = 'p-4 text-center text-slate-500';
+                    cell.textContent = 'Belum ada tarif. Tambahkan tarif pertama untuk staf.';
+                    return;
+                }
+                serviceRatesCache.forEach(rate => {
+                    const row = rows.insertRow();
+                    const name = row.insertCell();
+                    const amount = row.insertCell();
+                    const status = row.insertCell();
+                    const actions = row.insertCell();
+                    name.className = 'p-3 font-semibold';
+                    name.textContent = rate.name;
+                    amount.className = 'p-3 text-right tabular-nums';
+                    amount.textContent = `Rp ${Number(rate.amount).toLocaleString('id-ID')}`;
+                    status.className = 'p-3';
+                    status.textContent = rate.active ? 'Aktif' : 'Nonaktif';
+                    const edit = document.createElement('button');
+                    edit.type = 'button';
+                    edit.className = 'rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold';
+                    edit.textContent = 'Ubah';
+                    edit.addEventListener('click', () => {
+                        document.getElementById('serviceRateId').value = rate.id;
+                        document.getElementById('serviceRateName').value = rate.name;
+                        document.getElementById('serviceRateAmount').value = rate.amount;
+                        document.getElementById('serviceRateActive').checked = rate.active;
+                        document.getElementById('serviceRateName').focus();
+                    });
+                    actions.className = 'p-3';
+                    actions.append(edit);
+                });
+            } catch (error) {
+                console.error('Gagal memuat tarif jasa', error);
+                rows.textContent = '';
+                const row = rows.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 4;
+                cell.className = 'p-4 text-center text-rose-700';
+                cell.textContent = error.message || 'Tarif jasa gagal dimuat.';
+            }
+        }
+
+        function resetServiceRateForm() {
+            document.getElementById('serviceRateForm').reset();
+            document.getElementById('serviceRateId').value = '';
+            document.getElementById('serviceRateActive').checked = true;
+        }
+
+        async function saveServiceRate(event) {
+            event.preventDefault();
+            const id = document.getElementById('serviceRateId').value;
+            const payload = {
+                name: document.getElementById('serviceRateName').value.trim(),
+                amount: Number(document.getElementById('serviceRateAmount').value),
+                active: document.getElementById('serviceRateActive').checked,
+            };
+            const message = document.getElementById('serviceRateMessage');
+            try {
+                const response = await fetch(id ? `/api/owner/service-rates/${id}` : '/api/owner/service-rates', {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Tarif jasa gagal disimpan.');
+                message.textContent = 'Tarif jasa berhasil disimpan.';
+                message.className = 'text-sm text-emerald-700';
+                resetServiceRateForm();
+                await loadServiceRates();
+            } catch (error) {
+                message.textContent = error.message || 'Tarif jasa gagal disimpan.';
+                message.className = 'text-sm text-rose-700';
+            }
         }
 
         // 1. Ambil Data Dashboard Owner
@@ -1168,6 +1289,8 @@
 
         // Inisialisasi
         document.getElementById('loadReport').addEventListener('click', () => loadOwnerReport(1));
+        document.getElementById('serviceRateForm').addEventListener('submit', saveServiceRate);
+        document.getElementById('serviceRateReset').addEventListener('click', resetServiceRateForm);
         document.getElementById('reportPeriod').addEventListener('change', () => loadOwnerReport(1));
         document.getElementById('reportCsv').addEventListener('click', () => openReportExport('/api/owner/reports.csv'));
         document.getElementById('reportPdf').addEventListener('click', () => openReportExport('/api/owner/reports/print'));
@@ -1195,7 +1318,8 @@
             const labels = {
                 dashboard: 'Dashboard & Laporan',
                 staff: 'Manajemen Staf',
-                inventory: 'Stok Sparepart'
+                inventory: 'Stok Sparepart',
+                pricing: 'Tarif Jasa'
             };
 
             function setSidebarOpen(open) {

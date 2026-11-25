@@ -16,7 +16,7 @@ class SparepartRequest extends FormRequest
     {
         $sparepart = $this->route('sparepart');
         $priceRules = $this->user()?->role === 'owner'
-            ? ['nullable', 'numeric', 'min:0']
+            ? ['nullable', 'integer', 'min:0']
             : ['prohibited'];
 
         return [

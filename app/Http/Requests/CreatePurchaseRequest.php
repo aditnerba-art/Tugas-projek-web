@@ -19,12 +19,12 @@ class CreatePurchaseRequest extends FormRequest
             'keterangan' => ['nullable', 'string', 'max:10000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.jumlah' => ['required', 'integer', 'min:1'],
-            'items.*.harga_beli_satuan' => ['required', 'numeric', 'min:0'],
+            'items.*.harga_beli_satuan' => ['required', 'integer', 'min:0'],
             'items.*.sparepart_id' => ['nullable', 'integer', 'exists:spareparts,id'],
             'items.*.is_new' => ['nullable', 'boolean'],
             'items.*.kode_barang' => ['required_if:items.*.is_new,true', 'nullable', 'string', 'max:50'],
             'items.*.nama_barang' => ['required_if:items.*.is_new,true', 'nullable', 'string', 'max:150'],
-            'items.*.harga_jual' => ['nullable', 'numeric', 'min:0'],
+            'items.*.harga_jual' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }
