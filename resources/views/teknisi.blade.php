@@ -609,13 +609,19 @@
             try {
                 const response = await fetch('/api/admin/service/status', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({
                         service_id: serviceId,
                         status_baru: 'dikerjakan',
                         catatan_teknis: 'Pekerjaan dimulai oleh teknisi.',
                     }),
                 });
+                if (!response.headers.get('content-type')?.includes('application/json')) {
+                    if (response.status === 419) {
+                        throw new Error('Sesi keamanan berakhir. Muat ulang halaman, lalu coba lagi.');
+                    }
+                    throw new Error(`Server gagal memproses permintaan (HTTP ${response.status}). Muat ulang halaman atau hubungi admin.`);
+                }
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Pekerjaan gagal dimulai.');
                 await loadPendingServices(1);
