@@ -2,7 +2,7 @@
 
 Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admin/kasir, panel teknisi, dan dashboard owner.
 
-Panel staf tersedia melalui route Laravel `/admin`, `/teknisi`, dan `/owner`. Halaman login tersedia di `/login`, `/admin/login`, `/teknisi/login`, dan `/owner/login`; URL panel dan login tidak menggunakan suffix file.
+Panel staf tersedia melalui route Laravel `/admin`, `/teknisi`, dan `/owner`. Detail servis teknisi dibuka pada `/teknisi/pekerjaan/{service}` dan hanya dapat diakses teknisi yang ditugaskan pada servis tersebut. Halaman login tersedia di `/login`, `/admin/login`, `/teknisi/login`, dan `/owner/login`; URL panel dan login tidak menggunakan suffix file.
 
 ### Instalasi dan menjalankan aplikasi
 
