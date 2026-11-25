@@ -1161,7 +1161,7 @@ class ApiController extends Controller
 
     public function nota(Request $request, string $noNota): JsonResponse
     {
-        $query = Service::with(['customer', 'technician', 'items.sparepart'])->where('no_nota', $noNota);
+        $query = Service::with(['customer', 'technician', 'items.sparepart', 'photos'])->where('no_nota', $noNota);
         if ($request->user()->role === 'teknisi') {
             $query->where('teknisi_id', $request->user()->id);
         }
@@ -1178,6 +1178,21 @@ class ApiController extends Controller
             'user' => $log->user?->nama,
             'user_role' => $log->user?->role,
             'created_at' => $log->created_at,
+        ])->all();
+        $data['photos'] = $service->photos->map(fn (ServicePhoto $photo) => [
+            'id' => $photo->id,
+            'kind' => $photo->kind,
+            'url' => route('service-photos.show', [
+                'photo' => $photo->id,
+                'variant' => 'original',
+                'tracking_key' => $service->tracking_key,
+            ]),
+            'thumbnail_url' => route('service-photos.show', [
+                'photo' => $photo->id,
+                'variant' => 'thumbnail',
+                'tracking_key' => $service->tracking_key,
+            ]),
+            'created_at' => $photo->created_at,
         ])->all();
         $data['onderdil'] = $service->items
             ->reject(fn (ServiceItem $item) => $item->approval_status === 'cancelled')
@@ -1260,11 +1275,17 @@ class ApiController extends Controller
             'data' => $photos->map(fn (ServicePhoto $photo) => [
                 'id' => $photo->id,
                 'kind' => $photo->kind,
+                'url' => route('service-photos.show', [
+                    'photo' => $photo->id,
+                    'variant' => 'original',
+                    'tracking_key' => $service->tracking_key,
+                ]),
                 'thumbnail_url' => route('service-photos.show', [
                     'photo' => $photo->id,
                     'variant' => 'thumbnail',
                     'tracking_key' => $service->tracking_key,
                 ]),
+                'created_at' => $photo->created_at,
             ]),
         ], 201);
     }

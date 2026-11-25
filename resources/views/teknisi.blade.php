@@ -143,6 +143,29 @@
                     <ol id="statusTimeline" class="space-y-3"></ol>
                 </section>
 
+                <section id="servicePhotosWrap" class="hidden rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="servicePhotosTitle">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h2 id="servicePhotosTitle" class="text-sm font-extrabold text-[#0B1E3F]">Foto kondisi servis</h2>
+                        <button id="openServicePhotoForm" type="button" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700">+ Tambah foto</button>
+                    </div>
+                    <div id="servicePhotoForm" class="mt-4 hidden space-y-3 rounded-lg bg-slate-50 p-4">
+                        <div>
+                            <label for="servicePhotoKind" class="mb-1 block text-xs font-bold text-slate-700">Jenis foto</label>
+                            <select id="servicePhotoKind" class="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <option value="intake">Sebelum servis</option>
+                                <option value="completion">Sesudah servis</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="servicePhotoFiles" class="mb-1 block text-xs font-bold text-slate-700">Pilih foto (maksimal 5)</label>
+                            <input id="servicePhotoFiles" type="file" accept="image/jpeg,image/png" multiple class="min-h-11 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm">
+                        </div>
+                        <p id="servicePhotoFeedback" class="text-sm" role="status" aria-live="polite"></p>
+                        <button id="saveServicePhotos" type="button" class="min-h-11 rounded-lg bg-[#0B1E3F] px-4 py-2 text-sm font-bold text-white">Simpan foto</button>
+                    </div>
+                    <div id="servicePhotosList" class="mt-4 space-y-2" aria-live="polite"></div>
+                </section>
+
                 <form id="formUpdate" class="space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="md:col-span-1">
@@ -186,16 +209,12 @@
                             </select>
                             <span class="text-[11px] text-slate-500">Durasi garansi dikelola Owner.</span>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Foto setelah servis (maks. 5 foto)</label>
-                            <input type="file" id="completion_photos" accept="image/jpeg,image/png" multiple class="w-full rounded-xl border border-slate-300 p-2 text-sm">
-                        </div>
                     </div>
                     <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
                         <button id="openEstimateChange" type="button" class="min-h-11 rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-[#0B1E3F]">
                             Perubahan estimasi
                         </button>
-                        <form id="estimateChangeForm" class="mt-4 hidden space-y-3">
+                        <div id="estimateChangeForm" class="mt-4 hidden space-y-3">
                             <div>
                                 <label for="estimateChangeReason" class="mb-1 block text-xs font-bold text-slate-700">Alasan perubahan <span class="text-rose-600">*</span></label>
                                 <textarea id="estimateChangeReason" required minlength="5" maxlength="1000" rows="2" placeholder="Contoh: Komponen pengganti belum tersedia"
@@ -207,8 +226,8 @@
                                     class="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
                             </div>
                             <p id="estimateChangeFeedback" class="text-sm" role="status" aria-live="polite"></p>
-                            <button type="submit" class="min-h-11 rounded-lg bg-[#0B1E3F] px-4 py-2 text-sm font-bold text-white">Kirim untuk persetujuan</button>
-                        </form>
+                            <button id="submitEstimateChange" type="button" class="min-h-11 rounded-lg bg-[#0B1E3F] px-4 py-2 text-sm font-bold text-white">Kirim untuk persetujuan</button>
+                        </div>
                     </div>
 
                     <!-- Input Pemasangan Sparepart Baru -->
@@ -258,6 +277,54 @@
                 empty.textContent = 'Belum ada riwayat status.';
                 timeline.appendChild(empty);
                 return;
+            }
+
+            function renderServicePhotos(photos = []) {
+                const wrap = document.getElementById('servicePhotosWrap');
+                const list = document.getElementById('servicePhotosList');
+                list.replaceChildren();
+                wrap.classList.remove('hidden');
+
+                if (!photos.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-sm italic text-slate-500';
+                    empty.textContent = 'Belum ada foto kondisi unit.';
+                    list.appendChild(empty);
+                    return;
+                }
+
+                const table = document.createElement('div');
+                table.className = 'divide-y divide-slate-100';
+                photos.forEach(photo => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-3 py-3';
+                    const link = document.createElement('a');
+                    link.href = photo.url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.className = 'shrink-0';
+                    link.setAttribute('aria-label', `Buka foto ${photo.kind === 'intake' ? 'sebelum servis' : 'sesudah servis'}`);
+                    const image = document.createElement('img');
+                    image.src = photo.thumbnail_url;
+                    image.alt = photo.kind === 'intake' ? 'Foto sebelum servis' : 'Foto sesudah servis';
+                    image.loading = 'lazy';
+                    image.className = 'h-14 w-14 rounded-lg border border-slate-200 object-cover';
+                    link.appendChild(image);
+                    const details = document.createElement('div');
+                    const kind = document.createElement('p');
+                    kind.className = 'text-sm font-bold text-slate-800';
+                    kind.textContent = photo.kind === 'intake' ? 'Sebelum servis' : 'Sesudah servis';
+                    const created = document.createElement('time');
+                    created.className = 'text-xs text-slate-500';
+                    created.dateTime = photo.created_at || '';
+                    created.textContent = photo.created_at
+                        ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(photo.created_at))
+                        : 'Waktu tidak tersedia';
+                    details.append(kind, created);
+                    row.append(link, details);
+                    table.appendChild(row);
+                });
+                list.appendChild(table);
             }
 
             logs.forEach(log => {
@@ -458,6 +525,7 @@
             resetSparepartRows();
             document.getElementById('unitInfoBanner').classList.add('hidden');
             document.getElementById('statusTimelineWrap').classList.add('hidden');
+            document.getElementById('servicePhotosWrap').classList.add('hidden');
             document.getElementById('serviceDetailWrap').classList.add('hidden');
         }
 
@@ -635,9 +703,11 @@
                         listWrap.appendChild(empty);
                     }
                     renderStatusTimeline(notaRes.data?.status_timeline || []);
+                    renderServicePhotos(notaRes.data?.photos || []);
                 } catch (e) {
                     console.error(e);
                     renderStatusTimeline([]);
+                    renderServicePhotos([]);
                 }
             }
         }
@@ -770,10 +840,12 @@
             document.getElementById('estimateChangeForm').classList.toggle('hidden');
             document.getElementById('estimateChangeReason').focus();
         });
-        document.getElementById('estimateChangeForm').addEventListener('submit', async event => {
-            event.preventDefault();
-            const button = event.currentTarget.querySelector('button[type="submit"]');
+        document.getElementById('submitEstimateChange').addEventListener('click', async event => {
+            const button = event.currentTarget;
             const feedback = document.getElementById('estimateChangeFeedback');
+            const reason = document.getElementById('estimateChangeReason');
+            const days = document.getElementById('estimateChangeDays');
+            if (!reason.reportValidity() || !days.reportValidity()) return;
             button.disabled = true;
             feedback.className = 'text-sm text-slate-600';
             feedback.textContent = 'Mengirim usulan…';
@@ -783,19 +855,61 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         service_id: document.getElementById('service_id').value,
-                        additional_days: Number(document.getElementById('estimateChangeDays').value),
-                        reason: document.getElementById('estimateChangeReason').value,
+                        additional_days: Number(days.value),
+                        reason: reason.value,
                     }),
                 });
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Usulan perubahan estimasi gagal dikirim.');
                 feedback.className = 'text-sm font-semibold text-emerald-700';
                 feedback.textContent = result.message;
-                event.currentTarget.reset();
+                reason.value = '';
+                days.value = '1';
                 await onSelectService();
             } catch (error) {
                 feedback.className = 'text-sm font-semibold text-rose-700';
                 feedback.textContent = error.message || 'Usulan perubahan estimasi gagal dikirim.';
+            } finally {
+                button.disabled = false;
+            }
+        });
+        document.getElementById('openServicePhotoForm').addEventListener('click', () => {
+            const form = document.getElementById('servicePhotoForm');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) document.getElementById('servicePhotoKind').focus();
+        });
+        document.getElementById('saveServicePhotos').addEventListener('click', async event => {
+            const button = event.currentTarget;
+            const files = document.getElementById('servicePhotoFiles').files;
+            const serviceId = document.getElementById('service_id').value;
+            const feedback = document.getElementById('servicePhotoFeedback');
+            if (!serviceId) {
+                feedback.textContent = 'Pilih pekerjaan sebelum menambahkan foto.';
+                return;
+            }
+            if (!files.length) {
+                feedback.textContent = 'Pilih minimal satu foto.';
+                return;
+            }
+
+            button.disabled = true;
+            feedback.className = 'text-sm text-slate-600';
+            feedback.textContent = 'Menyimpan foto…';
+            try {
+                const formData = new FormData();
+                formData.append('service_id', serviceId);
+                formData.append('kind', document.getElementById('servicePhotoKind').value);
+                Array.from(files).forEach(file => formData.append('photos[]', file));
+                const response = await fetch('/api/admin/service/photos', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Foto gagal disimpan.');
+                document.getElementById('servicePhotoFiles').value = '';
+                feedback.className = 'text-sm font-semibold text-emerald-700';
+                feedback.textContent = 'Foto berhasil disimpan dan dicatat pada riwayat servis.';
+                await onSelectService();
+            } catch (error) {
+                feedback.className = 'text-sm font-semibold text-rose-700';
+                feedback.textContent = error.message || 'Foto gagal disimpan. Coba lagi.';
             } finally {
                 button.disabled = false;
             }
@@ -819,7 +933,6 @@
             const serviceId = document.getElementById('service_id').value;
             const statusBaru = document.getElementById('status_baru').value;
             const catatanTeknis = document.getElementById('catatan_teknis').value;
-            const completionPhotos = document.getElementById('completion_photos').files;
             const rateId = document.getElementById('service_rate_id').value;
 
             if (!serviceId || !catatanTeknis) {
@@ -860,25 +973,9 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    let photoError = '';
-                    if (completionPhotos.length) {
-                        try {
-                            const photoData = new FormData();
-                            photoData.append('service_id', serviceId);
-                            photoData.append('kind', 'completion');
-                            Array.from(completionPhotos).forEach(file => photoData.append('photos[]', file));
-                            const photoResponse = await fetch('/api/admin/service/photos', { method: 'POST', body: photoData });
-                            const photoResult = await photoResponse.json();
-                            if (!photoResponse.ok) photoError = photoResult.message || 'Foto selesai gagal diunggah.';
-                        } catch (error) {
-                            photoError = error.message || 'Foto selesai gagal diunggah.';
-                        }
-                    }
-                    alert(photoError
-                        ? `Progres tersimpan, tetapi ${photoError}`
-                        : data.status_baru === 'menunggu_persetujuan'
-                            ? 'Perubahan biaya menunggu persetujuan pelanggan.'
-                            : '✅ Progres pengerjaan, estimasi, dan onderdil berhasil diperbarui!');
+                    alert(data.status_baru === 'menunggu_persetujuan'
+                        ? 'Perubahan biaya menunggu persetujuan pelanggan.'
+                        : '✅ Progres pengerjaan, estimasi, dan onderdil berhasil diperbarui!');
                     document.getElementById('formUpdate').reset();
                     document.getElementById('sparepart_info').innerText = '';
                     document.getElementById('unitInfoBanner').classList.add('hidden');

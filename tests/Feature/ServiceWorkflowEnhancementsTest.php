@@ -485,11 +485,12 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         $technician = $this->user('teknisi', 'teknisi_photo');
         $service = $this->service(['teknisi_id' => $technician->id]);
 
-        $this->actingAs($admin)->post('/api/admin/service/photos', [
+        $uploadResponse = $this->actingAs($admin)->post('/api/admin/service/photos', [
             'service_id' => $service->id,
             'kind' => 'intake',
             'photos' => [UploadedFile::fake()->image('unit.png', 640, 480)->size(500)],
-        ])->assertCreated();
+        ])->assertCreated()
+            ->assertJsonPath('data.0.kind', 'intake');
 
         $photo = $service->photos()->sole();
         Storage::disk('service_photos')->assertExists($photo->path);
@@ -498,7 +499,12 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         Storage::disk('public')->assertMissing($photo->thumbnail_path);
         $tracking = $this->getJson('/api/tracking-link/'.$service->tracking_key)
             ->assertOk()
-            ->assertJsonPath('data.photos.0.kind', 'intake');
+            ->assertJsonPath('data.photos.0.kind', 'intake')
+            ->assertJsonPath('data.timeline.0.catatan', 'Foto kondisi saat penerimaan ditambahkan.');
+        $this->actingAs($technician)->getJson('/api/admin/nota/'.$service->no_nota)
+            ->assertOk()
+            ->assertJsonPath('data.photos.0.kind', 'intake')
+            ->assertJsonPath('data.photos.0.thumbnail_url', $uploadResponse->json('data.0.thumbnail_url'));
         $photoUrl = $tracking->json('data.photos.0.url');
         $this->assertStringContainsString('tracking_key='.$service->tracking_key, $photoUrl);
 
