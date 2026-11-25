@@ -624,7 +624,14 @@
                 }
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Pekerjaan gagal dimulai.');
+                setWorkFilter('in_progress');
                 await loadPendingServices(1);
+                if (servicesCache.some(service => String(service.id) === String(serviceId))) {
+                    openServiceDetail(serviceId);
+                } else {
+                    document.getElementById('serviceListMessage').textContent =
+                        'Pekerjaan sudah dimulai. Gunakan pencarian atau halaman berikutnya untuk membuka detailnya.';
+                }
             } catch (error) {
                 alert(error.message || 'Pekerjaan gagal dimulai. Coba lagi.');
                 button.disabled = false;
