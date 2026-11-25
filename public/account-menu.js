@@ -51,8 +51,12 @@
         logout.textContent = user.role === 'owner' ? 'Logout' : 'Keluar';
         if (user.role === 'owner') bar.append(name, settings, changePassword, logout);
         else bar.append(name, changePassword, logout);
-        const ownerAccountSlot = requiredRole === 'owner' && document.getElementById('ownerAccountSlot');
-        if (ownerAccountSlot) ownerAccountSlot.appendChild(bar);
+        const accountSlot = requiredRole === 'owner'
+            ? document.getElementById('ownerAccountSlot')
+            : requiredRole === 'teknisi'
+                ? document.getElementById('technicianAccountSlot')
+                : null;
+        if (accountSlot) accountSlot.appendChild(bar);
         else document.body.insertBefore(bar, document.body.firstChild);
 
         const overlay = document.createElement('div');

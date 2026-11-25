@@ -507,6 +507,9 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             ->assertJsonPath('data.photos.0.thumbnail_url', $uploadResponse->json('data.0.thumbnail_url'));
         $this->actingAs($technician)->get('/teknisi')
             ->assertOk()
+            ->assertSee('technicianSidebar')
+            ->assertSee('Navigasi Teknisi')
+            ->assertSee('Semua pekerjaan')
             ->assertSee('Foto kondisi servis')
             ->assertSee('+ Tambah foto')
             ->assertSee('Sebelum servis')

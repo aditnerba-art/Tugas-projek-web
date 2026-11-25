@@ -26,30 +26,92 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/theme.css">
+    <style>
+        body[data-theme="dashboard"] .technician-account-slot .account-bar {
+            position: static;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent !important;
+            box-shadow: none;
+        }
+        body[data-theme="dashboard"] .technician-account-slot .account-name {
+            max-width: 180px;
+            overflow: hidden;
+            color: #475569 !important;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        body[data-theme="dashboard"] .technician-account-slot .account-bar button {
+            padding: 7px 10px;
+            font-size: 11px;
+        }
+        @media (max-width: 640px) {
+            .technician-account-slot { width: 100%; }
+            body[data-theme="dashboard"] .technician-account-slot .account-bar { justify-content: flex-start; }
+            body[data-theme="dashboard"] .technician-account-slot .account-name { max-width: 130px; }
+        }
+    </style>
 </head>
 
-<body data-theme="dashboard" class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans">
-    <div class="app-topbar">
-        <a href="{{ route('teknisi.dashboard') }}" class="app-nav-link">🛠️ Panel Teknisi</a>
-    </div>
+<body data-theme="dashboard" class="min-h-screen flex bg-slate-50 font-sans text-slate-900">
+    <button id="technicianSidebarOverlay" type="button" class="fixed inset-0 z-40 hidden bg-slate-950/60 md:hidden" aria-label="Tutup menu"></button>
+
+    <aside id="technicianSidebar" class="fixed inset-y-0 left-0 z-50 flex h-screen w-64 -translate-x-full flex-col border-r-2 border-amber-400 bg-[#0B1E3F] text-white transition-transform duration-300 md:sticky md:top-0 md:translate-x-0">
+        <div class="border-b border-amber-400/40 px-6 py-6">
+            <a href="{{ route('teknisi.dashboard') }}" class="flex items-center gap-3 text-white no-underline">
+                <span class="grid h-11 w-11 place-items-center rounded-xl border border-amber-400/70 bg-white">
+                    <img src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer" class="h-9 w-9 rounded-lg object-contain">
+                </span>
+                <span>
+                    <strong class="block text-sm font-extrabold tracking-wide">TECKFO SERVICE</strong>
+                    <small class="mt-1 block text-[11px] text-slate-300">Workbench Teknisi</small>
+                </span>
+            </a>
+        </div>
+        <nav class="space-y-2 px-3 py-6" aria-label="Navigasi Teknisi">
+            <p class="px-4 pb-1 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Pekerjaan</p>
+            <button type="button" data-technician-filter="all" aria-current="page" class="flex min-h-11 w-full items-center gap-3 border-l-4 border-amber-400 bg-[#153266] px-4 py-3 text-left text-sm font-semibold text-amber-300 transition hover:bg-[#153266]">
+                <span aria-hidden="true">🧰</span><span class="flex-1">Semua pekerjaan</span>
+                <span id="workSidebarCountAll" class="rounded-full bg-white/15 px-2 py-0.5 text-xs">0</span>
+            </button>
+            <button type="button" data-technician-filter="not_started" aria-current="false" class="flex min-h-11 w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">📋</span><span class="flex-1">Belum dikerjakan</span>
+                <span id="workSidebarCountNotStarted" class="rounded-full bg-white/10 px-2 py-0.5 text-xs">0</span>
+            </button>
+            <button type="button" data-technician-filter="in_progress" aria-current="false" class="flex min-h-11 w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">⚙️</span><span class="flex-1">Sedang dikerjakan</span>
+                <span id="workSidebarCountInProgress" class="rounded-full bg-white/10 px-2 py-0.5 text-xs">0</span>
+            </button>
+            <button type="button" data-technician-filter="completed" aria-current="false" class="flex min-h-11 w-full items-center gap-3 border-l-4 border-transparent px-4 py-3 text-left text-sm font-medium text-slate-200 transition hover:bg-[#132F63] hover:text-white">
+                <span aria-hidden="true">✅</span><span class="flex-1">Selesai</span>
+                <span id="workSidebarCountCompleted" class="rounded-full bg-white/10 px-2 py-0.5 text-xs">0</span>
+            </button>
+        </nav>
+        <div class="mt-auto border-t border-amber-400/30 px-5 py-4 text-[11px] text-slate-400">
+            Pekerjaan servis yang ditugaskan kepada Anda
+        </div>
+    </aside>
+
+    <div id="technicianAppContent" class="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header class="sticky top-0 z-30 flex min-h-20 flex-wrap items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+            <button id="technicianSidebarToggle" type="button" class="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-lg text-[#0B1E3F] shadow-sm md:hidden" aria-label="Buka menu teknisi" aria-expanded="false" aria-controls="technicianSidebar">
+                ☰
+            </button>
+            <div class="min-w-0 flex-1">
+                <p class="text-[10px] font-bold uppercase tracking-[.16em] text-amber-700">Workbench Teknisi</p>
+                <h1 class="truncate text-base font-extrabold text-[#0B1E3F] sm:text-lg">Panel Kerja Teknisi</h1>
+            </div>
+            <button type="button" onclick="initData()" class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                🔄 Refresh
+            </button>
+            <div id="technicianAccountSlot" class="technician-account-slot min-w-0"></div>
+        </header>
 
     <!-- Main Content -->
     <main class="flex-1 p-4 sm:p-6 lg:p-8">
-        <div class="max-w-4xl mx-auto space-y-6">
-            <!-- Header Bar -->
-            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-amber-400">
-                <div>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0B1E3F] text-amber-400 mb-2 border border-amber-400/40">
-                        ⚡ Workbench & Service Log
-                    </span>
-                    <h1 class="text-2xl font-extrabold text-[#0B1E3F] tracking-tight">Panel Kerja Teknisi</h1>
-                    <p class="text-xs text-slate-500 mt-1">Tinjau deadline, mulai pekerjaan, dan catat progres servis yang ditugaskan.</p>
-                </div>
-                <button onclick="initData()"
-                    class="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-300 transition shadow-sm">
-                    🔄 Refresh Data
-                </button>
-            </div>
+        <div class="mx-auto max-w-7xl space-y-6">
 
             <!-- Form Update Status -->
             <section class="overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white shadow-sm" aria-labelledby="jobListTitle">
@@ -257,6 +319,7 @@
             </section>
         </div>
     </main>
+    </div>
 
     <script>
         let servicesCache = [];
@@ -278,55 +341,6 @@
                 timeline.appendChild(empty);
                 return;
             }
-
-            function renderServicePhotos(photos = []) {
-                const wrap = document.getElementById('servicePhotosWrap');
-                const list = document.getElementById('servicePhotosList');
-                list.replaceChildren();
-                wrap.classList.remove('hidden');
-
-                if (!photos.length) {
-                    const empty = document.createElement('p');
-                    empty.className = 'text-sm italic text-slate-500';
-                    empty.textContent = 'Belum ada foto kondisi unit.';
-                    list.appendChild(empty);
-                    return;
-                }
-
-                const table = document.createElement('div');
-                table.className = 'divide-y divide-slate-100';
-                photos.forEach(photo => {
-                    const row = document.createElement('div');
-                    row.className = 'flex items-center gap-3 py-3';
-                    const link = document.createElement('a');
-                    link.href = photo.url;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.className = 'shrink-0';
-                    link.setAttribute('aria-label', `Buka foto ${photo.kind === 'intake' ? 'sebelum servis' : 'sesudah servis'}`);
-                    const image = document.createElement('img');
-                    image.src = photo.thumbnail_url;
-                    image.alt = photo.kind === 'intake' ? 'Foto sebelum servis' : 'Foto sesudah servis';
-                    image.loading = 'lazy';
-                    image.className = 'h-14 w-14 rounded-lg border border-slate-200 object-cover';
-                    link.appendChild(image);
-                    const details = document.createElement('div');
-                    const kind = document.createElement('p');
-                    kind.className = 'text-sm font-bold text-slate-800';
-                    kind.textContent = photo.kind === 'intake' ? 'Sebelum servis' : 'Sesudah servis';
-                    const created = document.createElement('time');
-                    created.className = 'text-xs text-slate-500';
-                    created.dateTime = photo.created_at || '';
-                    created.textContent = photo.created_at
-                        ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(photo.created_at))
-                        : 'Waktu tidak tersedia';
-                    details.append(kind, created);
-                    row.append(link, details);
-                    table.appendChild(row);
-                });
-                list.appendChild(table);
-            }
-
             logs.forEach(log => {
                 const item = document.createElement('li');
                 item.className = 'border-l-2 border-amber-400 pl-3';
@@ -343,6 +357,54 @@
                 item.append(status, metadata, note);
                 timeline.appendChild(item);
             });
+        }
+
+        function renderServicePhotos(photos = []) {
+            const wrap = document.getElementById('servicePhotosWrap');
+            const list = document.getElementById('servicePhotosList');
+            list.replaceChildren();
+            wrap.classList.remove('hidden');
+
+            if (!photos.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-sm italic text-slate-500';
+                empty.textContent = 'Belum ada foto kondisi unit.';
+                list.appendChild(empty);
+                return;
+            }
+
+            const table = document.createElement('div');
+            table.className = 'divide-y divide-slate-100';
+            photos.forEach(photo => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-3 py-3';
+                const link = document.createElement('a');
+                link.href = photo.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = 'shrink-0';
+                link.setAttribute('aria-label', `Buka foto ${photo.kind === 'intake' ? 'sebelum servis' : 'sesudah servis'}`);
+                const image = document.createElement('img');
+                image.src = photo.thumbnail_url;
+                image.alt = photo.kind === 'intake' ? 'Foto sebelum servis' : 'Foto sesudah servis';
+                image.loading = 'lazy';
+                image.className = 'h-14 w-14 rounded-lg border border-slate-200 object-cover';
+                link.appendChild(image);
+                const details = document.createElement('div');
+                const kind = document.createElement('p');
+                kind.className = 'text-sm font-bold text-slate-800';
+                kind.textContent = photo.kind === 'intake' ? 'Sebelum servis' : 'Sesudah servis';
+                const created = document.createElement('time');
+                created.className = 'text-xs text-slate-500';
+                created.dateTime = photo.created_at || '';
+                created.textContent = photo.created_at
+                    ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(photo.created_at))
+                    : 'Waktu tidak tersedia';
+                details.append(kind, created);
+                row.append(link, details);
+                table.appendChild(row);
+            });
+            list.appendChild(table);
         }
 
         function toggleNavbarMenu() {
@@ -498,6 +560,10 @@
             document.getElementById('workCountNotStarted').textContent = counts.not_started || 0;
             document.getElementById('workCountInProgress').textContent = counts.in_progress || 0;
             document.getElementById('workCountCompleted').textContent = counts.completed || 0;
+            document.getElementById('workSidebarCountAll').textContent = counts.all || 0;
+            document.getElementById('workSidebarCountNotStarted').textContent = counts.not_started || 0;
+            document.getElementById('workSidebarCountInProgress').textContent = counts.in_progress || 0;
+            document.getElementById('workSidebarCountCompleted').textContent = counts.completed || 0;
         }
 
         function setWorkFilter(filter) {
@@ -507,6 +573,15 @@
                 button.setAttribute('aria-selected', String(active));
                 button.className = `work-filter-tab min-h-11 rounded-lg border px-4 py-2 text-sm font-bold ${
                     active ? 'border-[#0B1E3F] bg-[#0B1E3F] text-white' : 'border-slate-300 bg-white text-slate-700'
+                }`;
+            });
+            document.querySelectorAll('[data-technician-filter]').forEach(button => {
+                const active = button.dataset.technicianFilter === filter;
+                button.setAttribute('aria-current', active ? 'page' : 'false');
+                button.className = `flex min-h-11 w-full items-center gap-3 border-l-4 px-4 py-3 text-left text-sm transition ${
+                    active
+                        ? 'border-amber-400 bg-[#153266] font-semibold text-amber-300'
+                        : 'border-transparent font-medium text-slate-200 hover:bg-[#132F63] hover:text-white'
                 }`;
             });
         }
@@ -823,6 +898,39 @@
                 document.getElementById('statusTimelineWrap').classList.add('hidden');
             }
         }
+        const technicianSidebar = document.getElementById('technicianSidebar');
+        const technicianSidebarOverlay = document.getElementById('technicianSidebarOverlay');
+        const technicianSidebarToggle = document.getElementById('technicianSidebarToggle');
+
+        function setTechnicianSidebarOpen(open) {
+            technicianSidebar.classList.toggle('-translate-x-full', !open);
+            technicianSidebar.classList.toggle('translate-x-0', open);
+            technicianSidebarOverlay.classList.toggle('hidden', !open);
+            technicianSidebarToggle.setAttribute('aria-expanded', String(open));
+            if (window.innerWidth < 768) document.body.classList.toggle('overflow-hidden', open);
+        }
+
+        technicianSidebarToggle.addEventListener('click', () => {
+            setTechnicianSidebarOpen(technicianSidebarToggle.getAttribute('aria-expanded') !== 'true');
+        });
+        technicianSidebarOverlay.addEventListener('click', () => setTechnicianSidebarOpen(false));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') setTechnicianSidebarOpen(false);
+        });
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) {
+                setTechnicianSidebarOpen(false);
+            }
+        });
+        document.querySelectorAll('[data-technician-filter]').forEach(button => {
+            button.addEventListener('click', () => {
+                setWorkFilter(button.dataset.technicianFilter);
+                loadPendingServices(1);
+                setTechnicianSidebarOpen(false);
+                document.getElementById('jobListTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+        setWorkFilter('all');
         initData();
         let serviceFilterTimer;
         document.getElementById('serviceSearchFilter').addEventListener('input', () => {
