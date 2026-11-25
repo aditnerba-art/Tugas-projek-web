@@ -763,8 +763,8 @@ class ApiController extends Controller
             $proposedDate = $baseDate->copy()->addDays((int) $data['additional_days']);
             $change = $service->estimateChanges()->create([
                 'proposed_by' => $request->user()->id,
-                'previous_estimated_completion_at' => $service->estimated_completion_at,
-                'proposed_estimated_completion_at' => $proposedDate,
+                'previous_estimated_completion_at' => $service->estimated_completion_at?->toDateString(),
+                'proposed_estimated_completion_at' => $proposedDate->toDateString(),
                 'additional_days' => $data['additional_days'],
                 'reason' => trim($data['reason']),
                 'status' => 'pending',
