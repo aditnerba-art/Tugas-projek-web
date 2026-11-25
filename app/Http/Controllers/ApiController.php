@@ -24,6 +24,7 @@ use App\Http\Requests\UpdateAccountRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Http\Requests\UpdateServiceStatusRequest;
 use App\Http\Requests\UploadServicePhotoRequest;
+use App\Http\Requests\WarrantyPresetRequest;
 use App\Jobs\SendWhatsAppMessage;
 use App\Models\ActivityLog;
 use App\Models\Customer;
@@ -41,6 +42,7 @@ use App\Models\ServiceRate;
 use App\Models\ServiceStatusLog;
 use App\Models\Sparepart;
 use App\Models\User;
+use App\Models\WarrantyPreset;
 use App\Notifications\ServicePanelNotification;
 use App\Services\ServicePhotoImageProcessor;
 use App\Services\ServiceSchedulingService;
@@ -477,6 +479,53 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Tarif jasa berhasil dihapus.']);
     }
 
+    public function activeWarrantyPresets(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => WarrantyPreset::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'days']),
+        ]);
+    }
+
+    public function ownerWarrantyPresets(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => WarrantyPreset::query()->orderBy('name')->get(['id', 'name', 'days', 'active']),
+        ]);
+    }
+
+    public function createWarrantyPreset(WarrantyPresetRequest $request): JsonResponse
+    {
+        $preset = WarrantyPreset::create($request->validated());
+        $this->logActivity($request, 'buat_preset_garansi', 'warranty-preset:'.$preset->id, null, $preset->only(['name', 'days', 'active']));
+
+        return response()->json(['status' => 'success', 'data' => $preset], 201);
+    }
+
+    public function updateWarrantyPreset(WarrantyPresetRequest $request, WarrantyPreset $warrantyPreset): JsonResponse
+    {
+        $old = $warrantyPreset->only(['name', 'days', 'active']);
+        $warrantyPreset->update($request->validated());
+        $this->logActivity($request, 'ubah_preset_garansi', 'warranty-preset:'.$warrantyPreset->id, $old, $warrantyPreset->only(['name', 'days', 'active']));
+
+        return response()->json(['status' => 'success', 'data' => $warrantyPreset]);
+    }
+
+    public function deleteWarrantyPreset(Request $request, WarrantyPreset $warrantyPreset): JsonResponse
+    {
+        if (Service::where('warranty_preset_id', $warrantyPreset->id)->exists()) {
+            $warrantyPreset->update(['active' => false]);
+
+            return response()->json(['status' => 'success', 'message' => 'Preset dinonaktifkan karena sudah dipakai servis.']);
+        }
+
+        $this->logActivity($request, 'hapus_data', 'warranty-preset:'.$warrantyPreset->id, $warrantyPreset->only(['name', 'days', 'active']));
+        $warrantyPreset->delete();
+
+        return response()->json(['status' => 'success', 'message' => 'Preset garansi berhasil dihapus.']);
+    }
+
     public function users(): JsonResponse
     {
         return response()->json(['status' => 'success', 'data' => User::orderBy('role')->orderBy('nama')->get(['id', 'nama', 'username', 'role', 'created_at'])]);
@@ -509,6 +558,16 @@ class ApiController extends Controller
             do {
                 $noNota = 'SRV-'.now()->format('ymd').'-'.strtoupper(Str::random(3));
             } while (Service::where('no_nota', $noNota)->exists());
+            $warrantyPreset = null;
+            if (! empty($data['warranty_preset_id'])) {
+                $warrantyPreset = WarrantyPreset::query()
+                    ->where('active', true)
+                    ->whereKey($data['warranty_preset_id'])
+                    ->first();
+                if (! $warrantyPreset) {
+                    abort(422, 'Preset garansi tidak aktif atau tidak ditemukan.');
+                }
+            }
             $schedule = app(ServiceSchedulingService::class)->bestRecommendation(
                 (string) ($data['jenis_unit'] ?? 'Lainnya'),
                 isset($data['teknisi_id']) ? (int) $data['teknisi_id'] : null,
@@ -527,7 +586,8 @@ class ApiController extends Controller
                 'physical_condition' => $data['physical_condition'] ?? null,
                 'estimated_completion_at' => $estimatedCompletionAt,
                 'initial_estimated_completion_at' => $estimatedCompletionAt,
-                'warranty_days' => $data['warranty_days'] ?? 0,
+                'warranty_preset_id' => $warrantyPreset?->id,
+                'warranty_days' => $warrantyPreset?->days ?? 0,
                 'priority' => $data['priority'] ?? 'normal',
 
             ]);
@@ -676,7 +736,18 @@ class ApiController extends Controller
                 $service->total_biaya = (int) $service->biaya_jasa + (int) $partsTotal;
             }
             if (array_key_exists('warranty_days', $data)) {
-                $service->warranty_days = $data['warranty_days'];
+                abort(422, 'Durasi garansi hanya dapat dipilih dari preset Owner.');
+            }
+            if (! empty($data['warranty_preset_id'])) {
+                $warrantyPreset = WarrantyPreset::query()
+                    ->where('active', true)
+                    ->whereKey($data['warranty_preset_id'])
+                    ->first();
+                if (! $warrantyPreset) {
+                    abort(422, 'Preset garansi tidak aktif atau tidak ditemukan.');
+                }
+                $service->warranty_preset_id = $warrantyPreset->id;
+                $service->warranty_days = $warrantyPreset->days;
             }
             $service->save();
             $service->syncPaymentSummary();

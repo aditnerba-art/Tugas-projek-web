@@ -28,7 +28,8 @@ class CreateServiceRequest extends FormRequest
             'accessories.*' => ['string', 'max:80'],
             'physical_condition' => ['nullable', 'string', 'max:5000'],
             'estimated_completion_at' => ['nullable', 'date', 'after_or_equal:today'],
-            'warranty_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'warranty_days' => ['prohibited'],
+            'warranty_preset_id' => ['nullable', 'integer', 'exists:warranty_presets,id'],
             'priority' => ['nullable', Rule::in(['low', 'normal', 'high', 'urgent'])],
             'teknisi_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', 'teknisi')],
         ];

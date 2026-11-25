@@ -22,9 +22,8 @@ class UpdateServiceStatusRequest extends FormRequest
             'total_biaya' => ['prohibited'],
             'service_rate_id' => ['nullable', 'integer', 'exists:service_rates,id'],
             'estimated_completion_at' => ['prohibited'],
-            'warranty_days' => $this->user()?->role === 'teknisi'
-                ? ['prohibited']
-                : ['sometimes', 'integer', 'min:0', 'max:3650'],
+            'warranty_days' => ['prohibited'],
+            'warranty_preset_id' => ['nullable', 'integer', 'exists:warranty_presets,id'],
             'sparepart_id' => ['nullable', 'integer', 'exists:spareparts,id'],
             'jumlah_sparepart' => ['nullable', 'integer', 'min:1'],
         ];

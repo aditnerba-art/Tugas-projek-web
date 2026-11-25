@@ -95,6 +95,10 @@ Route::prefix('api')->group(function () {
         Route::post('/owner/service-rates', [ApiController::class, 'createServiceRate']);
         Route::put('/owner/service-rates/{serviceRate}', [ApiController::class, 'updateServiceRate']);
         Route::delete('/owner/service-rates/{serviceRate}', [ApiController::class, 'deleteServiceRate']);
+        Route::get('/owner/warranty-presets', [ApiController::class, 'ownerWarrantyPresets']);
+        Route::post('/owner/warranty-presets', [ApiController::class, 'createWarrantyPreset']);
+        Route::put('/owner/warranty-presets/{warrantyPreset}', [ApiController::class, 'updateWarrantyPreset']);
+        Route::delete('/owner/warranty-presets/{warrantyPreset}', [ApiController::class, 'deleteWarrantyPreset']);
     });
     Route::middleware(['auth', 'password.changed', 'role:admin'])->group(function () {
         Route::get('/admin/users', [ApiController::class, 'users']);
@@ -124,6 +128,7 @@ Route::prefix('api')->group(function () {
         Route::get('/spareparts', [ApiController::class, 'spareparts']);
         Route::get('/spareparts/{sparepart}', [ApiController::class, 'sparepart']);
         Route::get('/service-rates', [ApiController::class, 'activeServiceRates']);
+        Route::get('/warranty-presets', [ApiController::class, 'activeWarrantyPresets']);
     });
     Route::middleware(['auth', 'password.changed', 'role:admin,owner'])->group(function () {
         Route::post('/spareparts', [ApiController::class, 'createSparepart']);
