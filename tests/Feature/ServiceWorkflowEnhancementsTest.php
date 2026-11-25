@@ -346,8 +346,9 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             'physical_condition' => 'Gores ringan',
         ])->assertOk();
 
-        $this->getJson('/api/admin/teknisi')->assertOk()
-            ->assertJsonPath('data.0.beban_kerja', 1);
+        $workloads = $this->getJson('/api/admin/teknisi')->assertOk()->json('data');
+        $assignedTechnicianWorkload = collect($workloads)->firstWhere('id', $technician->id);
+        $this->assertSame(1, $assignedTechnicianWorkload['beban_kerja']);
         $this->actingAs($otherTechnician)->getJson('/api/admin/services-active')
             ->assertOk()->assertJsonCount(0, 'data');
         $this->actingAs($technician)->getJson('/api/admin/services-active')
