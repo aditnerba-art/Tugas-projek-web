@@ -47,30 +47,69 @@ class ServiceWorkflowEnhancementsTest extends TestCase
     public function test_estimate_changes_are_added_to_timeline_and_notify_customer(): void
     {
         $admin = $this->user('admin', 'admin_estimate');
-        $rate = ServiceRate::create(['name' => 'Diagnosa', 'amount' => 150000, 'active' => true]);
+        $customer = Customer::create(['nama' => 'Pelanggan Estimasi', 'no_wa' => '08123456789']);
         $service = $this->service([
-            'status' => 'menunggu_persetujuan',
+            'customer_id' => $customer->id,
             'total_biaya' => 100000,
             'biaya_jasa' => 100000,
             'estimated_completion_at' => today()->addDays(3),
+            'initial_estimated_completion_at' => today()->addDays(3),
         ]);
 
-        $this->actingAs($admin)->putJson('/api/admin/service/status', [
+        $response = $this->actingAs($admin)->postJson('/api/admin/service/estimate-changes', [
             'service_id' => $service->id,
-            'status_baru' => 'menunggu_persetujuan',
-            'service_rate_id' => $rate->id,
-            'estimated_completion_at' => today()->addDays(5)->toDateString(),
-        ])->assertOk();
-
-        $log = NotificationLog::sole();
-        $this->assertSame('cost_approval', $log->message_type);
-        $this->assertStringContainsString('150.000', $log->message);
-        $this->assertSame(today()->addDays(5)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
+            'additional_days' => 2,
+            'reason' => 'Sparepart belum tersedia',
+        ])->assertCreated();
+        $changeId = $response->json('data.id');
+        $this->assertDatabaseHas('service_estimate_changes', [
+            'id' => $changeId,
+            'status' => 'pending',
+            'proposed_estimated_completion_at' => today()->addDays(5)->toDateString(),
+        ]);
+        $this->assertSame(today()->addDays(3)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
+        $notification = NotificationLog::sole();
+        $this->assertSame('estimate_approval', $notification->message_type);
+        $this->assertStringContainsString('Sparepart belum tersedia', $notification->message);
+        $this->assertStringContainsString(today()->addDays(5)->format('d-m-Y'), $notification->message);
         $this->assertDatabaseHas('service_status_logs', [
             'service_id' => $service->id,
-            'status_lama' => 'menunggu_persetujuan',
-            'status_baru' => 'menunggu_persetujuan',
+            'catatan' => 'Usulan perubahan estimasi: '.today()->addDays(3)->format('d-m-Y')
+                .' menjadi '.today()->addDays(5)->format('d-m-Y').' (+2 hari). Alasan: Sparepart belum tersedia. Menunggu persetujuan pelanggan.',
         ]);
+
+        ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', '54321', (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
+        auth()->logout();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '54321',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/api/customer/estimate-approval', [
+            'estimate_change_id' => $changeId,
+            'decision' => 'approved',
+        ])->assertOk()->assertJsonPath('data.status', 'approved');
+        $this->assertSame(today()->addDays(5)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
+        $this->assertSame(today()->addDays(3)->toDateString(), $service->fresh()->initial_estimated_completion_at->toDateString());
+
+        $secondChange = $this->actingAs($admin)->postJson('/api/admin/service/estimate-changes', [
+            'service_id' => $service->id,
+            'additional_days' => 3,
+            'reason' => 'Pemeriksaan tambahan diperlukan',
+        ])->assertCreated();
+        auth()->logout();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '54321',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/api/customer/estimate-approval', [
+            'estimate_change_id' => $secondChange->json('data.id'),
+            'decision' => 'rejected',
+        ])->assertOk()->assertJsonPath('data.status', 'rejected');
+        $this->assertSame(today()->addDays(5)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
     }
 
     public function test_sparepart_price_changes_require_customer_approval_and_stock_returns_when_rejected(): void
@@ -167,6 +206,11 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             'service_id' => $service->id,
             'status_baru' => 'diperiksa',
             'total_biaya' => 1,
+        ])->assertUnprocessable();
+        $this->putJson('/api/admin/service/status', [
+            'service_id' => $service->id,
+            'status_baru' => 'diperiksa',
+            'estimated_completion_at' => today()->addDays(10)->toDateString(),
         ])->assertUnprocessable();
         $this->putJson('/api/spareparts/'.$part->id, [
             'kode_barang' => $part->kode_barang,

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\CustomerServiceStatusChanged;
 use App\Http\Requests\AdminCustomersRequest;
 use App\Http\Requests\AssignTechnicianRequest;
 use App\Http\Requests\ChangePasswordRequest;
 use App\Http\Requests\CreatePurchaseRequest;
+use App\Http\Requests\CreateEstimateChangeRequest;
 use App\Http\Requests\CreateServiceRequest;
 use App\Http\Requests\CustomerApprovalRequest;
+use App\Http\Requests\CustomerEstimateApprovalRequest;
 use App\Http\Requests\CustomerLoginRequest;
 use App\Http\Requests\PaymentRequest;
 use App\Http\Requests\PublicTrackingRequest;
@@ -31,6 +34,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\Service;
 use App\Models\ServiceAccessToken;
+use App\Models\ServiceEstimateChange;
 use App\Models\ServiceItem;
 use App\Models\ServicePhoto;
 use App\Models\ServiceRate;
@@ -143,6 +147,24 @@ class ApiController extends Controller
         unset($unit['photos']);
         $unit['nama_pelanggan'] = $service->customer->nama;
         $unit['nama_teknisi'] = $service->technician?->nama;
+        $unit['pending_estimate_change'] = $service->estimateChanges()
+            ->where('status', 'pending')
+            ->latest('id')
+            ->get()
+            ->map(fn (ServiceEstimateChange $change) => $change->only([
+                'id', 'previous_estimated_completion_at', 'proposed_estimated_completion_at',
+                'additional_days', 'reason', 'status', 'created_at',
+            ]))
+            ->first();
+        $unit['estimate_change_history'] = $service->estimateChanges()
+            ->latest('id')
+            ->limit(10)
+            ->get()
+            ->map(fn (ServiceEstimateChange $change) => $change->only([
+                'id', 'previous_estimated_completion_at', 'proposed_estimated_completion_at',
+                'additional_days', 'reason', 'status', 'responded_at', 'created_at',
+            ]))
+            ->all();
         if ($includeCustomerChannelKey) {
             $unit['status_channel_key'] = $service->customerStatusChannelKey();
         }
@@ -598,6 +620,67 @@ class ApiController extends Controller
             $query = Service::whereKey($data['service_id']);
             if ($request->user()->role === 'teknisi') {
                 $query->where('teknisi_id', $request->user()->id);
+            }
+
+            public function proposeEstimateChange(CreateEstimateChangeRequest $request): JsonResponse
+            {
+                $data = $request->validated();
+                $service = DB::transaction(function () use ($data, $request): Service {
+                    $query = Service::query()->whereKey($data['service_id']);
+                    if ($request->user()->role === 'teknisi') {
+                        $query->where('teknisi_id', $request->user()->id);
+                    }
+                    $service = $query->lockForUpdate()->firstOrFail();
+                    if (in_array($service->status, ['selesai', 'diambil', 'batal'], true)) {
+                        abort(409, 'Estimasi tidak dapat diubah setelah servis selesai atau dibatalkan.');
+                    }
+                    if ($service->estimateChanges()->where('status', 'pending')->exists()) {
+                        abort(409, 'Perubahan estimasi sebelumnya masih menunggu keputusan pelanggan.');
+                    }
+
+                    $oldEstimate = $service->estimated_completion_at?->copy()
+                        ?? Carbon::today(config('app.timezone'));
+                    $baseDate = $oldEstimate->greaterThan(Carbon::today(config('app.timezone')))
+                        ? $oldEstimate
+                        : Carbon::today(config('app.timezone'));
+                    $proposedDate = $baseDate->copy()->addDays((int) $data['additional_days']);
+                    $change = $service->estimateChanges()->create([
+                        'proposed_by' => $request->user()->id,
+                        'previous_estimated_completion_at' => $service->estimated_completion_at,
+                        'proposed_estimated_completion_at' => $proposedDate,
+                        'additional_days' => $data['additional_days'],
+                        'reason' => trim($data['reason']),
+                        'status' => 'pending',
+                    ]);
+                    $oldLabel = $service->estimated_completion_at?->format('d-m-Y') ?? 'belum ditentukan';
+                    $note = "Usulan perubahan estimasi: {$oldLabel} menjadi ".$proposedDate->format('d-m-Y')
+                        ." (+{$data['additional_days']} hari). Alasan: {$change->reason}. Menunggu persetujuan pelanggan.";
+                    $timeline = $service->recordTimelineEvent($note, $request->user());
+                    event(new CustomerServiceStatusChanged($timeline));
+                    $this->logActivity($request, 'usulkan_perubahan_estimasi', 'service:'.$service->id, null, [
+                        'estimate_change_id' => $change->id,
+                        'estimated_completion_at' => $proposedDate->toDateString(),
+                        'additional_days' => $change->additional_days,
+                        'reason' => $change->reason,
+                    ]);
+
+                    return $service->load('customer');
+                });
+
+                app(WhatsAppNotificationService::class)->queue($service, 'estimate_approval', [
+                    'estimasi_lama' => $service->estimated_completion_at?->format('d-m-Y') ?? 'Belum ditentukan',
+                    'estimasi_baru' => $service->estimateChanges()->where('status', 'pending')->latest('id')->value('proposed_estimated_completion_at')
+                        ? Carbon::parse($service->estimateChanges()->where('status', 'pending')->latest('id')->value('proposed_estimated_completion_at'))->format('d-m-Y')
+                        : 'Belum ditentukan',
+                    'tambahan_hari' => (string) $data['additional_days'],
+                    'alasan' => trim($data['reason']),
+                ]);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Usulan perubahan estimasi dikirim untuk persetujuan pelanggan.',
+                    'data' => $service->estimateChanges()->latest('id')->first(),
+                ], 201);
             }
             $service = $query->lockForUpdate()->firstOrFail();
             $oldStatus = $service->status;
@@ -1317,6 +1400,32 @@ class ApiController extends Controller
             ->header('Cache-Control', 'private, no-cache');
     }
 
+    private function customerPortalService(Request $request, ?int $requestedServiceId = null): Service
+    {
+        abort_if($request->user(), 403, 'Persetujuan harus diberikan melalui sesi portal pelanggan.');
+
+        $customerSession = CustomerSession::with('accessToken')
+            ->where('session_hash', $request->session()->get('customer_session_hash'))
+            ->where('expires_at', '>', now())
+            ->first();
+        $accessToken = $customerSession?->accessToken;
+        $sessionServiceId = (int) $request->session()->get('customer_service_id');
+        if (
+            ! $customerSession
+            || ! $accessToken
+            || $accessToken->revoked_at
+            || $accessToken->expires_at->isPast()
+            || $sessionServiceId !== (int) $accessToken->service_id
+        ) {
+            abort(401, 'Masukkan kode akses pelanggan untuk melanjutkan.');
+        }
+        if ($requestedServiceId !== null && $requestedServiceId !== $sessionServiceId) {
+            abort(403, 'Kode akses tidak sesuai dengan servis.');
+        }
+
+        return Service::findOrFail($sessionServiceId);
+    }
+
     public function customerLogout(Request $request): JsonResponse
     {
         CustomerSession::where('session_hash', $request->session()->get('customer_session_hash'))->delete();
@@ -1329,30 +1438,12 @@ class ApiController extends Controller
     public function customerApproval(CustomerApprovalRequest $request): JsonResponse
     {
         $data = $request->validated();
-        abort_if($request->user(), 403, 'Persetujuan harus diberikan melalui sesi portal pelanggan.');
-
-        $customerSession = CustomerSession::with('accessToken')
-            ->where('session_hash', $request->session()->get('customer_session_hash'))
-            ->where('expires_at', '>', now())
-            ->first();
-        $sessionServiceId = $customerSession
-            && ! $customerSession->accessToken->revoked_at
-            && ! $customerSession->accessToken->expires_at->isPast()
-                ? $request->session()->get('customer_service_id')
-                : null;
-        $serviceId = $sessionServiceId;
-        if (! $serviceId) {
-            return response()->json(['status' => 'error', 'message' => 'Masukkan kode akses pelanggan untuk melanjutkan'], 401);
-        }
-        if ($sessionServiceId && ! empty($data['service_id']) && (int) $data['service_id'] !== (int) $sessionServiceId) {
-            return response()->json(['status' => 'error', 'message' => 'Kode akses tidak sesuai dengan servis'], 403);
-        }
-        $serviceQuery = Service::query();
-        if ($serviceId) {
-            $serviceQuery->whereKey($serviceId);
-        }
-        $service = DB::transaction(function () use ($serviceQuery, $data, $request): Service {
-            $service = (clone $serviceQuery)->lockForUpdate()->firstOrFail();
+        $portalService = $this->customerPortalService(
+            $request,
+            isset($data['service_id']) ? (int) $data['service_id'] : null,
+        );
+        $service = DB::transaction(function () use ($portalService, $data, $request): Service {
+            $service = Service::whereKey($portalService->id)->lockForUpdate()->firstOrFail();
             if (! in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true)) {
                 abort(409, 'Servis tidak sedang menunggu persetujuan');
             }
@@ -1400,6 +1491,62 @@ class ApiController extends Controller
         });
 
         return response()->json(['status' => 'success', 'message' => 'Persetujuan pelanggan tersimpan', 'data' => ['service_id' => $service->id, 'status_baru' => $service->status]]);
+    }
+
+    public function customerEstimateApproval(CustomerEstimateApprovalRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $portalService = $this->customerPortalService($request);
+        $result = DB::transaction(function () use ($data, $request, $portalService): array {
+            $service = Service::whereKey($portalService->id)->lockForUpdate()->firstOrFail();
+            $change = ServiceEstimateChange::query()
+                ->whereKey($data['estimate_change_id'])
+                ->where('service_id', $service->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($change->status !== 'pending') {
+                abort(409, 'Usulan perubahan estimasi ini sudah diputuskan.');
+            }
+
+            $change->update([
+                'status' => $data['decision'],
+                'responded_at' => now(),
+            ]);
+            if ($data['decision'] === 'approved') {
+                $service->estimated_completion_at = $change->proposed_estimated_completion_at;
+                $service->save();
+                $note = 'Pelanggan menyetujui perubahan estimasi menjadi '
+                    .$change->proposed_estimated_completion_at->format('d-m-Y').'.';
+            } else {
+                $note = 'Pelanggan menolak usulan perubahan estimasi. Estimasi saat ini tetap '
+                    .($service->estimated_completion_at?->format('d-m-Y') ?? 'belum ditentukan').'.';
+            }
+            $timeline = $service->recordTimelineEvent($note, null);
+            event(new CustomerServiceStatusChanged($timeline));
+            $this->logActivity($request, 'keputusan_perubahan_estimasi', 'service:'.$service->id, [
+                'estimate_change_id' => $change->id,
+                'status' => 'pending',
+            ], [
+                'estimate_change_id' => $change->id,
+                'status' => $change->status,
+            ]);
+
+            return [$service, $change];
+        });
+        [$service, $change] = $result;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $change->status === 'approved'
+                ? 'Estimasi baru disetujui dan menjadi tanggal final.'
+                : 'Usulan perubahan estimasi ditolak. Estimasi saat ini tetap berlaku.',
+            'data' => [
+                'service_id' => $service->id,
+                'estimate_change_id' => $change->id,
+                'status' => $change->status,
+                'estimated_completion_at' => $service->estimated_completion_at?->toDateString(),
+            ],
+        ]);
     }
 
     public function publicTracking(PublicTrackingRequest $request, ?string $identifier = null): JsonResponse

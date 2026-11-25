@@ -176,7 +176,8 @@
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Estimasi Selesai</label>
-                            <input type="date" id="estimated_completion_at" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+                            <input type="date" id="estimated_completion_at" disabled class="w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2.5 text-sm">
+                            <span class="text-[11px] text-slate-500">Tanggal baru perlu persetujuan pelanggan.</span>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Garansi (hari setelah diambil)</label>
@@ -187,6 +188,25 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Foto setelah servis (maks. 5 foto)</label>
                             <input type="file" id="completion_photos" accept="image/jpeg,image/png" multiple class="w-full rounded-xl border border-slate-300 p-2 text-sm">
                         </div>
+                    </div>
+                    <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                        <button id="openEstimateChange" type="button" class="min-h-11 rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-[#0B1E3F]">
+                            Perubahan estimasi
+                        </button>
+                        <form id="estimateChangeForm" class="mt-4 hidden space-y-3">
+                            <div>
+                                <label for="estimateChangeReason" class="mb-1 block text-xs font-bold text-slate-700">Alasan perubahan <span class="text-rose-600">*</span></label>
+                                <textarea id="estimateChangeReason" required minlength="5" maxlength="1000" rows="2" placeholder="Contoh: Komponen pengganti belum tersedia"
+                                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"></textarea>
+                            </div>
+                            <div class="max-w-xs">
+                                <label for="estimateChangeDays" class="mb-1 block text-xs font-bold text-slate-700">Tambahan waktu (hari kalender) <span class="text-rose-600">*</span></label>
+                                <input id="estimateChangeDays" type="number" min="1" max="180" required value="1"
+                                    class="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            </div>
+                            <p id="estimateChangeFeedback" class="text-sm" role="status" aria-live="polite"></p>
+                            <button type="submit" class="min-h-11 rounded-lg bg-[#0B1E3F] px-4 py-2 text-sm font-bold text-white">Kirim untuk persetujuan</button>
+                        </form>
                     </div>
 
                     <!-- Input Pemasangan Sparepart Baru -->
@@ -677,6 +697,40 @@
                 loadPendingServices(1);
             });
         });
+        document.getElementById('openEstimateChange').addEventListener('click', () => {
+            document.getElementById('estimateChangeForm').classList.toggle('hidden');
+            document.getElementById('estimateChangeReason').focus();
+        });
+        document.getElementById('estimateChangeForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const button = event.currentTarget.querySelector('button[type="submit"]');
+            const feedback = document.getElementById('estimateChangeFeedback');
+            button.disabled = true;
+            feedback.className = 'text-sm text-slate-600';
+            feedback.textContent = 'Mengirim usulan…';
+            try {
+                const response = await fetch('/api/admin/service/estimate-changes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        service_id: document.getElementById('service_id').value,
+                        additional_days: Number(document.getElementById('estimateChangeDays').value),
+                        reason: document.getElementById('estimateChangeReason').value,
+                    }),
+                });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Usulan perubahan estimasi gagal dikirim.');
+                feedback.className = 'text-sm font-semibold text-emerald-700';
+                feedback.textContent = result.message;
+                event.currentTarget.reset();
+                await onSelectService();
+            } catch (error) {
+                feedback.className = 'text-sm font-semibold text-rose-700';
+                feedback.textContent = error.message || 'Usulan perubahan estimasi gagal dikirim.';
+            } finally {
+                button.disabled = false;
+            }
+        });
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/service-worker.js').catch(error => {
@@ -696,7 +750,6 @@
             const serviceId = document.getElementById('service_id').value;
             const statusBaru = document.getElementById('status_baru').value;
             const catatanTeknis = document.getElementById('catatan_teknis').value;
-            const estimatedCompletion = document.getElementById('estimated_completion_at').value;
             const completionPhotos = document.getElementById('completion_photos').files;
             const sparepartId = document.getElementById('sparepart_id').value;
             const jumlahSparepart = document.getElementById('jumlah_sparepart').value;
@@ -722,7 +775,6 @@
             const payload = {
                 service_id: serviceId,
                 status_baru: statusBaru,
-                estimated_completion_at: estimatedCompletion || null,
                 service_rate_id: rateId ? Number(rateId) : null,
                 catatan_teknis: catatanTeknis,
                 sparepart_id: sparepartId ? parseInt(sparepartId, 10) : null,

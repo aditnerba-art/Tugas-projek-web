@@ -89,6 +89,11 @@ class Service extends Model
         return $this->hasMany(ServicePhoto::class);
     }
 
+    public function estimateChanges(): HasMany
+    {
+        return $this->hasMany(ServiceEstimateChange::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);

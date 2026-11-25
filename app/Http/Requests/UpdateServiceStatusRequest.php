@@ -21,7 +21,7 @@ class UpdateServiceStatusRequest extends FormRequest
             'biaya_jasa' => ['prohibited'],
             'total_biaya' => ['prohibited'],
             'service_rate_id' => ['nullable', 'integer', 'exists:service_rates,id'],
-            'estimated_completion_at' => ['nullable', 'date', 'after_or_equal:today'],
+            'estimated_completion_at' => ['prohibited'],
             'warranty_days' => $this->user()?->role === 'teknisi'
                 ? ['prohibited']
                 : ['sometimes', 'integer', 'min:0', 'max:3650'],

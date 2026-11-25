@@ -116,6 +116,7 @@ Route::prefix('api')->group(function () {
         Route::get('/admin/nota/{noNota}', [ApiController::class, 'nota'])->where('noNota', '[A-Za-z0-9-]{1,32}');
         Route::get('/admin/receipts/{service}/{type}', [ApiController::class, 'receipt'])->where('type', 'intake|payment');
         Route::put('/admin/service/status', [ApiController::class, 'updateServiceStatus']);
+        Route::post('/admin/service/estimate-changes', [ApiController::class, 'proposeEstimateChange']);
         Route::post('/admin/service/photos', [ApiController::class, 'uploadServicePhotos']);
         Route::post('/admin/service/persetujuan', [ApiController::class, 'customerApproval']);
     });
@@ -136,6 +137,7 @@ Route::prefix('api')->group(function () {
     Route::post('/customer/logout', [ApiController::class, 'customerLogout']);
     Route::post('/customer/approval', [ApiController::class, 'customerApproval'])->middleware('throttle:10,1');
     Route::post('/customer/persetujuan', [ApiController::class, 'customerApproval'])->middleware('throttle:10,1');
+    Route::post('/customer/estimate-approval', [ApiController::class, 'customerEstimateApproval'])->middleware('throttle:10,1');
     Route::get('/tracking', [ApiController::class, 'publicTracking'])->middleware('throttle:customer-code');
     Route::get('/tracking-link/{trackingKey}', [ApiController::class, 'publicTrackingLink'])
         ->where('trackingKey', '[A-Za-z0-9]{64}')

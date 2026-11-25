@@ -542,6 +542,26 @@
                 </div>
             </div>
 
+            <section id="estimateApprovalCard" class="hidden portal-feature-card rounded-2xl border border-sky-400/40 p-5 shadow-xl sm:p-6" aria-labelledby="estimateApprovalTitle">
+                <h2 id="estimateApprovalTitle" class="text-base font-extrabold text-white">Konfirmasi perubahan estimasi</h2>
+                <p class="mt-2 text-sm text-slate-200">Estimasi saat ini: <strong id="estimateCurrentDate">—</strong></p>
+                <p class="mt-1 text-sm text-slate-200">Usulan baru: <strong id="estimateProposedDate" class="text-sky-200">—</strong> <span id="estimateAdditionalDays"></span></p>
+                <p class="mt-2 text-xs text-slate-300">Alasan: <span id="estimateChangeReason"></span></p>
+                <p id="estimateApprovalFeedback" class="mt-3 text-sm" role="status" aria-live="polite"></p>
+                <div id="estimateApprovalActions" class="mt-4 flex flex-col gap-3 border-t border-slate-600 pt-4 sm:flex-row">
+                    <x-ui.button type="button" class="estimate-decision flex-1" variant="success" onclick="submitEstimateDecision('approved')">Setujui perubahan</x-ui.button>
+                    <x-ui.button type="button" class="estimate-decision flex-1" variant="danger" onclick="submitEstimateDecision('rejected')">Tolak perubahan</x-ui.button>
+                </div>
+                <div id="estimateApprovalLoginPrompt" class="mt-4 hidden border-t border-slate-600 pt-4">
+                    <p class="mb-3 text-sm text-slate-200">Masuk dengan kode akses servis untuk memberi keputusan.</p>
+                    <x-ui.button type="button" id="btnEstimatePortalLogin" variant="secondary">Masuk untuk memberi keputusan</x-ui.button>
+                </div>
+                <div class="mt-4 border-t border-slate-600 pt-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wide text-slate-300">Riwayat perubahan estimasi</h3>
+                    <ol id="estimateChangeHistory" class="mt-2 space-y-2 text-xs text-slate-300"></ol>
+                </div>
+            </section>
+
             <!-- 1. Unit & Customer Overview Card -->
             <div class="portal-feature-card rounded-2xl p-6 border shadow-xl space-y-5">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-700/80 pb-4">
@@ -606,6 +626,7 @@
                 <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                     <p>Estimasi biaya: <strong id="resEstimatedCost">-</strong></p>
                     <p>Estimasi selesai: <strong id="resEstimatedCompletion">-</strong></p>
+                    <p>Estimasi awal: <strong id="resInitialEstimatedCompletion">-</strong></p>
                     <p>Garansi: <strong id="resWarranty">-</strong></p>
                     <p>Kelengkapan: <strong id="resAccessories">-</strong></p>
                     <p class="sm:col-span-2">Kondisi fisik saat diterima: <strong id="resPhysicalCondition">-</strong></p>
@@ -859,6 +880,9 @@
             document.getElementById('resEstimatedCompletion').textContent = unit.estimated_completion_at
                 ? formatDateWib(String(unit.estimated_completion_at).slice(0, 10))
                 : 'Belum ditentukan';
+            document.getElementById('resInitialEstimatedCompletion').textContent = unit.initial_estimated_completion_at
+                ? formatDateWib(String(unit.initial_estimated_completion_at).slice(0, 10))
+                : 'Belum dicatat';
             document.getElementById('resWarranty').textContent = unit.warranty_expires_at
                 ? `${unit.warranty_active ? 'Aktif' : 'Berakhir'} sampai ${formatDateWib(String(unit.warranty_expires_at).slice(0, 10))}`
                 : `${Number(unit.warranty_days || 0)} hari setelah unit diambil`;
@@ -957,6 +981,41 @@
                     persetujuanCard.classList.add('hidden');
                 }
             }
+
+            const estimateCard = document.getElementById('estimateApprovalCard');
+            const estimateChange = unit.pending_estimate_change;
+            const estimateHistory = unit.estimate_change_history || [];
+            estimateCard.classList.toggle('hidden', !estimateChange && estimateHistory.length === 0);
+            if (estimateChange) {
+                document.getElementById('estimateCurrentDate').textContent = estimateChange.previous_estimated_completion_at
+                    ? formatDateWib(String(estimateChange.previous_estimated_completion_at).slice(0, 10))
+                    : 'Belum ditentukan';
+                document.getElementById('estimateProposedDate').textContent = formatDateWib(
+                    String(estimateChange.proposed_estimated_completion_at).slice(0, 10),
+                );
+                document.getElementById('estimateAdditionalDays').textContent = `(+${estimateChange.additional_days} hari)`;
+                document.getElementById('estimateChangeReason').textContent = estimateChange.reason || 'Tidak dicantumkan';
+            }
+            const hasCustomerSession = Boolean(unit.status_channel_key);
+            document.getElementById('estimateApprovalActions').classList.toggle('hidden', !estimateChange || !hasCustomerSession);
+            document.getElementById('estimateApprovalLoginPrompt').classList.toggle('hidden', !estimateChange || hasCustomerSession);
+            const estimateHistoryList = document.getElementById('estimateChangeHistory');
+            estimateHistoryList.replaceChildren();
+            estimateHistory.forEach(change => {
+                const item = document.createElement('li');
+                const from = change.previous_estimated_completion_at
+                    ? formatDateWib(String(change.previous_estimated_completion_at).slice(0, 10))
+                    : 'Belum ditentukan';
+                const to = formatDateWib(String(change.proposed_estimated_completion_at).slice(0, 10));
+                const decision = {
+                    pending: 'Menunggu keputusan',
+                    approved: 'Disetujui',
+                    rejected: 'Ditolak',
+                    superseded: 'Digantikan usulan baru',
+                }[change.status] || change.status;
+                item.textContent = `${from} → ${to} · ${decision}${change.reason ? ` · ${change.reason}` : ''}`;
+                estimateHistoryList.appendChild(item);
+            });
 
             // Rincian Biaya
             const tbody = document.getElementById('rincianBiayaTable');
@@ -1290,9 +1349,60 @@
             }
         }
 
+        async function submitEstimateDecision(decision) {
+            const change = currentServiceData?.pending_estimate_change;
+            if (!change || !currentServiceData?.status_channel_key) return;
+            const buttons = Array.from(document.querySelectorAll('.estimate-decision'));
+            const feedback = document.getElementById('estimateApprovalFeedback');
+            buttons.forEach(button => { button.disabled = true; });
+            feedback.className = 'mt-3 text-sm text-slate-200';
+            feedback.textContent = 'Menyimpan keputusan…';
+            try {
+                const response = await fetch('/api/customer/estimate-approval', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estimate_change_id: change.id, decision }),
+                });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') {
+                    if (response.status === 401) setRealtimeStatus('session-expired');
+                    feedback.className = 'mt-3 text-sm font-semibold text-rose-300';
+                    feedback.textContent = result.message || 'Keputusan tidak dapat disimpan. Coba kembali.';
+                    return;
+                }
+
+                feedback.className = 'mt-3 text-sm font-semibold text-emerald-300';
+                feedback.textContent = result.message;
+                const reload = await fetch('/api/customer/me');
+                if (reload.status === 401) {
+                    setRealtimeStatus('session-expired');
+                    return;
+                }
+                if (!reload.ok) {
+                    feedback.textContent = 'Keputusan tersimpan, tetapi status terbaru belum dapat dimuat. Muat ulang halaman.';
+                    return;
+                }
+                const refreshed = await reload.json();
+                if (refreshed.status === 'success') tampilkanHasil(refreshed.data);
+            } catch (error) {
+                console.error('Gagal menyimpan keputusan estimasi', error);
+                feedback.className = 'mt-3 text-sm font-semibold text-rose-300';
+                feedback.textContent = 'Tidak dapat terhubung ke server. Periksa koneksi, lalu coba kembali.';
+            } finally {
+                buttons.forEach(button => { button.disabled = false; });
+            }
+        }
+
         document.getElementById('btnPortalLogin').addEventListener('click', () => {
             const note = currentServiceData
                 ? `Masuk untuk servis ${currentServiceData.no_nota}. Gunakan nama dan kode akses yang diterima untuk servis ini.`
+                : 'Masukkan nama dan kode akses servis untuk melanjutkan.';
+            setLoginContext(note);
+            showLogin();
+        });
+        document.getElementById('btnEstimatePortalLogin').addEventListener('click', () => {
+            const note = currentServiceData
+                ? `Masuk untuk memberi keputusan perubahan estimasi servis ${currentServiceData.no_nota}.`
                 : 'Masukkan nama dan kode akses servis untuk melanjutkan.';
             setLoginContext(note);
             showLogin();
