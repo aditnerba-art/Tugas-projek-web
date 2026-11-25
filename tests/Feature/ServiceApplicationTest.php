@@ -537,7 +537,7 @@ class ServiceApplicationTest extends TestCase
             ->assertJsonPath('message', 'Terlalu banyak percobaan login. Coba kembali dalam satu menit.');
     }
 
-    public function test_customer_approval_requires_session_and_technicians_can_only_approve_assigned_services(): void
+    public function test_customer_approval_requires_a_valid_customer_session_and_staff_cannot_approve_for_them(): void
     {
         $customer = Customer::create(['nama' => 'Pelanggan Uji', 'no_wa' => '08123456789']);
         $service = Service::create([
@@ -576,12 +576,21 @@ class ServiceApplicationTest extends TestCase
         $this->postJson('/api/admin/service/persetujuan', [
             'service_id' => $service->id,
             'status_baru' => 'dikerjakan',
+        ])->assertForbidden();
+        auth()->logout();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '54321',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/api/customer/approval', [
+            'service_id' => $service->id,
+            'status_baru' => 'dikerjakan',
         ])->assertOk();
         $this->assertDatabaseHas('services', ['id' => $service->id, 'status' => 'dikerjakan']);
         $this->assertDatabaseHas('activity_logs', [
             'aksi' => 'ubah_status_servis',
             'subjek' => 'service:'.$service->id,
-            'user_id' => $technician->id,
+            'user_id' => null,
         ]);
     }
 

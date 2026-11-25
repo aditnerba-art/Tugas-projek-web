@@ -1964,7 +1964,7 @@ class ApiController extends Controller
                         [
                             'nama_barang' => $item['nama_barang'], 'stok' => 0,
                             'harga_beli' => $item['harga_beli_satuan'],
-                            'harga_jual' => $item['harga_jual'] ?? $item['harga_beli_satuan'] * 1.3,
+                            'harga_jual' => $item['harga_jual'] ?? (int) round($item['harga_beli_satuan'] * 1.3),
                         ]
                     );
                 } elseif (! empty($item['sparepart_id'])) {
@@ -1974,7 +1974,7 @@ class ApiController extends Controller
                     abort(422, 'ID Sparepart tidak valid');
                 }
                 $quantity = (int) $item['jumlah'];
-                $price = (float) $item['harga_beli_satuan'];
+                $price = (int) $item['harga_beli_satuan'];
                 $oldStock = $part->stok;
                 $subtotal = $quantity * $price;
                 $purchase->items()->create([

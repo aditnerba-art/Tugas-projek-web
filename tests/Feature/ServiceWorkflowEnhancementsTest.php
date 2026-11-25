@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\NotificationLog;
 use App\Models\Service;
+use App\Models\ServiceAccessToken;
 use App\Models\ServicePhoto;
+use App\Models\ServiceRate;
 use App\Models\Sparepart;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,21 +47,23 @@ class ServiceWorkflowEnhancementsTest extends TestCase
     public function test_estimate_changes_are_added_to_timeline_and_notify_customer(): void
     {
         $admin = $this->user('admin', 'admin_estimate');
+        $rate = ServiceRate::create(['name' => 'Diagnosa', 'amount' => 150000, 'active' => true]);
         $service = $this->service([
             'status' => 'menunggu_persetujuan',
             'total_biaya' => 100000,
+            'biaya_jasa' => 100000,
             'estimated_completion_at' => today()->addDays(3),
         ]);
 
         $this->actingAs($admin)->putJson('/api/admin/service/status', [
             'service_id' => $service->id,
             'status_baru' => 'menunggu_persetujuan',
-            'total_biaya' => 150000,
+            'service_rate_id' => $rate->id,
             'estimated_completion_at' => today()->addDays(5)->toDateString(),
         ])->assertOk();
 
         $log = NotificationLog::sole();
-        $this->assertSame('estimate_changed', $log->message_type);
+        $this->assertSame('cost_approval', $log->message_type);
         $this->assertStringContainsString('150.000', $log->message);
         $this->assertStringContainsString(today()->addDays(5)->format('d-m-Y'), $log->message);
         $this->assertDatabaseHas('service_status_logs', [
@@ -69,10 +73,10 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         ]);
     }
 
-    public function test_sparepart_stock_decreases_atomically_and_prices_are_snapshotted(): void
+    public function test_sparepart_price_changes_require_customer_approval_and_stock_returns_when_rejected(): void
     {
-        $admin = $this->user('admin', 'admin_stock');
-        $service = $this->service();
+        $technician = $this->user('teknisi', 'teknisi_stock');
+        $service = $this->service(['teknisi_id' => $technician->id]);
         $part = Sparepart::create([
             'kode_barang' => 'SSD-TEST',
             'nama_barang' => 'SSD Test',
@@ -82,12 +86,12 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             'harga_jual' => 80000,
         ]);
 
-        $this->actingAs($admin)->putJson('/api/admin/service/status', [
+        $this->actingAs($technician)->putJson('/api/admin/service/status', [
             'service_id' => $service->id,
             'status_baru' => 'dikerjakan',
             'sparepart_id' => $part->id,
             'jumlah_sparepart' => 2,
-        ])->assertOk();
+        ])->assertOk()->assertJsonPath('status_baru', 'menunggu_persetujuan');
 
         $this->assertDatabaseHas('spareparts', ['id' => $part->id, 'stok' => 1]);
         $this->assertDatabaseHas('service_items', [
@@ -96,17 +100,116 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             'harga_modal' => 50000,
             'harga_satuan' => 80000,
             'subtotal' => 160000,
+            'approval_status' => 'pending_approval',
         ]);
         $this->getJson('/api/spareparts')->assertOk()->assertJsonPath('data.0.stok_rendah', true);
 
         $this->putJson('/api/admin/service/status', [
             'service_id' => $service->id,
-            'status_baru' => 'dikerjakan',
+            'status_baru' => 'menunggu_persetujuan',
             'sparepart_id' => $part->id,
             'jumlah_sparepart' => 2,
         ])->assertStatus(422);
         $this->assertDatabaseHas('spareparts', ['id' => $part->id, 'stok' => 1]);
         $this->assertDatabaseCount('service_items', 1);
+
+        $this->putJson('/api/admin/service/status', [
+            'service_id' => $service->id,
+            'status_baru' => 'dikerjakan',
+        ])->assertStatus(409);
+
+        $customer = $service->customer;
+        ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', '54321', (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
+        auth()->logout();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '54321',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/api/customer/approval', [
+            'service_id' => $service->id,
+            'status_baru' => 'batal',
+        ])->assertOk()->assertJsonPath('data.status_baru', 'batal');
+
+        $this->assertDatabaseHas('spareparts', ['id' => $part->id, 'stok' => 3]);
+        $this->assertDatabaseHas('service_items', [
+            'service_id' => $service->id,
+            'approval_status' => 'cancelled',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'aksi' => 'pengembalian_stok',
+            'subjek' => 'sparepart:'.$part->id,
+        ]);
+    }
+
+    public function test_staff_cannot_submit_raw_prices_or_change_sparepart_prices(): void
+    {
+        $admin = $this->user('admin', 'admin_price_guard');
+        $technician = $this->user('teknisi', 'tech_price_guard');
+        $service = $this->service(['teknisi_id' => $technician->id]);
+        $part = Sparepart::create([
+            'kode_barang' => 'PRICE-GUARD',
+            'nama_barang' => 'Sparepart Harga Tetap',
+            'stok' => 2,
+            'harga_beli' => 40000,
+            'harga_jual' => 60000,
+        ]);
+
+        $this->actingAs($technician)->putJson('/api/admin/service/status', [
+            'service_id' => $service->id,
+            'status_baru' => 'diperiksa',
+            'biaya_jasa' => 1,
+        ])->assertUnprocessable();
+        $this->actingAs($admin)->putJson('/api/admin/service/status', [
+            'service_id' => $service->id,
+            'status_baru' => 'diperiksa',
+            'total_biaya' => 1,
+        ])->assertUnprocessable();
+        $this->putJson('/api/spareparts/'.$part->id, [
+            'kode_barang' => $part->kode_barang,
+            'nama_barang' => $part->nama_barang,
+            'stok' => 2,
+            'stok_minimum' => 5,
+            'harga_jual' => 1,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('spareparts', [
+            'id' => $part->id,
+            'harga_beli' => 40000,
+            'harga_jual' => 60000,
+        ]);
+    }
+
+    public function test_owner_controls_service_rates_and_staff_can_only_read_active_rates(): void
+    {
+        $owner = $this->user('owner', 'owner_rates');
+        $admin = $this->user('admin', 'admin_rates');
+        $technician = $this->user('teknisi', 'tech_rates');
+
+        $this->actingAs($admin)->postJson('/api/owner/service-rates', [
+            'name' => 'Pembersihan',
+            'amount' => 50000,
+        ])->assertForbidden();
+
+        $response = $this->actingAs($owner)->postJson('/api/owner/service-rates', [
+            'name' => 'Pembersihan',
+            'amount' => 50000,
+        ])->assertCreated();
+        $rateId = $response->json('data.id');
+
+        $this->actingAs($technician)->getJson('/api/service-rates')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $rateId)
+            ->assertJsonPath('data.0.amount', 50000);
+        $this->putJson('/api/owner/service-rates/'.$rateId, [
+            'name' => 'Pembersihan',
+            'amount' => 100000,
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('service_rates', ['id' => $rateId, 'amount' => 50000]);
     }
 
     public function test_warranty_starts_on_handover_and_public_tracking_link_shows_it(): void

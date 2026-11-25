@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\MessageTemplate;
 use App\Models\NotificationLog;
 use App\Models\Service;
+use App\Models\ServiceAccessToken;
+use App\Models\ServiceRate;
 use App\Models\User;
 use App\Services\WhatsApp\WhatsAppNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,11 +62,17 @@ class WhatsAppNotificationTest extends TestCase
             'merek_tipe' => 'Laptop',
             'keluhan' => 'Rusak',
         ]);
+        $rate = ServiceRate::create(['name' => 'Servis Umum', 'amount' => 150000, 'active' => true]);
+        ServiceAccessToken::create([
+            'service_id' => $service->id,
+            'token_hash' => hash_hmac('sha256', '54321', (string) config('app.key')),
+            'expires_at' => now()->addDay(),
+        ]);
 
         $this->actingAs($admin)->putJson('/api/admin/service/status', [
             'service_id' => $service->id,
             'status_baru' => 'menunggu_persetujuan',
-            'total_biaya' => 150000,
+            'service_rate_id' => $rate->id,
         ])->assertOk();
         $this->assertDatabaseHas('notification_logs', [
             'service_id' => $service->id,
@@ -72,7 +80,17 @@ class WhatsAppNotificationTest extends TestCase
             'status' => 'sent',
         ]);
 
-        $this->putJson('/api/admin/service/status', [
+        auth()->logout();
+        $this->postJson('/api/customer/login', [
+            'kode_akses' => '54321',
+            'customer_name' => $customer->nama,
+        ])->assertOk();
+        $this->postJson('/api/customer/approval', [
+            'service_id' => $service->id,
+            'status_baru' => 'dikerjakan',
+        ])->assertOk();
+
+        $this->actingAs($admin)->putJson('/api/admin/service/status', [
             'service_id' => $service->id,
             'status_baru' => 'selesai',
         ])->assertOk();

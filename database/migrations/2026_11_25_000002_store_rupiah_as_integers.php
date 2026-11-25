@@ -38,7 +38,7 @@ return new class extends Migration
         ] as $table => $columns) {
             Schema::table($table, function (Blueprint $blueprint) use ($columns): void {
                 foreach ($columns as $column) {
-                    $blueprint->decimal($column, 20, 0)->default(0)->change();
+                    $blueprint->decimal($column, 12, 2)->default(0)->change();
                 }
             });
         }

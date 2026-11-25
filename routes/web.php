@@ -3,7 +3,6 @@
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\ServicePhotoController;
 use App\Models\ActivityLog;
-use App\Models\ServiceRate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
