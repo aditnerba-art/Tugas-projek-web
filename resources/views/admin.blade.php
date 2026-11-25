@@ -432,7 +432,7 @@
 
                 <div>
                     <label for="modal_payment_amount" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Nominal transaksi (rupiah)</label>
-                    <input id="modal_payment_amount" type="number" min="1" step="1" required oninput="updatePaymentModalAction()"
+                    <input id="modal_payment_amount" type="text" data-rupiah-input data-confirm-over="50000000" required oninput="updatePaymentModalAction()"
                         class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800">
                     <p id="modal_payment_hint" class="mt-1 text-xs text-slate-500"></p>
                 </div>
@@ -881,6 +881,7 @@
             document.getElementById('modal_payment_type').value = 'payment';
             document.getElementById('modal_payment_amount').value = remaining;
             document.getElementById('modal_payment_amount').dataset.remaining = remaining;
+            window.formatRupiahInput(document.getElementById('modal_payment_amount'));
 
             const badgeSpan = document.getElementById('modal_status_bayar_badge');
             if (statusBayar === 'lunas') {
@@ -900,7 +901,7 @@
 
         function updatePaymentModalAction() {
             const type = document.getElementById('modal_payment_type').value;
-            const amount = Number(document.getElementById('modal_payment_amount').value || 0);
+            const amount = window.parseRupiahInput(document.getElementById('modal_payment_amount').value);
             const remaining = Number(document.getElementById('modal_payment_amount').dataset.remaining || 0);
             const button = document.querySelector('#formPelunasan button[type="submit"]');
             const hint = document.getElementById('modal_payment_hint');
@@ -931,7 +932,9 @@
             const metode = document.getElementById('modal_metode_pembayaran').value;
             const catatan = document.getElementById('modal_catatan').value;
             const type = document.getElementById('modal_payment_type').value;
-            const amount = Number(document.getElementById('modal_payment_amount').value);
+            const amountInput = document.getElementById('modal_payment_amount');
+            const amount = window.parseRupiahInput(amountInput.value);
+            if (!window.confirmRupiahInput(amountInput, 'Nominal transaksi')) return;
             const remaining = Number(document.getElementById('modal_payment_amount').dataset.remaining || 0);
             const isHandover = type === 'payment' && remaining > 0 && amount >= remaining;
 

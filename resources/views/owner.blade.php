@@ -405,7 +405,7 @@
                         <input id="serviceRateName" required maxlength="100" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
                     </label>
                     <label class="text-xs font-semibold text-slate-700">Harga (Rp)
-                        <input id="serviceRateAmount" type="number" min="0" step="1" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+                        <input id="serviceRateAmount" type="text" data-rupiah-input data-confirm-over="10000000" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
                     </label>
                     <label class="flex items-center gap-2 self-end pb-2 text-sm">
                         <input id="serviceRateActive" type="checkbox" checked class="h-4 w-4">
@@ -716,6 +716,7 @@
                         document.getElementById('serviceRateId').value = rate.id;
                         document.getElementById('serviceRateName').value = rate.name;
                         document.getElementById('serviceRateAmount').value = rate.amount;
+                        window.formatRupiahInput(document.getElementById('serviceRateAmount'));
                         document.getElementById('serviceRateActive').checked = rate.active;
                         document.getElementById('serviceRateName').focus();
                     });
@@ -742,9 +743,11 @@
         async function saveServiceRate(event) {
             event.preventDefault();
             const id = document.getElementById('serviceRateId').value;
+            const amountInput = document.getElementById('serviceRateAmount');
+            if (!window.confirmRupiahInput(amountInput, 'Tarif jasa')) return;
             const payload = {
                 name: document.getElementById('serviceRateName').value.trim(),
-                amount: Number(document.getElementById('serviceRateAmount').value),
+                amount: window.parseRupiahInput(amountInput.value),
                 active: document.getElementById('serviceRateActive').checked,
             };
             const message = document.getElementById('serviceRateMessage');
@@ -1343,7 +1346,7 @@
                     </div>
                     <div>
                         <label class="block text-[11px] font-bold text-slate-600 mb-1">Harga Beli Satuan (Rp)</label>
-                        <input type="number" id="item_hb_${id}" min="0" required oninput="recalculateTotal()"
+                        <input type="text" id="item_hb_${id}" data-rupiah-input data-confirm-over="10000000" required oninput="recalculateTotal()"
                             class="w-full py-2 px-2.5 border border-slate-300 rounded-lg text-xs font-bold text-[#0B1E3F] focus:outline-none focus:ring-2 focus:ring-amber-400">
                     </div>
                 </div>
@@ -1363,6 +1366,7 @@
             const selectedOpt = select.options[select.selectedIndex];
             if (selectedOpt && selectedOpt.dataset.hb) {
                 document.getElementById(`item_hb_${id}`).value = selectedOpt.dataset.hb;
+                window.formatRupiahInput(document.getElementById(`item_hb_${id}`));
             }
             recalculateTotal();
         }
@@ -1375,7 +1379,7 @@
             for (let i = 0; i < rows.length; i++) {
                 const rowId = rows[i].id.replace('itemRow_', '');
                 const qty = parseInt(document.getElementById(`item_qty_${rowId}`)?.value, 10) || 0;
-                const hb = parseFloat(document.getElementById(`item_hb_${rowId}`)?.value) || 0;
+                const hb = window.parseRupiahInput(document.getElementById(`item_hb_${rowId}`)?.value);
                 total += (qty * hb);
             }
 
@@ -1400,11 +1404,13 @@
                 const rowId = rows[i].id.replace('itemRow_', '');
                 const spId = document.getElementById(`item_sp_${rowId}`)?.value;
                 const qty = parseInt(document.getElementById(`item_qty_${rowId}`)?.value, 10);
-                const hb = parseFloat(document.getElementById(`item_hb_${rowId}`)?.value);
+                const hbInput = document.getElementById(`item_hb_${rowId}`);
+                const hb = window.parseRupiahInput(hbInput?.value);
 
                 if (!spId || isNaN(qty) || qty <= 0 || isNaN(hb) || hb < 0) {
                     return alert('Pastikan semua baris item memiliki sparepart, jumlah valid, dan harga beli yang benar!');
                 }
+                if (!window.confirmRupiahInput(hbInput, 'Harga beli')) return;
 
                 items.push({
                     sparepart_id: parseInt(spId, 10),

@@ -17,6 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Data Onderdil &amp; Sparepart — TECKFO</title>
+    @vite('resources/js/app.js')
     <link rel="icon" type="image/png" href="{{ asset('teckfo-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -143,7 +144,7 @@
                             @if(auth()->user()->role === 'owner')
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Beli (Rp)</label>
-                                <input type="number" id="harga_beli" placeholder="0" min="0" required
+                                <input type="text" id="harga_beli" placeholder="0" data-rupiah-input data-confirm-over="10000000" required
                                     class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                             </div>
                             @else
@@ -154,7 +155,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                             <div class="md:col-span-3">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Jual ke Pelanggan (Rp) <span class="text-red-500">*</span></label>
-                                <input type="number" id="harga_jual" placeholder="0" min="0" required
+                                <input type="text" id="harga_jual" placeholder="0" data-rupiah-input data-confirm-over="10000000" required
                                     class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs font-bold text-emerald-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                             </div>
                             <div class="md:col-span-2">
@@ -268,12 +269,12 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Beli</label>
-                        <input type="number" id="edit_harga_beli" min="0" required
+                        <input type="text" id="edit_harga_beli" data-rupiah-input data-confirm-over="10000000" required
                             class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">Harga Jual</label>
-                        <input type="number" id="edit_harga_jual" min="0" required
+                        <input type="text" id="edit_harga_jual" data-rupiah-input data-confirm-over="10000000" required
                             class="w-full py-2.5 px-3.5 border border-slate-300 rounded-lg text-xs font-bold text-emerald-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition">
                     </div>
                 </div>
@@ -442,8 +443,11 @@
                 stok_minimum: parseInt(document.getElementById('stok_minimum').value, 10) || 0
             };
             if (canManagePrices) {
-                payload.harga_beli = parseInt(document.getElementById('harga_beli').value, 10) || 0;
-                payload.harga_jual = parseInt(document.getElementById('harga_jual').value, 10) || 0;
+                const buyPrice = document.getElementById('harga_beli');
+                const sellPrice = document.getElementById('harga_jual');
+                if (!window.confirmRupiahInput(buyPrice, 'Harga beli') || !window.confirmRupiahInput(sellPrice, 'Harga jual')) return;
+                payload.harga_beli = window.parseRupiahInput(buyPrice.value);
+                payload.harga_jual = window.parseRupiahInput(sellPrice.value);
             }
 
             try {
@@ -480,6 +484,8 @@
             if (canManagePrices) {
                 document.getElementById('edit_harga_beli').value = item.harga_beli;
                 document.getElementById('edit_harga_jual').value = item.harga_jual;
+                window.formatRupiahInput(document.getElementById('edit_harga_beli'));
+                window.formatRupiahInput(document.getElementById('edit_harga_jual'));
             }
 
             document.getElementById('modalEditSparepart').classList.remove('hidden');
@@ -500,8 +506,11 @@
                 stok_minimum: parseInt(document.getElementById('edit_stok_minimum').value, 10) || 0
             };
             if (canManagePrices) {
-                payload.harga_beli = parseInt(document.getElementById('edit_harga_beli').value, 10) || 0;
-                payload.harga_jual = parseInt(document.getElementById('edit_harga_jual').value, 10) || 0;
+                const buyPrice = document.getElementById('edit_harga_beli');
+                const sellPrice = document.getElementById('edit_harga_jual');
+                if (!window.confirmRupiahInput(buyPrice, 'Harga beli') || !window.confirmRupiahInput(sellPrice, 'Harga jual')) return;
+                payload.harga_beli = window.parseRupiahInput(buyPrice.value);
+                payload.harga_jual = window.parseRupiahInput(sellPrice.value);
             }
 
             try {
