@@ -188,6 +188,7 @@
                             <option value="">Semua stok</option><option value="low">Stok minimum / rendah</option><option value="available">Tersedia</option><option value="out">Habis</option>
                         </select>
                         <select id="sparepartSort" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-white">
+                            <option value="stok_rendah:asc">Stok tidak aman dahulu</option>
                             <option value="nama_barang:asc">Nama A–Z</option><option value="nama_barang:desc">Nama Z–A</option>
                             <option value="stok:asc">Stok terendah</option><option value="harga_jual:desc">Harga jual tertinggi</option>
                         </select>
@@ -205,6 +206,7 @@
                                 <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px]">Kode Barang</th>
                                 <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px]">Nama Onderdil</th>
                                 <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px] text-center">Stok Fisik</th>
+                                <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px] text-center">Pemakaian 30 Hari</th>
                                 <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px] text-right">Harga Beli</th>
                                 <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px] text-right">Harga Jual</th>
                                 <th class="px-4 py-3 font-semibold text-amber-300 uppercase tracking-wider text-[11px] text-right">Est. Profit</th>
@@ -327,7 +329,7 @@
         async function loadSpareparts(page = 1) {
             sparepartPage = page;
             const tbody = document.getElementById('sparepartTable');
-            tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Memuat sparepart…</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-slate-500">Memuat sparepart…</td></tr>';
             try {
                 const params = new URLSearchParams({
                     page: String(sparepartPage),
@@ -354,7 +356,12 @@
                 renderSparepartsTable(sparepartsCache);
                 renderSparepartPagination(result.meta);
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-600">${err.message || 'Daftar sparepart gagal dimuat.'}</td></tr>`;
+                tbody.replaceChildren();
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 8;
+                cell.className = 'p-6 text-center text-rose-600';
+                cell.textContent = err.message || 'Daftar sparepart gagal dimuat.';
                 document.getElementById('sparepartPagination').textContent = 'Periksa koneksi lalu coba muat ulang.';
             }
         }
@@ -364,12 +371,18 @@
             window.sparepartSearchTimer = setTimeout(() => loadSpareparts(1), 250);
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+            })[character]);
+        }
+
         function renderSparepartsTable(items) {
             const tbody = document.getElementById('sparepartTable');
             tbody.innerHTML = '';
 
             if (items.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">Tidak ada onderdil yang cocok dengan pencarian.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-400 text-sm">Tidak ada onderdil yang cocok dengan pencarian.</td></tr>';
                 return;
             }
 
@@ -392,9 +405,13 @@
                 const tr = document.createElement('tr');
                 tr.className = 'table-row-hover bg-white';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 font-mono font-bold text-blue-700 whitespace-nowrap">${item.kode_barang}</td>
-                    <td class="px-4 py-3 font-semibold text-slate-800">${item.nama_barang}</td>
+                    <td class="px-4 py-3 font-mono font-bold text-blue-700 whitespace-nowrap">${escapeHtml(item.kode_barang)}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(item.nama_barang)}</td>
                     <td class="px-4 py-3 text-center whitespace-nowrap">${badgeStok}</td>
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        ${Number(item.pemakaian_30_hari || 0)} unit
+                        ${item.risiko_pengadaan ? '<span class="mt-1 block text-[10px] font-bold text-rose-700">Stok di bawah pemakaian 30 hari</span>' : ''}
+                    </td>
                     <td class="px-4 py-3 text-right text-slate-500 whitespace-nowrap">Rp ${hb.toLocaleString('id-ID')}</td>
                     <td class="px-4 py-3 text-right font-bold text-slate-800 whitespace-nowrap">Rp ${hj.toLocaleString('id-ID')}</td>
                     <td class="px-4 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">+Rp ${profit.toLocaleString('id-ID')}</td>
@@ -404,7 +421,7 @@
                                 class="px-2.5 py-1 btn-navy rounded text-xs font-semibold transition" title="Edit">
                                 ✏️ Edit
                             </button>
-                            <button onclick="hapusSparepart(${item.id}, '${encodeURIComponent(item.nama_barang)}')"
+                            <button onclick="hapusSparepart(${item.id}, '${escapeHtml(encodeURIComponent(item.nama_barang))}')"
                                 class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded text-xs transition" title="Hapus">
                                 🗑️ Hapus
                             </button>

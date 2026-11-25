@@ -254,6 +254,8 @@ php artisan service-photos:migrate-private
 
 Command meng-encode ulang gambar, memperbarui path database, dan menghapus salinan publik setelah path privat berhasil disimpan. Periksa output command dan backup sebelum migrasi. `php artisan storage:link` tetap diperlukan hanya untuk aset lain yang memang publik, seperti logo atau gambar statis.
 
-Batas stok minimum dapat diatur per sparepart. Penggunaan sparepart mengunci stok di dalam transaksi, menolak stok yang tidak cukup, dan menyimpan harga modal/jual sebagai snapshot pada item servis. Garansi mulai berlaku ketika unit diserahkan, sesuai masa garansi servis.
+Batas stok minimum dapat diatur per sparepart. Halaman stok mengurutkan barang tidak aman lebih dahulu dan menandai stok yang lebih kecil dari pemakaian 30 hari terakhir. Penggunaan beberapa jenis sparepart dalam satu pembaruan mengunci stok secara berurutan di dalam satu transaksi; jika salah satu stok kurang, seluruh perubahan dibatalkan. Harga modal/jual disimpan sebagai snapshot pada tiap item. Item yang batal sebelum disetujui mengembalikan stok dan menambahkan catatan ke timeline servis.
+
+Owner mengelola preset kebijakan garansi pada panel `/owner`. Admin dan teknisi hanya dapat memilih preset aktif; durasi tersimpan sebagai snapshot pada servis sehingga perubahan preset tidak mengubah garansi yang sudah ditetapkan. Garansi mulai berlaku ketika unit diserahkan.
 
 Tanda terima dan nota menggunakan Blade print-CSS, bukan DomPDF: layout dapat dicetak pada thermal 58/80 mm atau disimpan sebagai PDF lewat dialog browser tanpa menambah dependensi server PDF. QR code dihasilkan lokal menggunakan paket `qrcode` dan mengarah ke tautan pelacakan acak per servis.

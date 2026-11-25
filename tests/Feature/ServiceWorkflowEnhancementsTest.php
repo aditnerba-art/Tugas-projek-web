@@ -282,6 +282,46 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             ->contains(fn (array $entry): bool => str_contains($entry['catatan'] ?? '', 'SSD Multi tidak jadi dipasang')));
     }
 
+    public function test_sparepart_inventory_prioritizes_unsafe_stock_and_flags_recent_usage_risk(): void
+    {
+        $admin = $this->user('admin', 'admin_stock_risk');
+        $service = $this->service();
+        $riskPart = Sparepart::create([
+            'kode_barang' => 'LOW-USED',
+            'nama_barang' => 'Stok Rendah Sering Dipakai',
+            'stok' => 3,
+            'stok_minimum' => 4,
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+        ]);
+        $safePart = Sparepart::create([
+            'kode_barang' => 'SAFE-STOCK',
+            'nama_barang' => 'Stok Aman',
+            'stok' => 8,
+            'stok_minimum' => 2,
+            'harga_beli' => 20000,
+            'harga_jual' => 30000,
+        ]);
+        ServiceItem::create([
+            'service_id' => $service->id,
+            'sparepart_id' => $riskPart->id,
+            'jumlah' => 5,
+            'harga_modal' => 10000,
+            'harga_satuan' => 15000,
+            'subtotal' => 75000,
+            'approval_status' => 'installed',
+        ]);
+
+        $response = $this->actingAs($admin)->getJson('/api/spareparts?sort=stok_rendah&direction=asc')
+            ->assertOk();
+        $this->assertSame($riskPart->id, $response->json('data.0.id'));
+        $this->assertSame(5, $response->json('data.0.pemakaian_30_hari'));
+        $this->assertTrue($response->json('data.0.risiko_pengadaan'));
+        $this->assertSame($safePart->id, $response->json('data.1.id'));
+        $this->assertSame(0, $response->json('data.1.pemakaian_30_hari'));
+        $this->assertFalse($response->json('data.1.risiko_pengadaan'));
+    }
+
     public function test_staff_cannot_submit_raw_prices_or_change_sparepart_prices(): void
     {
         $admin = $this->user('admin', 'admin_price_guard');

@@ -78,8 +78,14 @@ class ApiController extends Controller
         $sort = $filters['sort'] ?? $defaultSort;
         $direction = $filters['direction'] ?? 'desc';
 
-        return $query->orderBy($sort, $direction)
-            ->paginate((int) ($filters['per_page'] ?? $perPage))
+        if ($sort === 'stok_rendah') {
+            $query->orderByRaw('CASE WHEN stok <= stok_minimum THEN 0 ELSE 1 END ASC')
+                ->orderBy('stok', $direction);
+        } else {
+            $query->orderBy($sort, $direction);
+        }
+
+        return $query->paginate((int) ($filters['per_page'] ?? $perPage))
             ->withQueryString();
     }
 
@@ -1742,9 +1748,25 @@ class ApiController extends Controller
             $query->where('stok', 0);
         }
 
-        $parts = $this->paginateTable($request, $query, ['nama_barang', 'kode_barang', 'stok', 'harga_beli', 'harga_jual', 'id'], 'nama_barang');
-        $data = collect($parts->items())->map(function (Sparepart $part): Sparepart {
+        $parts = $this->paginateTable($request, $query, ['nama_barang', 'kode_barang', 'stok', 'harga_beli', 'harga_jual', 'id', 'stok_rendah'], 'stok_rendah');
+        $partIds = collect($parts->items())->pluck('id');
+        $usageByPart = $partIds->isEmpty()
+            ? collect()
+            : DB::table('service_items')
+                ->whereIn('sparepart_id', $partIds)
+                ->where('approval_status', '<>', 'cancelled')
+                ->where('created_at', '>=', now()->subDays(30))
+                ->groupBy('sparepart_id')
+                ->selectRaw('sparepart_id, SUM(jumlah) as quantity_30d')
+                ->pluck('quantity_30d', 'sparepart_id');
+        $data = collect($parts->items())->map(function (Sparepart $part) use ($usageByPart): Sparepart {
+            $quantityUsedRecently = (int) ($usageByPart[$part->id] ?? 0);
             $part->setAttribute('stok_rendah', $part->stok <= $part->stok_minimum);
+            $part->setAttribute('pemakaian_30_hari', $quantityUsedRecently);
+            $part->setAttribute(
+                'risiko_pengadaan',
+                $quantityUsedRecently > 0 && $part->stok <= $quantityUsedRecently,
+            );
 
             return $part;
         });
