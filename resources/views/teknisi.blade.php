@@ -217,20 +217,10 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-[#0B1E3F]">Pasang Onderdil / Sparepart Baru (Otomatis Potong Stok)</label>
                             <span id="sparepart_info" class="text-xs text-amber-800 font-bold"></span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="md:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Sparepart</label>
-                                <select id="sparepart_id" onchange="onSparepartChange()"
-                                    class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500">
-                                    <option value="">-- Tidak Memasang Sparepart Baru --</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah (Qty)</label>
-                                <input type="number" id="jumlah_sparepart" min="1" placeholder="1" oninput="calculateEstimatedTotal()"
-                                    class="w-full py-2.5 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 font-bold">
-                            </div>
-                        </div>
+                        <div id="sparepartItemsList" class="space-y-3"></div>
+                        <button id="addSparepartItem" type="button" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-[#0B1E3F]">
+                            + Tambah sparepart
+                        </button>
                     </div>
 
                     <div>
@@ -527,18 +517,12 @@
                 if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Daftar sparepart gagal dimuat.');
 
                 sparepartsCache = result.data;
-                const select = document.getElementById('sparepart_id');
-                select.innerHTML = '<option value="">-- Tidak Memasang Sparepart Baru --</option>';
-
-                result.data.forEach(item => {
-                    const opt = document.createElement('option');
-                    opt.value = item.id;
-                    opt.dataset.stok = item.stok;
-                    opt.dataset.minimum = item.stok_minimum;
-                    opt.dataset.harga = item.harga_jual;
-                    opt.innerText = `${item.stok_rendah ? '⚠️ Stok rendah · ' : ''}${item.nama_barang} (Stok: ${item.stok}, minimum ${item.stok_minimum}) - Rp ${Number(item.harga_jual).toLocaleString('id-ID')}`;
-                    select.appendChild(opt);
+                const selects = document.querySelectorAll('#sparepartItemsList select');
+                if (!selects.length) addSparepartRow();
+                document.querySelectorAll('#sparepartItemsList select').forEach(select => {
+                    updateSparepartSelect(select, select.value);
                 });
+                document.getElementById('sparepart_info').textContent = '';
             } catch (err) {
                 document.getElementById('sparepart_info').textContent = err.message || 'Sparepart gagal dimuat.';
             }
@@ -587,6 +571,7 @@
             if (!srvId) {
                 banner.classList.add('hidden');
                 document.getElementById('service_rate_id').value = '';
+                document.getElementById('warranty_preset_id').value = '';
                 document.getElementById('total_biaya').value = '';
                 return;
             }
@@ -618,14 +603,25 @@
                     if (notaRes.status === 'success' && notaRes.data.onderdil && notaRes.data.onderdil.length > 0) {
                         notaRes.data.onderdil.forEach(item => {
                             const row = document.createElement('div');
-                            row.className = 'flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs';
+                            row.className = 'flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs';
                             const name = document.createElement('span');
                             name.className = 'font-semibold text-slate-800';
                             name.textContent = `• ${item.nama_barang} (x${item.jumlah})`;
                             const subtotal = document.createElement('span');
                             subtotal.className = 'font-bold text-emerald-700';
                             subtotal.textContent = `Rp ${Number(item.subtotal).toLocaleString('id-ID')}`;
-                            row.append(name, subtotal);
+                            const state = document.createElement('span');
+                            state.className = 'rounded-full bg-emerald-50 px-2 py-1 font-bold text-emerald-700';
+                            state.textContent = item.approval_status === 'pending_approval' ? 'Menunggu persetujuan' : 'Disetujui';
+                            row.append(name, subtotal, state);
+                            if (item.approval_status === 'pending_approval' && ['menunggu_persetujuan', 'menunggu persetujuan'].includes(srv.status)) {
+                                const cancel = document.createElement('button');
+                                cancel.type = 'button';
+                                cancel.className = 'min-h-9 rounded-lg border border-rose-200 px-3 py-1 font-bold text-rose-700';
+                                cancel.textContent = 'Batalkan item';
+                                cancel.addEventListener('click', () => cancelPendingSparepart(item.id, cancel));
+                                row.appendChild(cancel);
+                            }
                             listWrap.appendChild(row);
                         });
                     } else {
@@ -642,26 +638,69 @@
             }
         }
 
-        // Tampilkan info stok ketika sparepart dipilih
-        function onSparepartChange() {
-            const select = document.getElementById('sparepart_id');
-            const info = document.getElementById('sparepart_info');
-            const qtyInput = document.getElementById('jumlah_sparepart');
-            const selectedOpt = select.options[select.selectedIndex];
+        function updateSparepartSelect(select, selectedValue = '') {
+            select.replaceChildren(new Option('-- Pilih sparepart --', ''));
+            sparepartsCache.forEach(item => {
+                const option = new Option(
+                    `${item.stok_rendah ? '⚠️ Stok rendah · ' : ''}${item.nama_barang} (Stok: ${item.stok}) · Rp ${Number(item.harga_jual).toLocaleString('id-ID')}`,
+                    item.id,
+                );
+                option.dataset.stok = item.stok;
+                option.dataset.minimum = item.stok_minimum;
+                option.dataset.harga = item.harga_jual;
+                select.add(option);
+            });
+            select.value = selectedValue;
+        }
 
-            if (select.value && selectedOpt) {
-                const stok = selectedOpt.dataset.stok;
-                const harga = Number(selectedOpt.dataset.harga).toLocaleString('id-ID');
-                const lowStock = Number(stok) <= Number(selectedOpt.dataset.minimum);
-                info.innerText = `${lowStock ? '⚠️ Stok mencapai batas minimum · ' : ''}Stok: ${stok} unit | Harga Jual: Rp ${harga}`;
-                if (!qtyInput.value || parseInt(qtyInput.value, 10) < 1) {
-                    qtyInput.value = 1;
+        function addSparepartRow() {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(0,1fr)_120px_auto]';
+            const select = document.createElement('select');
+            select.className = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm';
+            select.setAttribute('aria-label', 'Pilih sparepart');
+            updateSparepartSelect(select);
+            const quantity = document.createElement('input');
+            quantity.type = 'number';
+            quantity.min = '1';
+            quantity.placeholder = 'Qty';
+            quantity.className = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm';
+            quantity.setAttribute('aria-label', 'Jumlah sparepart');
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'min-h-11 rounded-lg border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700';
+            remove.textContent = 'Hapus';
+            select.addEventListener('change', () => {
+                if (select.value && !quantity.value) quantity.value = '1';
+                calculateEstimatedTotal();
+            });
+            quantity.addEventListener('input', calculateEstimatedTotal);
+            remove.addEventListener('click', () => {
+                const rows = document.querySelectorAll('#sparepartItemsList > div');
+                if (rows.length === 1) {
+                    select.value = '';
+                    quantity.value = '';
+                } else {
+                    row.remove();
                 }
-            } else {
-                info.innerText = '';
-                qtyInput.value = '';
+                calculateEstimatedTotal();
+            });
+            row.append(select, quantity, remove);
+            document.getElementById('sparepartItemsList').appendChild(row);
+        }
+
+        async function cancelPendingSparepart(itemId, button) {
+            if (!window.confirm('Batalkan sparepart ini dan kembalikan stok?')) return;
+            button.disabled = true;
+            try {
+                const response = await fetch(`/api/admin/service/items/${itemId}/cancel`, { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Sparepart gagal dibatalkan.');
+                await initData();
+            } catch (error) {
+                button.disabled = false;
+                alert(error.message || 'Sparepart gagal dibatalkan.');
             }
-            calculateEstimatedTotal();
         }
 
         function calculateEstimatedTotal() {
@@ -674,14 +713,13 @@
             const selectedRate = serviceRatesCache.find(rate => String(rate.id) === rateSelect.value);
             const inputJasa = selectedRate ? Number(selectedRate.amount) : Number(currentSrv?.biaya_jasa || 0);
             
-            const select = document.getElementById('sparepart_id');
             let sparepartSubtotal = 0;
-            if (select.value) {
+            document.querySelectorAll('#sparepartItemsList > div').forEach(row => {
+                const select = row.querySelector('select');
+                const quantity = row.querySelector('input');
                 const selectedOpt = select.options[select.selectedIndex];
-                const hargaSatuan = parseFloat(selectedOpt.dataset.harga) || 0;
-                const qty = parseInt(document.getElementById('jumlah_sparepart').value, 10) || 1;
-                sparepartSubtotal = hargaSatuan * qty;
-            }
+                sparepartSubtotal += (Number(selectedOpt?.dataset.harga) || 0) * (parseInt(quantity.value, 10) || 0);
+            });
 
             // Estimasi total: Jika ada sparepart baru ditambah jasa
             const previousSparepartTotal = Math.max(0, baseTotalBiaya - currentJasa);
@@ -709,6 +747,7 @@
             clearTimeout(serviceFilterTimer);
             serviceFilterTimer = setTimeout(() => loadPendingServices(1), 250);
         });
+        document.getElementById('addSparepartItem').addEventListener('click', addSparepartRow);
         document.querySelectorAll('.work-filter-tab').forEach(button => {
             button.addEventListener('click', () => {
                 setWorkFilter(button.dataset.workFilter);
@@ -769,25 +808,26 @@
             const statusBaru = document.getElementById('status_baru').value;
             const catatanTeknis = document.getElementById('catatan_teknis').value;
             const completionPhotos = document.getElementById('completion_photos').files;
-            const sparepartId = document.getElementById('sparepart_id').value;
-            const jumlahSparepart = document.getElementById('jumlah_sparepart').value;
             const rateId = document.getElementById('service_rate_id').value;
 
             if (!serviceId || !catatanTeknis) {
                 return alert('Pilih unit servis dan isi catatan diagnosa / pengerjaan!');
             }
 
-            if (sparepartId) {
-                const qty = parseInt(jumlahSparepart, 10);
-                if (isNaN(qty) || qty <= 0) {
-                    return alert('Masukkan jumlah sparepart yang valid (minimal 1)!');
-                }
-                const select = document.getElementById('sparepart_id');
+            const sparepartItems = [];
+            const seenSpareparts = new Set();
+            for (const row of document.querySelectorAll('#sparepartItemsList > div')) {
+                const select = row.querySelector('select');
+                const quantity = row.querySelector('input');
+                if (!select.value) continue;
+                const qty = Number.parseInt(quantity.value, 10);
                 const selectedOpt = select.options[select.selectedIndex];
-                const stokTersedia = parseInt(selectedOpt.dataset.stok, 10);
-                if (qty > stokTersedia) {
-                    return alert(`Jumlah melebihi stok yang tersedia (${stokTersedia} unit)!`);
-                }
+                const id = Number.parseInt(select.value, 10);
+                if (!Number.isInteger(qty) || qty < 1) return alert('Masukkan jumlah minimal 1 untuk setiap sparepart.');
+                if (seenSpareparts.has(id)) return alert('Pilih setiap jenis sparepart satu kali saja; ubah jumlah pada barisnya.');
+                if (qty > Number(selectedOpt.dataset.stok)) return alert(`Jumlah ${selectedOpt.textContent} melebihi stok yang tersedia.`);
+                seenSpareparts.add(id);
+                sparepartItems.push({ sparepart_id: id, jumlah: qty });
             }
 
             const payload = {
@@ -796,8 +836,7 @@
                 service_rate_id: rateId ? Number(rateId) : null,
                 warranty_preset_id: document.getElementById('warranty_preset_id').value || null,
                 catatan_teknis: catatanTeknis,
-                sparepart_id: sparepartId ? parseInt(sparepartId, 10) : null,
-                jumlah_sparepart: sparepartId ? parseInt(jumlahSparepart, 10) : null
+                sparepart_items: sparepartItems
             };
 
             try {

@@ -120,6 +120,7 @@ Route::prefix('api')->group(function () {
         Route::get('/admin/nota/{noNota}', [ApiController::class, 'nota'])->where('noNota', '[A-Za-z0-9-]{1,32}');
         Route::get('/admin/receipts/{service}/{type}', [ApiController::class, 'receipt'])->where('type', 'intake|payment');
         Route::put('/admin/service/status', [ApiController::class, 'updateServiceStatus']);
+        Route::post('/admin/service/items/{serviceItem}/cancel', [ApiController::class, 'cancelPendingServiceItem']);
         Route::post('/admin/service/estimate-changes', [ApiController::class, 'proposeEstimateChange']);
         Route::post('/admin/service/photos', [ApiController::class, 'uploadServicePhotos']);
         Route::post('/admin/service/persetujuan', [ApiController::class, 'customerApproval']);

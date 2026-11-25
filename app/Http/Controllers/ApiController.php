@@ -188,12 +188,15 @@ class ApiController extends Controller
             ]),
             'created_at' => $photo->created_at,
         ])->all();
-        $items = $service->items->map(fn (ServiceItem $item) => [
+        $items = $service->items
+            ->reject(fn (ServiceItem $item) => $item->approval_status === 'cancelled')
+            ->map(fn (ServiceItem $item) => [
             'id' => $item->id,
             'sparepart_id' => $item->sparepart_id,
             'jumlah' => $item->jumlah,
             'harga_satuan' => $item->harga_satuan,
             'subtotal' => $item->subtotal,
+            'approval_status' => $item->approval_status,
             'kode_barang' => $item->sparepart->kode_barang,
             'nama_barang' => $item->sparepart->nama_barang,
         ])->all();
@@ -814,6 +817,50 @@ class ApiController extends Controller
         ]);
     }
 
+    public function cancelPendingServiceItem(Request $request, ServiceItem $serviceItem): JsonResponse
+    {
+        $service = DB::transaction(function () use ($request, $serviceItem): Service {
+            $query = Service::query()->whereKey($serviceItem->service_id);
+            if ($request->user()->role === 'teknisi') {
+                $query->where('teknisi_id', $request->user()->id);
+            }
+            $service = $query->lockForUpdate()->firstOrFail();
+            if (! in_array($service->status, ['menunggu_persetujuan', 'menunggu persetujuan'], true)) {
+                abort(409, 'Item hanya dapat dibatalkan saat servis menunggu persetujuan pelanggan.');
+            }
+            $item = $service->items()->whereKey($serviceItem->id)->lockForUpdate()->firstOrFail();
+            if ($item->approval_status !== 'pending_approval') {
+                abort(409, 'Item ini tidak lagi menunggu persetujuan.');
+            }
+
+            $sparepart = Sparepart::whereKey($item->sparepart_id)->lockForUpdate()->firstOrFail();
+            $oldStock = $sparepart->stok;
+            $sparepart->increment('stok', $item->jumlah);
+            $item->update(['approval_status' => 'cancelled']);
+            $service->total_biaya = (int) $service->biaya_jasa
+                + (int) $service->items()->where('approval_status', '<>', 'cancelled')->sum('subtotal');
+            $service->save();
+            $note = "Sparepart {$sparepart->nama_barang} tidak jadi dipasang; {$item->jumlah} unit dikembalikan ke stok. Total biaya diperbarui menjadi Rp "
+                .number_format((int) $service->total_biaya, 0, ',', '.').'.';
+            $timeline = $service->recordTimelineEvent($note, $request->user());
+            event(new CustomerServiceStatusChanged($timeline));
+            $this->logActivity($request, 'pengembalian_stok', 'sparepart:'.$sparepart->id,
+                ['stok' => $oldStock], [
+                    'stok' => $sparepart->fresh()->stok,
+                    'jumlah_dikembalikan' => $item->jumlah,
+                    'service_item_id' => $item->id,
+                ]);
+
+            return $service;
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Item dibatalkan dan stok dikembalikan.',
+            'data' => ['service_id' => $service->id, 'total_biaya' => $service->total_biaya],
+        ]);
+    }
+
     public function proposeEstimateChange(CreateEstimateChangeRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -1126,11 +1173,17 @@ class ApiController extends Controller
             'user_role' => $log->user?->role,
             'created_at' => $log->created_at,
         ])->all();
-        $data['onderdil'] = $service->items->map(fn (ServiceItem $item) => [
-            'id' => $item->id, 'jumlah' => $item->jumlah, 'harga_satuan' => $item->harga_satuan,
-            'subtotal' => $item->subtotal, 'nama_barang' => $item->sparepart->nama_barang,
-            'kode_barang' => $item->sparepart->kode_barang,
-        ]);
+        $data['onderdil'] = $service->items
+            ->reject(fn (ServiceItem $item) => $item->approval_status === 'cancelled')
+            ->map(fn (ServiceItem $item) => [
+                'id' => $item->id,
+                'jumlah' => $item->jumlah,
+                'harga_satuan' => $item->harga_satuan,
+                'subtotal' => $item->subtotal,
+                'approval_status' => $item->approval_status,
+                'nama_barang' => $item->sparepart->nama_barang,
+                'kode_barang' => $item->sparepart->kode_barang,
+            ]);
 
         return response()->json(['status' => 'success', 'data' => $data]);
     }

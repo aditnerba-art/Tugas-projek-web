@@ -7,6 +7,7 @@ use App\Models\NotificationLog;
 use App\Models\Service;
 use App\Models\ServiceAccessToken;
 use App\Models\ServiceEstimateChange;
+use App\Models\ServiceItem;
 use App\Models\ServicePhoto;
 use App\Models\ServiceRate;
 use App\Models\Sparepart;
@@ -199,6 +200,81 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             'aksi' => 'pengembalian_stok',
             'subjek' => 'sparepart:'.$part->id,
         ]);
+    }
+
+    public function test_technician_can_add_multiple_spareparts_atomically_and_cancel_an_unneeded_item(): void
+    {
+        $technician = $this->user('teknisi', 'teknisi_multi_parts');
+        $service = $this->service([
+            'teknisi_id' => $technician->id,
+            'biaya_jasa' => 100000,
+            'total_biaya' => 100000,
+        ]);
+        $ssd = Sparepart::create([
+            'kode_barang' => 'SSD-MULTI',
+            'nama_barang' => 'SSD Multi',
+            'stok' => 4,
+            'stok_minimum' => 1,
+            'harga_beli' => 50000,
+            'harga_jual' => 80000,
+        ]);
+        $ram = Sparepart::create([
+            'kode_barang' => 'RAM-MULTI',
+            'nama_barang' => 'RAM Multi',
+            'stok' => 1,
+            'stok_minimum' => 1,
+            'harga_beli' => 30000,
+            'harga_jual' => 60000,
+        ]);
+        $payload = [
+            'service_id' => $service->id,
+            'status_baru' => 'dikerjakan',
+            'sparepart_items' => [
+                ['sparepart_id' => $ssd->id, 'jumlah' => 2],
+                ['sparepart_id' => $ram->id, 'jumlah' => 2],
+            ],
+        ];
+
+        $this->actingAs($technician)->putJson('/api/admin/service/status', $payload)
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('spareparts', ['id' => $ssd->id, 'stok' => 4]);
+        $this->assertDatabaseCount('service_items', 0);
+
+        $payload['sparepart_items'][1]['jumlah'] = 1;
+        $this->putJson('/api/admin/service/status', $payload)
+            ->assertOk()
+            ->assertJsonPath('status_baru', 'menunggu_persetujuan')
+            ->assertJsonPath('total_biaya', 320000);
+        $this->assertDatabaseHas('spareparts', ['id' => $ssd->id, 'stok' => 2]);
+        $this->assertDatabaseHas('spareparts', ['id' => $ram->id, 'stok' => 0]);
+        $this->assertDatabaseHas('service_items', [
+            'service_id' => $service->id,
+            'sparepart_id' => $ssd->id,
+            'harga_modal' => 50000,
+            'harga_satuan' => 80000,
+            'subtotal' => 160000,
+            'approval_status' => 'pending_approval',
+        ]);
+        $ssdItem = ServiceItem::where('service_id', $service->id)->where('sparepart_id', $ssd->id)->sole();
+
+        $this->postJson('/api/admin/service/items/'.$ssdItem->id.'/cancel')
+            ->assertOk()
+            ->assertJsonPath('data.total_biaya', 160000);
+        $this->assertDatabaseHas('spareparts', ['id' => $ssd->id, 'stok' => 4]);
+        $this->assertDatabaseHas('service_items', ['id' => $ssdItem->id, 'approval_status' => 'cancelled']);
+        $this->assertSame(160000, $service->fresh()->total_biaya);
+        $this->assertDatabaseHas('activity_logs', [
+            'aksi' => 'pengembalian_stok',
+            'subjek' => 'sparepart:'.$ssd->id,
+        ]);
+
+        $tracking = $this->getJson('/api/tracking-link/'.$service->tracking_key)->assertOk();
+        $this->assertSame(
+            [$ram->id],
+            collect($tracking->json('data.onderdil'))->pluck('sparepart_id')->all(),
+        );
+        $this->assertTrue(collect($tracking->json('data.timeline'))
+            ->contains(fn (array $entry): bool => str_contains($entry['catatan'] ?? '', 'SSD Multi tidak jadi dipasang')));
     }
 
     public function test_staff_cannot_submit_raw_prices_or_change_sparepart_prices(): void
