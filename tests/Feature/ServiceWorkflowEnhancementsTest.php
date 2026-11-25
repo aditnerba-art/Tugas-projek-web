@@ -257,7 +257,12 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         ]);
         $ssdItem = ServiceItem::where('service_id', $service->id)->where('sparepart_id', $ssd->id)->sole();
 
-        $this->postJson('/api/admin/service/items/'.$ssdItem->id.'/cancel')
+        $otherTechnician = $this->user('teknisi', 'teknisi_other_multi_parts');
+        $this->actingAs($otherTechnician)->postJson('/api/admin/service/items/'.$ssdItem->id.'/cancel')
+            ->assertNotFound();
+        $this->assertDatabaseHas('spareparts', ['id' => $ssd->id, 'stok' => 2]);
+
+        $this->actingAs($technician)->postJson('/api/admin/service/items/'.$ssdItem->id.'/cancel')
             ->assertOk()
             ->assertJsonPath('data.total_biaya', 160000);
         $this->assertDatabaseHas('spareparts', ['id' => $ssd->id, 'stok' => 4]);

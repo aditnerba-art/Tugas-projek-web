@@ -1182,11 +1182,23 @@
         function isiRingkasanPersetujuan(onderdil, biayaJasa, total) {
             const container = document.getElementById('approvalCostBreakdown');
             container.replaceChildren();
-            const addRow = (label, amount, emphasis = false) => {
+            const addRow = (label, amount, emphasis = false, approvalStatus = null) => {
                 const row = document.createElement('div');
                 row.className = `flex items-start justify-between gap-4 ${emphasis ? 'border-t border-amber-500/30 pt-2 font-bold text-amber-100' : 'text-amber-50'}`;
                 const name = document.createElement('span');
                 name.textContent = label;
+                if (approvalStatus) {
+                    const badge = document.createElement('span');
+                    badge.className = approvalStatus === 'approved'
+                        ? 'ml-2 inline-flex rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-200'
+                        : approvalStatus === 'pending_approval'
+                            ? 'ml-2 inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-100'
+                            : 'ml-2 inline-flex rounded-full bg-slate-500/20 px-2 py-0.5 text-[10px] font-bold text-slate-200';
+                    badge.textContent = approvalStatus === 'approved'
+                        ? 'Disetujui'
+                        : approvalStatus === 'pending_approval' ? 'Menunggu persetujuan' : 'Terpasang';
+                    name.appendChild(badge);
+                }
                 const price = document.createElement('span');
                 price.className = 'shrink-0 text-right';
                 price.textContent = `Rp ${Number(amount || 0).toLocaleString('id-ID')}`;
@@ -1196,7 +1208,7 @@
 
             addRow('Biaya jasa', biayaJasa);
             (onderdil || []).forEach(item => {
-                addRow(item.nama_barang || 'Sparepart', item.subtotal);
+                addRow(item.nama_barang || 'Sparepart', item.subtotal, false, item.approval_status);
             });
             addRow('Total estimasi', total, true);
         }

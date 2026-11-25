@@ -446,6 +446,7 @@
 
         function openServiceDetail(serviceId) {
             const select = document.getElementById('service_id');
+            resetSparepartRows();
             select.value = String(serviceId);
             document.getElementById('serviceDetailWrap').classList.remove('hidden');
             onSelectService();
@@ -454,6 +455,7 @@
 
         function closeServiceDetail() {
             document.getElementById('service_id').value = '';
+            resetSparepartRows();
             document.getElementById('unitInfoBanner').classList.add('hidden');
             document.getElementById('statusTimelineWrap').classList.add('hidden');
             document.getElementById('serviceDetailWrap').classList.add('hidden');
@@ -611,7 +613,9 @@
                             subtotal.className = 'font-bold text-emerald-700';
                             subtotal.textContent = `Rp ${Number(item.subtotal).toLocaleString('id-ID')}`;
                             const state = document.createElement('span');
-                            state.className = 'rounded-full bg-emerald-50 px-2 py-1 font-bold text-emerald-700';
+                            state.className = item.approval_status === 'pending_approval'
+                                ? 'rounded-full bg-amber-50 px-2 py-1 font-bold text-amber-800'
+                                : 'rounded-full bg-emerald-50 px-2 py-1 font-bold text-emerald-700';
                             state.textContent = item.approval_status === 'pending_approval' ? 'Menunggu persetujuan' : 'Disetujui';
                             row.append(name, subtotal, state);
                             if (item.approval_status === 'pending_approval' && ['menunggu_persetujuan', 'menunggu persetujuan'].includes(srv.status)) {
@@ -687,6 +691,14 @@
             });
             row.append(select, quantity, remove);
             document.getElementById('sparepartItemsList').appendChild(row);
+        }
+
+        function resetSparepartRows() {
+            document.querySelectorAll('#sparepartItemsList > div').forEach(row => {
+                row.querySelector('select').value = '';
+                row.querySelector('input').value = '';
+            });
+            calculateEstimatedTotal();
         }
 
         async function cancelPendingSparepart(itemId, button) {
