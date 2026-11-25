@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\NotificationLog;
 use App\Models\Service;
 use App\Models\ServiceAccessToken;
+use App\Models\ServiceEstimateChange;
 use App\Models\ServicePhoto;
 use App\Models\ServiceRate;
 use App\Models\Sparepart;
@@ -65,24 +66,40 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         $this->assertDatabaseHas('service_estimate_changes', [
             'id' => $changeId,
             'status' => 'pending',
-            'proposed_estimated_completion_at' => today()->addDays(5)->toDateString(),
         ]);
+        $this->assertSame(
+            today()->addDays(5)->toDateString(),
+            ServiceEstimateChange::findOrFail($changeId)->proposed_estimated_completion_at->toDateString(),
+        );
         $this->assertSame(today()->addDays(3)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
         $notification = NotificationLog::sole();
         $this->assertSame('estimate_approval', $notification->message_type);
         $this->assertStringContainsString('Sparepart belum tersedia', $notification->message);
         $this->assertStringContainsString(today()->addDays(5)->format('d-m-Y'), $notification->message);
+        $this->getJson('/api/tracking-link/'.$service->tracking_key)
+            ->assertOk()
+            ->assertJsonPath('data.unit.pending_estimate_change.id', $changeId)
+            ->assertJsonPath('data.unit.pending_estimate_change.reason', 'Sparepart belum tersedia');
         $this->assertDatabaseHas('service_status_logs', [
             'service_id' => $service->id,
             'catatan' => 'Usulan perubahan estimasi: '.today()->addDays(3)->format('d-m-Y')
                 .' menjadi '.today()->addDays(5)->format('d-m-Y').' (+2 hari). Alasan: Sparepart belum tersedia. Menunggu persetujuan pelanggan.',
         ]);
+        $this->postJson('/api/admin/service/estimate-changes', [
+            'service_id' => $service->id,
+            'additional_days' => 3,
+            'reason' => 'Usulan duplikat saat masih menunggu',
+        ])->assertStatus(409);
 
         ServiceAccessToken::create([
             'service_id' => $service->id,
             'token_hash' => hash_hmac('sha256', '54321', (string) config('app.key')),
             'expires_at' => now()->addDay(),
         ]);
+        $this->postJson('/api/customer/estimate-approval', [
+            'estimate_change_id' => $changeId,
+            'decision' => 'approved',
+        ])->assertForbidden();
         auth()->logout();
         $this->postJson('/api/customer/login', [
             'kode_akses' => '54321',
@@ -94,7 +111,6 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         ])->assertOk()->assertJsonPath('data.status', 'approved');
         $this->assertSame(today()->addDays(5)->toDateString(), $service->fresh()->estimated_completion_at->toDateString());
         $this->assertSame(today()->addDays(3)->toDateString(), $service->fresh()->initial_estimated_completion_at->toDateString());
-
         $secondChange = $this->actingAs($admin)->postJson('/api/admin/service/estimate-changes', [
             'service_id' => $service->id,
             'additional_days' => 3,
