@@ -133,6 +133,7 @@
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Estimasi Selesai</label>
                             <input type="date" id="estimated_completion_at" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                            <p id="estimateSuggestion" class="mt-1.5 text-xs text-slate-600" aria-live="polite">Menghitung saran berdasarkan antrean teknisi…</p>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -639,7 +640,7 @@
                         const technicianSelect = tr.querySelector('.assign-technician');
                         technicianSelect.replaceChildren(new Option('Belum ditugaskan', ''));
                         technicianWorkloads.forEach(technician => technicianSelect.add(new Option(
-                            `${technician.nama} · ${technician.beban_kerja} aktif`,
+                            `${technician.nama} · ${technician.beban_kerja} aktif · saran ${formatTanggalSaran(technician.rekomendasi_selesai)}`,
                             technician.id,
                         )));
                         technicianSelect.value = srv.teknisi_id || '';
@@ -1032,6 +1033,7 @@
                 document.getElementById('customer_id').value = '';
                 document.getElementById('cariPelangganLama').value = '';
                 document.getElementById('hasilPencarianPelanggan').classList.add('hidden');
+                estimateDateManuallyEdited = false;
                 await Promise.all([loadActiveServices(), loadCustomers(), loadTechnicianWorkloads(false)]);
                 showServiceSuccessModal(data, payload);
                 if (photoError) alert(photoError);
@@ -1306,6 +1308,13 @@
         document.getElementById('no_wa').addEventListener('input', () => {
             document.getElementById('customer_id').value = '';
         });
+        let estimateDateManuallyEdited = false;
+        document.getElementById('estimated_completion_at').addEventListener('change', () => {
+            estimateDateManuallyEdited = true;
+            updateEstimateSuggestion();
+        });
+        document.getElementById('teknisi_id').addEventListener('change', updateEstimateSuggestion);
+        document.getElementById('jenis_unit').addEventListener('change', () => loadTechnicianWorkloads(false));
 
         let pencarianDaftarTimeout;
         document.getElementById('cariPelanggan').addEventListener('input', () => {
@@ -1320,10 +1329,36 @@
         // Inisialisasi data saat halaman dibuka
         loadActiveServices();
         loadCustomers();
+        function formatTanggalSaran(value) {
+            if (!value) return 'belum tersedia';
+            const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+            return Number.isNaN(date.getTime()) ? 'belum tersedia' : new Intl.DateTimeFormat('id-ID', {
+                dateStyle: 'medium', timeZone: 'Asia/Jakarta',
+            }).format(date);
+        }
+        function updateEstimateSuggestion() {
+            const selectedId = document.getElementById('teknisi_id').value;
+            const technician = technicianWorkloads.find(item => String(item.id) === selectedId) || technicianWorkloads[0];
+            const suggestion = document.getElementById('estimateSuggestion');
+            const input = document.getElementById('estimated_completion_at');
+            if (!technician) {
+                suggestion.textContent = 'Belum ada teknisi aktif; estimasi menggunakan fallback 3 hari kalender.';
+                if (!estimateDateManuallyEdited) input.value = '';
+                return;
+            }
+            if (!estimateDateManuallyEdited) input.value = technician.rekomendasi_selesai || '';
+            const source = technician.sumber_durasi === 'historis_jenis_unit'
+                ? 'median durasi historis jenis unit'
+                : technician.sumber_durasi === 'historis_umum'
+                    ? 'median durasi historis seluruh unit'
+                    : 'fallback 3 hari kalender';
+            suggestion.textContent = `${technician.nama}: ${technician.beban_kerja} servis aktif, antrean sekitar ${technician.antrean_hari} hari. Saran selesai ${formatTanggalSaran(technician.rekomendasi_selesai)} berdasarkan ${source}.${estimateDateManuallyEdited ? ' Tanggal telah diubah manual.' : ''}`;
+        }
         async function loadTechnicianWorkloads(refreshServices = true) {
             const select = document.getElementById('teknisi_id');
             try {
-                const response = await fetch('/api/admin/teknisi');
+                const params = new URLSearchParams({ jenis_unit: document.getElementById('jenis_unit').value || 'Lainnya' });
+                const response = await fetch(`/api/admin/teknisi?${params}`);
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Beban teknisi gagal dimuat.');
                 technicianWorkloads = result.data;
@@ -1332,16 +1367,23 @@
                     filter.replaceChildren(new Option('Semua teknisi', ''));
                     technicianWorkloads.forEach(technician => filter.add(new Option(technician.nama, technician.id)));
                 });
+                const selectedTechnician = select.value;
+                select.replaceChildren(new Option('Belum ditugaskan', ''));
                 technicianWorkloads.forEach(technician => {
                     const option = document.createElement('option');
                     option.value = technician.id;
-                    option.textContent = `${technician.nama} · ${technician.beban_kerja} servis aktif`;
+                    option.textContent = `${technician.nama} · ${technician.beban_kerja} aktif · antrean ${technician.antrean_hari} hari · saran ${formatTanggalSaran(technician.rekomendasi_selesai)}`;
                     select.append(option);
                 });
+                select.value = technicianWorkloads.some(technician => String(technician.id) === selectedTechnician)
+                    ? selectedTechnician
+                    : '';
+                updateEstimateSuggestion();
                 if (refreshServices) await loadActiveServices();
             } catch (error) {
                 console.error(error);
                 select.innerHTML = '<option value="">Beban teknisi gagal dimuat</option>';
+                document.getElementById('estimateSuggestion').textContent = error.message || 'Saran estimasi gagal dimuat.';
             }
         }
         loadTechnicianWorkloads();

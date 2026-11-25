@@ -22,6 +22,7 @@ class Service extends Model
         'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
         'estimated_completion_at', 'priority', 'accessories', 'physical_condition',
         'warranty_days', 'warranty_expires_at', 'service_rate_id',
+        'initial_estimated_completion_at', 'actual_completed_at',
     ];
 
     protected function casts(): array
@@ -33,6 +34,8 @@ class Service extends Model
             'nominal_dibayar' => 'integer',
             'kembalian' => 'integer',
             'estimated_completion_at' => 'date',
+            'initial_estimated_completion_at' => 'date',
+            'actual_completed_at' => 'datetime',
             'warranty_expires_at' => 'date',
             'accessories' => 'array',
             'warranty_days' => 'integer',

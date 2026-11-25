@@ -402,4 +402,67 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         $this->getJson('/api/admin/services-active?work_filter=completed')
             ->assertOk()->assertJsonCount(1, 'data');
     }
+
+    public function test_service_estimate_uses_median_history_queue_and_records_actual_completion(): void
+    {
+        $admin = $this->user('admin', 'admin_scheduling');
+        $technician = $this->user('teknisi', 'teknisi_scheduling');
+        foreach ([4, 6, 8] as $duration) {
+            $historical = $this->service(['jenis_unit' => 'Laptop', 'status' => 'selesai']);
+            $historical->forceFill([
+                'created_at' => today()->subDays(30),
+                'actual_completed_at' => today()->subDays(30 - $duration)->setTime(12, 0),
+            ])->save();
+        }
+        $this->service([
+            'teknisi_id' => $technician->id,
+            'status' => 'dikerjakan',
+            'jenis_unit' => 'Laptop',
+            'estimated_completion_at' => today()->addDays(2),
+        ]);
+
+        $this->actingAs($admin)->getJson('/api/admin/teknisi?jenis_unit=Laptop')
+            ->assertOk()
+            ->assertJsonPath('data.0.durasi_estimasi_hari', 6)
+            ->assertJsonPath('data.0.sumber_durasi', 'historis_jenis_unit')
+            ->assertJsonPath('data.0.antrean_hari', 3)
+            ->assertJsonPath('data.0.rekomendasi_selesai', today()->addDays(9)->toDateString());
+
+        $created = $this->postJson('/api/admin/service', [
+            'nama' => 'Pelanggan Baru',
+            'no_wa' => '08123456789',
+            'jenis_unit' => 'Laptop',
+            'merek_tipe' => 'Laptop Baru',
+            'keluhan' => 'Tidak menyala',
+            'teknisi_id' => $technician->id,
+        ])->assertOk()
+            ->assertJsonPath('estimated_completion_at', today()->addDays(9)->toDateString())
+            ->assertJsonPath('initial_estimated_completion_at', today()->addDays(9)->toDateString());
+
+        $service = Service::findOrFail($created->json('service_id'));
+        $this->putJson('/api/admin/service/status', [
+            'service_id' => $service->id,
+            'status_baru' => 'selesai',
+            'catatan_teknis' => 'Perbaikan selesai dan sudah diuji.',
+        ])->assertOk();
+        $this->assertNotNull($service->fresh()->actual_completed_at);
+        $this->assertSame(
+            today()->addDays(9)->toDateString(),
+            $service->fresh()->initial_estimated_completion_at->toDateString(),
+        );
+    }
+
+    public function test_service_estimate_uses_three_calendar_day_fallback_without_history(): void
+    {
+        $admin = $this->user('admin', 'admin_fallback_schedule');
+        $created = $this->actingAs($admin)->postJson('/api/admin/service', [
+            'nama' => 'Pelanggan Estimasi',
+            'no_wa' => '08123456789',
+            'jenis_unit' => 'Lainnya',
+            'merek_tipe' => 'Perangkat Baru',
+            'keluhan' => 'Tidak berfungsi',
+        ])->assertOk()
+            ->assertJsonPath('estimated_completion_at', today()->addDays(3)->toDateString())
+            ->assertJsonPath('initial_estimated_completion_at', today()->addDays(3)->toDateString());
+    }
 }

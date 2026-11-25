@@ -39,6 +39,7 @@ use App\Models\Sparepart;
 use App\Models\User;
 use App\Notifications\ServicePanelNotification;
 use App\Services\ServicePhotoImageProcessor;
+use App\Services\ServiceSchedulingService;
 use App\Services\WhatsApp\PhoneNumber;
 use App\Services\WhatsApp\WhatsAppNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -379,16 +380,32 @@ class ApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Akun staf berhasil dihapus']);
     }
 
-    public function technicians(): JsonResponse
+    public function technicians(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'jenis_unit' => ['nullable', 'string', 'max:100'],
+        ]);
+        $unitType = $filters['jenis_unit'] ?? 'Laptop';
+        $scheduler = app(ServiceSchedulingService::class);
+        $duration = $scheduler->durationEstimate($unitType);
         $query = User::where('role', 'teknisi')
             ->withCount(['assignedServices as beban_kerja' => fn ($services) => $services->whereNotIn('status', ['selesai', 'diambil', 'batal'])])
             ->orderBy('nama');
-        if (request()->user()?->role === 'teknisi') {
-            $query->whereKey(request()->user()->id);
+        if ($request->user()?->role === 'teknisi') {
+            $query->whereKey($request->user()->id);
         }
 
-        return response()->json(['status' => 'success', 'data' => $query->get(['id', 'nama', 'username', 'role'])]);
+        $technicians = $query->get(['id', 'nama', 'username', 'role'])
+            ->map(fn (User $technician) => [
+                ...$technician->only(['id', 'nama', 'username', 'role', 'beban_kerja']),
+                ...$scheduler->recommendationFor($technician, $duration['days']),
+                'durasi_estimasi_hari' => $duration['days'],
+                'sumber_durasi' => $duration['source'],
+            ])
+            ->sortBy('rekomendasi_selesai')
+            ->values();
+
+        return response()->json(['status' => 'success', 'data' => $technicians]);
     }
 
     public function activeServiceRates(): JsonResponse
@@ -470,6 +487,11 @@ class ApiController extends Controller
             do {
                 $noNota = 'SRV-'.now()->format('ymd').'-'.strtoupper(Str::random(3));
             } while (Service::where('no_nota', $noNota)->exists());
+            $schedule = app(ServiceSchedulingService::class)->bestRecommendation(
+                (string) ($data['jenis_unit'] ?? 'Lainnya'),
+                isset($data['teknisi_id']) ? (int) $data['teknisi_id'] : null,
+            );
+            $estimatedCompletionAt = $data['estimated_completion_at'] ?? $schedule['rekomendasi_selesai'];
             $service = Service::create([
                 'no_nota' => $noNota,
                 'customer_id' => $customer->id,
@@ -481,7 +503,8 @@ class ApiController extends Controller
                 'kelengkapan' => $data['kelengkapan'] ?? null,
                 'accessories' => $data['accessories'] ?? [],
                 'physical_condition' => $data['physical_condition'] ?? null,
-                'estimated_completion_at' => $data['estimated_completion_at'] ?? null,
+                'estimated_completion_at' => $estimatedCompletionAt,
+                'initial_estimated_completion_at' => $estimatedCompletionAt,
                 'warranty_days' => $data['warranty_days'] ?? 0,
                 'priority' => $data['priority'] ?? 'normal',
 
@@ -518,6 +541,8 @@ class ApiController extends Controller
             'message' => 'Unit berhasil didaftarkan',
             'no_nota' => $service->no_nota,
             'service_id' => $service->id,
+            'estimated_completion_at' => $service->estimated_completion_at?->toDateString(),
+            'initial_estimated_completion_at' => $service->initial_estimated_completion_at?->toDateString(),
             'kode_akses' => $code,
             'customer_token' => $code,
             'customer_link' => $customerLink,
@@ -645,6 +670,9 @@ class ApiController extends Controller
                 $requestedStatus = 'menunggu_persetujuan';
             }
             $service->changeStatus($requestedStatus, $request->user(), $data['catatan_teknis'] ?? null);
+            if ($service->status === 'selesai' && ! $service->actual_completed_at) {
+                $service->forceFill(['actual_completed_at' => now()])->save();
+            }
             $estimateChanged = $oldEstimate['total_biaya'] !== (float) $service->total_biaya
                 || $oldEstimate['estimated_completion_at'] !== $service->estimated_completion_at?->toDateString();
             if ($estimateChanged) {
