@@ -23,9 +23,12 @@ Route::view('/teknisi-login.html', 'teknisi-login');
 Route::view('/owner-login.html', 'owner-login');
 Route::view('/password/change', 'password-change')->middleware('auth');
 
-Route::view('/admin.html', 'admin')->middleware(['auth', 'password.changed', 'role:admin']);
-Route::view('/teknisi.html', 'teknisi')->middleware(['auth', 'password.changed', 'role:teknisi']);
-Route::view('/owner.html', 'owner')->middleware(['auth', 'password.changed', 'role:owner']);
+Route::view('/admin', 'admin')->middleware(['auth', 'password.changed', 'role:admin'])->name('admin.dashboard');
+Route::view('/teknisi', 'teknisi')->middleware(['auth', 'password.changed', 'role:teknisi'])->name('teknisi.dashboard');
+Route::view('/owner', 'owner')->middleware(['auth', 'password.changed', 'role:owner'])->name('owner.dashboard');
+Route::redirect('/admin.html', '/admin', 301);
+Route::redirect('/teknisi.html', '/teknisi', 301);
+Route::redirect('/owner.html', '/owner', 301);
 Route::view('/spareparts.html', 'spareparts')->middleware(['auth', 'password.changed', 'role:admin,owner']);
 Route::get('/owner/activity-logs', function (Request $request) {
     $filters = $request->validate([

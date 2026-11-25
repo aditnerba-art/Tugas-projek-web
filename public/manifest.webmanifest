@@ -2,7 +2,7 @@
     "name": "TECKFO Panel Teknisi",
     "short_name": "TECKFO Teknisi",
     "description": "Akses panel kerja teknisi TECKFO Service",
-    "start_url": "/teknisi.html",
+    "start_url": "/teknisi",
     "scope": "/",
     "display": "standalone",
     "background_color": "#f8fafc",

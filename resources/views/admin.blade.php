@@ -29,7 +29,7 @@
 <body data-theme="dashboard" class="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-900">
     <!-- Topbar Navigasi -->
     <div class="app-topbar">
-        <a href="admin.html" class="app-nav-link">🏢 Panel Admin</a>
+        <a href="{{ route('admin.dashboard') }}" class="app-nav-link">🏢 Panel Admin</a>
     </div>
 
     <!-- Main Content -->

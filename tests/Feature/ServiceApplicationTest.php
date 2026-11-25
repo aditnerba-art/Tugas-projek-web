@@ -29,7 +29,8 @@ class ServiceApplicationTest extends TestCase
             'password' => Hash::make('password123'),
             'role' => 'admin',
         ]);
-        $this->actingAs($admin)->get('/admin.html')->assertOk()->assertSee('Daftar Unit Servis Aktif');
+        $this->actingAs($admin)->get('/admin')->assertOk()->assertSee('Daftar Unit Servis Aktif');
+        $this->get('/admin.html')->assertStatus(301)->assertRedirect('/admin');
         $this->actingAs($admin)->postJson('/api/admin/service', [
             'nama' => 'Pelanggan Tes',
             'no_wa' => '08123456789',
@@ -150,7 +151,8 @@ class ServiceApplicationTest extends TestCase
             'password' => Hash::make('password123'),
             'role' => 'teknisi',
         ]);
-        $this->actingAs($technician)->get('/teknisi.html')->assertOk()->assertSee('Riwayat Status Servis');
+        $this->actingAs($technician)->get('/teknisi')->assertOk()->assertSee('Riwayat Status Servis');
+        $this->get('/teknisi.html')->assertStatus(301)->assertRedirect('/teknisi');
         $this->actingAs($technician)->getJson('/api/admin/customers')->assertForbidden();
         $this->get('/index.html')->assertStatus(301)->assertRedirect('/');
         $this->get('/')->assertOk()->assertSee('name="csrf-token"', false)
@@ -159,7 +161,8 @@ class ServiceApplicationTest extends TestCase
         $this->get('/missing-page')->assertNotFound()->assertSee('Halaman Tidak Ditemukan');
         $this->get('/owner/activity-logs')->assertForbidden()->assertSee('Akses Ditolak');
         auth()->logout();
-        $this->get('/admin.html')->assertRedirect('/admin-login.html');
+        $this->get('/admin.html')->assertStatus(301)->assertRedirect('/admin');
+        $this->get('/admin')->assertRedirect('/admin-login.html');
         $this->getJson('/api/admin/services-active')->assertUnauthorized();
     }
 
@@ -191,10 +194,11 @@ class ServiceApplicationTest extends TestCase
             'role' => 'owner',
         ]);
         $this->actingAs($owner);
-        $this->get('/owner.html')->assertOk()
+        $this->get('/owner')->assertOk()
             ->assertSee('Distribusi Status Servis')
             ->assertSee('reportStatusChart')
             ->assertSee('reportTechnicianChart');
+        $this->get('/owner.html')->assertStatus(301)->assertRedirect('/owner');
         $this->get('/owner/activity-logs')->assertOk()->assertSee('Log Aktivitas');
 
         $staffResponse = $this->postJson('/api/owner/staff', [

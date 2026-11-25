@@ -2,6 +2,7 @@
     const script = document.currentScript;
     const requiredRole = script?.dataset.role;
     const roleNames = { admin: 'Admin', teknisi: 'Teknisi', owner: 'Owner' };
+    const panelPaths = { admin: '/admin', teknisi: '/teknisi', owner: '/owner' };
 
     const styles = document.createElement('style');
     styles.textContent = `
@@ -28,7 +29,7 @@
         const result = await response.json();
         const user = result.user;
         if (!user || user.role !== requiredRole) {
-            if (['admin', 'teknisi', 'owner'].includes(user?.role)) window.location.replace(`/${user.role}.html`);
+            if (panelPaths[user?.role]) window.location.replace(panelPaths[user.role]);
             return;
         }
 

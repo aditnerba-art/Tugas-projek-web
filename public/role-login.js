@@ -1,6 +1,7 @@
 (() => {
     const role = document.body.dataset.role;
     const labels = { admin: 'Admin', teknisi: 'Teknisi', owner: 'Owner' };
+    const panelPaths = { admin: '/admin', teknisi: '/teknisi', owner: '/owner' };
     const form = document.getElementById('loginForm');
     const message = document.getElementById('loginMessage');
 
@@ -8,8 +9,8 @@
         if (!response.ok) return;
         const { user } = await response.json();
         if (user?.must_change_password) return window.location.replace('/password/change');
-        if (user?.role === role) window.location.replace(`/${role}.html`);
-        else if (['admin', 'teknisi', 'owner'].includes(user?.role)) window.location.replace(`/${user.role}.html`);
+        if (user?.role === role) window.location.replace(panelPaths[role]);
+        else if (panelPaths[user?.role]) window.location.replace(panelPaths[user.role]);
     }).catch(() => {});
 
     form.addEventListener('submit', async event => {
@@ -35,7 +36,7 @@
                 window.location.assign('/password/change');
                 return;
             }
-            window.location.assign(`/${role}.html`);
+            window.location.assign(panelPaths[role]);
         } catch (error) {
             message.textContent = error.message || `Tidak dapat login sebagai ${labels[role] || 'staf'}.`;
         } finally {

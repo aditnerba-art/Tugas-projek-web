@@ -2,6 +2,8 @@
 
 Aplikasi servis komputer berbasis Laravel 12 dengan portal pelanggan, panel admin/kasir, panel teknisi, dan dashboard owner.
 
+Panel staf tersedia melalui route Laravel `/admin`, `/teknisi`, dan `/owner`. URL `.html` sebelumnya tetap aktif sebagai redirect permanen ke route masing-masing.
+
 ### Instalasi dan menjalankan aplikasi
 
 Persyaratan: PHP 8.2+, Composer, Node.js >= 20.19 dan npm, serta ekstensi PHP `fileinfo`, `gd`, `mbstring`, `zip`, `openssl`, dan driver `pdo_mysql` atau `pdo_sqlite` sesuai database. `zip` dan `openssl` diperlukan untuk backup terenkripsi. Dari root proyek:

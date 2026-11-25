@@ -12,7 +12,7 @@
     <main class="mx-auto max-w-6xl space-y-6">
         <header class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <a class="text-sm font-bold text-amber-700" href="/owner.html">← Kembali ke panel owner</a>
+                <a class="text-sm font-bold text-amber-700" href="{{ route('owner.dashboard') }}">← Kembali ke panel owner</a>
                 <h1 class="mt-2 text-2xl font-extrabold text-[#0B1E3F]">Notifikasi WhatsApp</h1>
                 <p class="mt-1 text-sm text-slate-600">Ubah template pesan dan tinjau status pengiriman.</p>
             </div>

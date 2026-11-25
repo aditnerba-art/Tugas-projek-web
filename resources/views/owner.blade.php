@@ -60,7 +60,7 @@
 
     <aside id="ownerSidebar" class="fixed inset-y-0 left-0 z-50 flex h-screen w-64 -translate-x-full flex-col border-r-2 border-amber-400 bg-[#0B1E3F] text-white transition-transform duration-300 md:sticky md:top-0 md:translate-x-0">
         <div class="border-b border-amber-400/40 px-6 py-6">
-            <a href="/owner.html" class="flex items-center gap-3 text-white no-underline">
+            <a href="{{ route('owner.dashboard') }}" class="flex items-center gap-3 text-white no-underline">
                 <span class="grid h-11 w-11 place-items-center rounded-xl border border-amber-400/70 bg-white">
                     <img src="{{ asset('teckfo-logo.png') }}" alt="Logo Teckfo Komputer" class="h-9 w-9 rounded-lg object-contain">
                 </span>

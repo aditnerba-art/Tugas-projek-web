@@ -35,7 +35,7 @@
             <option value="80" @selected($paper === '80')>Thermal 80 mm</option>
         </select>
         <button type="button" onclick="window.print()">Cetak / Simpan PDF</button>
-        <a href="/admin.html">Kembali</a>
+        <a href="{{ route('admin.dashboard') }}">Kembali</a>
     </div>
     <main class="receipt">
         <h1>{{ $type === 'intake' ? 'TANDA TERIMA SERVIS' : 'NOTA PEMBAYARAN' }}</h1>

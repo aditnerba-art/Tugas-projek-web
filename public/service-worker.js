@@ -1,4 +1,4 @@
-const CACHE_NAME = 'teckfo-technician-shell-v1';
+const CACHE_NAME = 'teckfo-technician-shell-v2';
 const OFFLINE_PAGE = '/offline-teknisi.html';
 
 self.addEventListener('install', event => {
@@ -24,7 +24,7 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (event.request.mode === 'navigate' && requestUrl.pathname === '/teknisi.html') {
+    if (event.request.mode === 'navigate' && requestUrl.pathname === '/teknisi') {
         event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE_PAGE)));
     }
 });

@@ -14,7 +14,7 @@
             <h1 class="text-2xl font-extrabold text-[#0B1E3F]">Log Aktivitas</h1>
             <p class="mt-1 text-sm text-slate-600">Cari, filter, dan urutkan riwayat perubahan panel.</p>
         </div>
-        <a class="font-bold text-amber-700" href="/owner.html">Kembali ke dashboard</a>
+        <a class="font-bold text-amber-700" href="{{ route('owner.dashboard') }}">Kembali ke dashboard</a>
     </header>
     <form method="get" class="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
         <input name="search" value="{{ $filters['search'] ?? '' }}" type="search" placeholder="Cari aksi, subjek, pengguna, IP" class="rounded-lg border border-slate-300 px-3 py-2 text-sm lg:col-span-2">

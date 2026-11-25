@@ -30,7 +30,7 @@
 
 <body data-theme="dashboard" class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans">
     <div class="app-topbar">
-        <a href="teknisi.html" class="app-nav-link">🛠️ Panel Teknisi</a>
+        <a href="{{ route('teknisi.dashboard') }}" class="app-nav-link">🛠️ Panel Teknisi</a>
     </div>
 
     <!-- Main Content -->
