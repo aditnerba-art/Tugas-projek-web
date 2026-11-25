@@ -43,7 +43,7 @@
                         ⚡ Workbench & Service Log
                     </span>
                     <h1 class="text-2xl font-extrabold text-[#0B1E3F] tracking-tight">Panel Kerja Teknisi</h1>
-                    <p class="text-xs text-slate-500 mt-1">Diagnosa kerusakan, pasang onderdil resmi, input biaya jasa, dan perbarui log status servis</p>
+                    <p class="text-xs text-slate-500 mt-1">Tinjau deadline, mulai pekerjaan, dan catat progres servis yang ditugaskan.</p>
                 </div>
                 <button onclick="initData()"
                     class="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-300 transition shadow-sm">
@@ -52,30 +52,60 @@
             </div>
 
             <!-- Form Update Status -->
-            <div class="bg-white p-7 sm:p-8 rounded-2xl border border-slate-200 border-t-4 border-amber-400 shadow-sm space-y-6">
-                <div>
-                    <div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <input id="serviceSearchFilter" type="search" placeholder="Cari nota, pelanggan, unit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                        <input id="serviceCustomerFilter" type="search" placeholder="Filter nama pelanggan" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                        <select id="serviceStatusFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                            <option value="">Semua status</option><option value="masuk">Masuk</option><option value="diperiksa">Diperiksa</option>
-                            <option value="menunggu_persetujuan">Menunggu persetujuan</option><option value="dikerjakan">Dikerjakan</option>
-                            <option value="menunggu_sparepart">Menunggu sparepart</option><option value="selesai">Selesai</option><option value="batal">Batal</option>
-                        </select>
-                        <input id="serviceDateFromFilter" type="date" aria-label="Tanggal servis dari" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                        <input id="serviceDateToFilter" type="date" aria-label="Tanggal servis sampai" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                        <select id="serviceSortFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                            <option value="created_at:desc">Terbaru</option><option value="created_at:asc">Terlama</option>
-                            <option value="priority:asc">Prioritas</option><option value="status:asc">Status</option>
-                        </select>
+            <section class="overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white shadow-sm" aria-labelledby="jobListTitle">
+                <div class="space-y-4 p-5 sm:p-7">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 id="jobListTitle" class="text-lg font-extrabold text-[#0B1E3F]">Daftar pekerjaan</h2>
+                            <p class="mt-1 text-xs text-slate-500">Pekerjaan yang ditugaskan kepada Anda, diurutkan menurut deadline dan prioritas.</p>
+                        </div>
+                        <label class="w-full sm:max-w-xs">
+                            <span class="sr-only">Cari pekerjaan</span>
+                            <input id="serviceSearchFilter" type="search" placeholder="Cari nota, pelanggan, unit"
+                                class="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                        </label>
                     </div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Pilih Unit Servis yang Dikerjakan <span class="text-rose-500">*</span></label>
-                    <select id="service_id" required onchange="onSelectService()"
-                        class="w-full py-3 px-3.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 shadow-sm">
-                        <option value="">-- Pilih Unit Servis --</option>
-                    </select>
-                    <div id="serviceListPagination" class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" aria-live="polite"></div>
+                    <div class="flex flex-wrap gap-2" role="tablist" aria-label="Filter status pekerjaan">
+                        <button type="button" class="work-filter-tab min-h-11 rounded-lg border border-[#0B1E3F] bg-[#0B1E3F] px-4 py-2 text-sm font-bold text-white" data-work-filter="all" role="tab" aria-selected="true">
+                            Semua <span id="workCountAll" class="ml-1 rounded-full bg-white/20 px-2 py-0.5">0</span>
+                        </button>
+                        <button type="button" class="work-filter-tab min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" data-work-filter="not_started" role="tab" aria-selected="false">
+                            Belum dikerjakan <span id="workCountNotStarted" class="ml-1 rounded-full bg-slate-100 px-2 py-0.5">0</span>
+                        </button>
+                        <button type="button" class="work-filter-tab min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" data-work-filter="in_progress" role="tab" aria-selected="false">
+                            Sedang dikerjakan <span id="workCountInProgress" class="ml-1 rounded-full bg-slate-100 px-2 py-0.5">0</span>
+                        </button>
+                        <button type="button" class="work-filter-tab min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" data-work-filter="completed" role="tab" aria-selected="false">
+                            Selesai <span id="workCountCompleted" class="ml-1 rounded-full bg-slate-100 px-2 py-0.5">0</span>
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="w-full min-w-[980px] text-left text-sm">
+                            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                                <tr>
+                                    <th scope="col" class="px-3 py-3">Tanggal masuk</th>
+                                    <th scope="col" class="px-3 py-3">Pelanggan / unit / keluhan</th>
+                                    <th scope="col" class="px-3 py-3">Prioritas</th>
+                                    <th scope="col" class="px-3 py-3">Deadline</th>
+                                    <th scope="col" class="px-3 py-3">Sisa hari</th>
+                                    <th scope="col" class="px-3 py-3">Status</th>
+                                    <th scope="col" class="px-3 py-3">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serviceListBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    <p id="serviceListMessage" class="text-sm text-slate-600" aria-live="polite">Memuat pekerjaan…</p>
+                    <div id="serviceListPagination" class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" aria-live="polite"></div>
                 </div>
+            </section>
+
+            <section id="serviceDetailWrap" class="hidden space-y-6 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="serviceDetailTitle">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 id="serviceDetailTitle" class="text-lg font-extrabold text-[#0B1E3F]">Detail dan pembaruan pekerjaan</h2>
+                    <button type="button" onclick="closeServiceDetail()" class="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700">Tutup detail</button>
+                </div>
+                <select id="service_id" class="hidden" aria-hidden="true"></select>
 
                 <!-- Info Banner Unit yang Dipilih -->
                 <div id="unitInfoBanner" class="hidden p-5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
@@ -193,7 +223,7 @@
                         <span>⚡</span> Simpan Progres Pengerjaan
                     </button>
                 </form>
-            </div>
+            </section>
         </div>
     </main>
 
@@ -202,6 +232,7 @@
         let sparepartsCache = [];
         let serviceRatesCache = [];
         let pendingServicePage = 1;
+        let currentWorkFilter = 'all';
 
         function renderStatusTimeline(logs) {
             const wrap = document.getElementById('statusTimelineWrap');
@@ -264,47 +295,205 @@
             container.append(summary, buttons);
         }
 
+        function formatWorkDate(value) {
+            if (!value) return 'Belum ditentukan';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime())
+                ? 'Belum ditentukan'
+                : new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeZone: 'Asia/Jakarta' }).format(date);
+        }
+
+        function remainingDays(deadline) {
+            if (!deadline) return null;
+            const parts = String(deadline).slice(0, 10).split('-').map(Number);
+            if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+            const todayParts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+            }).formatToParts(new Date());
+            const today = Object.fromEntries(todayParts.map(part => [part.type, part.value]));
+            return Math.round((Date.UTC(parts[0], parts[1] - 1, parts[2])
+                - Date.UTC(Number(today.year), Number(today.month) - 1, Number(today.day))) / 86400000);
+        }
+
+        function appendCell(row, value, className = 'px-3 py-3 align-top') {
+            const cell = document.createElement('td');
+            cell.className = className;
+            cell.textContent = value;
+            row.appendChild(cell);
+            return cell;
+        }
+
+        function renderServiceRows() {
+            const body = document.getElementById('serviceListBody');
+            const message = document.getElementById('serviceListMessage');
+            const select = document.getElementById('service_id');
+            body.replaceChildren();
+            select.replaceChildren(new Option('-- Pilih pekerjaan --', ''));
+
+            servicesCache.forEach(service => {
+                select.add(new Option(`[${service.no_nota}] ${service.nama_pelanggan} - ${service.merek_tipe}`, service.id));
+                const row = document.createElement('tr');
+                const due = remainingDays(service.estimated_completion_at);
+                appendCell(row, formatWorkDate(service.created_at));
+
+                const customerCell = document.createElement('td');
+                customerCell.className = 'px-3 py-3 align-top';
+                const customer = document.createElement('strong');
+                customer.className = 'block text-slate-900';
+                customer.textContent = service.nama_pelanggan || 'Pelanggan';
+                const unit = document.createElement('span');
+                unit.className = 'mt-1 block text-xs font-semibold text-slate-700';
+                unit.textContent = `${service.jenis_unit || 'Unit'} · ${service.merek_tipe || '-'}`;
+                const complaint = document.createElement('span');
+                complaint.className = 'mt-1 block max-w-xs whitespace-normal text-xs text-slate-500';
+                complaint.textContent = service.keluhan || 'Keluhan belum dicatat';
+                customerCell.append(customer, unit, complaint);
+                row.appendChild(customerCell);
+
+                const priorityNames = { urgent: 'Mendesak', high: 'Tinggi', normal: 'Normal' };
+                const priorityCell = appendCell(row, priorityNames[service.priority] || 'Normal');
+                priorityCell.className += service.priority === 'urgent'
+                    ? ' font-extrabold text-rose-700'
+                    : service.priority === 'high' ? ' font-bold text-amber-700' : ' text-slate-600';
+                appendCell(row, formatWorkDate(service.estimated_completion_at));
+
+                const remainingCell = document.createElement('td');
+                remainingCell.className = 'px-3 py-3 align-top';
+                const remaining = document.createElement('span');
+                remaining.className = 'inline-flex min-h-8 items-center rounded-full px-2.5 text-xs font-bold';
+                if (due === null) {
+                    remaining.textContent = 'Belum ada deadline';
+                    remaining.className += ' bg-slate-100 text-slate-600';
+                } else if (due < 0) {
+                    remaining.textContent = `Terlambat ${Math.abs(due)} hari`;
+                    remaining.className += ' bg-rose-100 text-rose-800';
+                } else if (due <= 2) {
+                    remaining.textContent = due === 0 ? 'Deadline hari ini' : `Sisa ${due} hari · Mendesak`;
+                    remaining.className += ' bg-amber-100 text-amber-900';
+                } else {
+                    remaining.textContent = `Sisa ${due} hari`;
+                    remaining.className += ' bg-emerald-100 text-emerald-800';
+                }
+                remainingCell.appendChild(remaining);
+                row.appendChild(remainingCell);
+
+                const statusNames = {
+                    masuk: 'Belum dikerjakan', diperiksa: 'Diperiksa',
+                    menunggu_persetujuan: 'Menunggu persetujuan', dikerjakan: 'Sedang dikerjakan',
+                    menunggu_sparepart: 'Menunggu sparepart', selesai: 'Selesai',
+                    diambil: 'Sudah diambil', batal: 'Dibatalkan',
+                };
+                const statusCell = appendCell(row, statusNames[service.status] || service.status || '-');
+                statusCell.className += service.status === 'menunggu_persetujuan'
+                    ? ' font-bold text-amber-800'
+                    : ['selesai', 'diambil'].includes(service.status) ? ' font-bold text-emerald-700' : ' text-slate-700';
+
+                const actionCell = document.createElement('td');
+                actionCell.className = 'px-3 py-3 align-top';
+                const actions = document.createElement('div');
+                actions.className = 'flex flex-col gap-2';
+                if (['masuk', 'diperiksa'].includes(service.status)) {
+                    const startButton = document.createElement('button');
+                    startButton.type = 'button';
+                    startButton.textContent = 'Mulai';
+                    startButton.className = 'min-h-11 rounded-lg bg-[#0B1E3F] px-3 py-2 text-xs font-extrabold text-white hover:bg-[#132F63]';
+                    startButton.addEventListener('click', () => startService(service.id, startButton));
+                    actions.appendChild(startButton);
+                }
+                const detailButton = document.createElement('button');
+                detailButton.type = 'button';
+                detailButton.textContent = 'Detail';
+                detailButton.className = 'min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50';
+                detailButton.addEventListener('click', () => openServiceDetail(service.id));
+                actions.appendChild(detailButton);
+                actionCell.appendChild(actions);
+                row.appendChild(actionCell);
+                body.appendChild(row);
+            });
+
+            message.textContent = servicesCache.length ? `${servicesCache.length} pekerjaan ditampilkan.` : 'Tidak ada pekerjaan pada filter ini.';
+        }
+
+        function updateWorkCounts(counts = {}) {
+            document.getElementById('workCountAll').textContent = counts.all || 0;
+            document.getElementById('workCountNotStarted').textContent = counts.not_started || 0;
+            document.getElementById('workCountInProgress').textContent = counts.in_progress || 0;
+            document.getElementById('workCountCompleted').textContent = counts.completed || 0;
+        }
+
+        function setWorkFilter(filter) {
+            currentWorkFilter = filter;
+            document.querySelectorAll('.work-filter-tab').forEach(button => {
+                const active = button.dataset.workFilter === filter;
+                button.setAttribute('aria-selected', String(active));
+                button.className = `work-filter-tab min-h-11 rounded-lg border px-4 py-2 text-sm font-bold ${
+                    active ? 'border-[#0B1E3F] bg-[#0B1E3F] text-white' : 'border-slate-300 bg-white text-slate-700'
+                }`;
+            });
+        }
+
+        function openServiceDetail(serviceId) {
+            const select = document.getElementById('service_id');
+            select.value = String(serviceId);
+            document.getElementById('serviceDetailWrap').classList.remove('hidden');
+            onSelectService();
+            document.getElementById('serviceDetailTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeServiceDetail() {
+            document.getElementById('service_id').value = '';
+            document.getElementById('unitInfoBanner').classList.add('hidden');
+            document.getElementById('statusTimelineWrap').classList.add('hidden');
+            document.getElementById('serviceDetailWrap').classList.add('hidden');
+        }
+
+        async function startService(serviceId, button) {
+            button.disabled = true;
+            try {
+                const response = await fetch('/api/admin/service/status', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        service_id: serviceId,
+                        status_baru: 'dikerjakan',
+                        catatan_teknis: 'Pekerjaan dimulai oleh teknisi.',
+                    }),
+                });
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Pekerjaan gagal dimulai.');
+                await loadPendingServices(1);
+            } catch (error) {
+                alert(error.message || 'Pekerjaan gagal dimulai. Coba lagi.');
+                button.disabled = false;
+            }
+        }
+
         async function loadPendingServices(page = 1) {
             pendingServicePage = page;
             const select = document.getElementById('service_id');
-            select.innerHTML = '<option value="">Memuat unit servis…</option>';
+            document.getElementById('serviceListMessage').textContent = 'Memuat pekerjaan…';
             try {
                 const params = new URLSearchParams({
                     page: String(pendingServicePage),
                     per_page: '20',
-                    sort: document.getElementById('serviceSortFilter').value.split(':')[0],
-                    direction: document.getElementById('serviceSortFilter').value.split(':')[1],
+                    work_filter: currentWorkFilter,
                 });
                 const search = document.getElementById('serviceSearchFilter').value.trim();
-                const customer = document.getElementById('serviceCustomerFilter').value.trim();
-                const status = document.getElementById('serviceStatusFilter').value;
-                const dateFrom = document.getElementById('serviceDateFromFilter').value;
-                const dateTo = document.getElementById('serviceDateToFilter').value;
                 if (search) params.set('search', search);
-                if (customer) params.set('customer', customer);
-                if (status) params.set('status', status);
-                if (dateFrom) params.set('date_from', dateFrom);
-                if (dateTo) params.set('date_to', dateTo);
                 const res = await fetch(`/api/admin/services-active?${params}`);
                 const result = await res.json();
                 if (!res.ok || result.status !== 'success') throw new Error(result.message || 'Daftar servis gagal dimuat.');
 
                 servicesCache = result.data;
-                select.innerHTML = servicesCache.length
-                    ? '<option value="">-- Pilih Unit Servis --</option>'
-                    : '<option value="">Tidak ada servis yang cocok</option>';
-
-                servicesCache.forEach(srv => {
-                    const opt = document.createElement('option');
-                    opt.value = srv.id;
-                    const tekName = srv.nama_teknisi ? `[PIC: ${srv.nama_teknisi}]` : '[Belum Ditugaskan]';
-                    opt.innerText = `[${srv.no_nota}] ${srv.nama_pelanggan} - ${srv.merek_tipe} ${tekName} (${(srv.status || '').toUpperCase()})`;
-                    select.appendChild(opt);
-                });
+                renderServiceRows();
+                updateWorkCounts(result.meta.work_counts);
                 renderServicePagination(result.meta);
             } catch (err) {
-                select.innerHTML = '<option value="">Gagal memuat servis</option>';
-                document.getElementById('serviceListPagination').textContent = err.message || 'Periksa koneksi lalu coba lagi.';
+                servicesCache = [];
+                renderServiceRows();
+                document.getElementById('serviceListMessage').textContent = err.message || 'Daftar pekerjaan gagal dimuat. Periksa koneksi lalu coba lagi.';
+                document.getElementById('serviceListPagination').replaceChildren();
+                updateWorkCounts();
             }
         }
 
@@ -386,19 +575,26 @@
                     const resNota = await fetch(`/api/admin/nota/${srv.no_nota}`);
                     const notaRes = await resNota.json();
                     const listWrap = document.getElementById('banner_onderdil_list');
-                    listWrap.innerHTML = '';
+                    listWrap.replaceChildren();
 
                     if (notaRes.status === 'success' && notaRes.data.onderdil && notaRes.data.onderdil.length > 0) {
                         notaRes.data.onderdil.forEach(item => {
-                            listWrap.innerHTML += `
-                                <div class="flex justify-between items-center bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs">
-                                    <span class="font-semibold text-slate-800">• ${item.nama_barang} (x${item.jumlah})</span>
-                                    <span class="font-bold text-emerald-700">Rp ${Number(item.subtotal).toLocaleString('id-ID')}</span>
-                                </div>
-                            `;
+                            const row = document.createElement('div');
+                            row.className = 'flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs';
+                            const name = document.createElement('span');
+                            name.className = 'font-semibold text-slate-800';
+                            name.textContent = `• ${item.nama_barang} (x${item.jumlah})`;
+                            const subtotal = document.createElement('span');
+                            subtotal.className = 'font-bold text-emerald-700';
+                            subtotal.textContent = `Rp ${Number(item.subtotal).toLocaleString('id-ID')}`;
+                            row.append(name, subtotal);
+                            listWrap.appendChild(row);
                         });
                     } else {
-                        listWrap.innerHTML = '<span class="text-slate-500 italic">Belum ada onderdil terpasang.</span>';
+                        const empty = document.createElement('span');
+                        empty.className = 'text-slate-500 italic';
+                        empty.textContent = 'Belum ada onderdil terpasang.';
+                        listWrap.appendChild(empty);
                     }
                     renderStatusTimeline(notaRes.data?.status_timeline || []);
                 } catch (e) {
@@ -461,18 +657,24 @@
             await Promise.all([loadPendingServices(), loadSpareparts(), loadServiceRates()]);
             if (servicesCache.some(service => String(service.id) === selectedServiceId)) {
                 select.value = selectedServiceId;
+                document.getElementById('serviceDetailWrap').classList.remove('hidden');
                 await onSelectService();
             } else {
                 select.value = '';
+                closeServiceDetail();
                 document.getElementById('statusTimelineWrap').classList.add('hidden');
             }
         }
         initData();
         let serviceFilterTimer;
-        ['serviceSearchFilter', 'serviceCustomerFilter', 'serviceStatusFilter', 'serviceDateFromFilter', 'serviceDateToFilter', 'serviceSortFilter'].forEach(id => {
-            document.getElementById(id).addEventListener(id === 'serviceSearchFilter' ? 'input' : 'change', () => {
-                clearTimeout(serviceFilterTimer);
-                serviceFilterTimer = setTimeout(() => loadPendingServices(1), id === 'serviceSearchFilter' ? 250 : 0);
+        document.getElementById('serviceSearchFilter').addEventListener('input', () => {
+            clearTimeout(serviceFilterTimer);
+            serviceFilterTimer = setTimeout(() => loadPendingServices(1), 250);
+        });
+        document.querySelectorAll('.work-filter-tab').forEach(button => {
+            button.addEventListener('click', () => {
+                setWorkFilter(button.dataset.workFilter);
+                loadPendingServices(1);
             });
         });
 

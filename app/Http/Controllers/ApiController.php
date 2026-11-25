@@ -705,9 +705,39 @@ class ApiController extends Controller
             ->orderByRaw('CASE priority WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END', ['urgent', 'high', 'normal']);
         if ($request->user()->role === 'teknisi') {
             $query->where('teknisi_id', $request->user()->id);
+            if (! $request->filled('sort')) {
+                $query->reorder()
+                    ->orderByRaw("CASE WHEN status IN ('selesai', 'diambil', 'batal') THEN 1 ELSE 0 END")
+                    ->orderByRaw('CASE WHEN estimated_completion_at IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('estimated_completion_at')
+                    ->orderByRaw('CASE priority WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END', ['urgent', 'high', 'normal'])
+                    ->orderByDesc('created_at');
+            }
         }
         if ($request->user()->role === 'admin') {
             $query->whereHas('customer', fn ($customers) => $customers->where('nama', '<>', 'Pelanggan dihapus')->where('no_wa', 'not like', 'DIHAPUS-%'));
+        }
+        $statusCounts = (clone $query)
+            ->reorder()
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+        $workCounts = [
+            'all' => (int) $statusCounts->sum(),
+            'not_started' => (int) $statusCounts->only(['masuk', 'diperiksa', 'menunggu_persetujuan'])->sum(),
+            'in_progress' => (int) $statusCounts->only(['dikerjakan', 'menunggu_sparepart'])->sum(),
+            'completed' => (int) $statusCounts->only(['selesai', 'diambil'])->sum(),
+        ];
+        $workFilter = $request->validate([
+            'work_filter' => ['nullable', Rule::in(['all', 'not_started', 'in_progress', 'completed'])],
+        ])['work_filter'] ?? 'all';
+        if ($request->user()->role === 'teknisi') {
+            match ($workFilter) {
+                'not_started' => $query->whereIn('status', ['masuk', 'diperiksa', 'menunggu_persetujuan']),
+                'in_progress' => $query->whereIn('status', ['dikerjakan', 'menunggu_sparepart']),
+                'completed' => $query->whereIn('status', ['selesai', 'diambil']),
+                default => null,
+            };
         }
         if (! empty($filters['search'])) {
             $search = trim($filters['search']);
@@ -745,7 +775,7 @@ class ApiController extends Controller
                 'id', 'no_nota', 'jenis_unit', 'merek_tipe', 'status', 'biaya_jasa', 'total_biaya',
                 'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
                 'created_at', 'teknisi_id', 'customer_id', 'priority', 'estimated_completion_at', 'warranty_days',
-                'service_rate_id',
+                'service_rate_id', 'keluhan',
                 'warranty_expires_at', 'accessories', 'physical_condition',
             ]),
             'nama_teknisi' => $service->technician?->nama,
@@ -756,7 +786,7 @@ class ApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $data,
-            'meta' => $this->paginationMeta($services),
+            'meta' => [...$this->paginationMeta($services), 'work_counts' => $workCounts],
         ]);
     }
 

@@ -357,4 +357,49 @@ class ServiceWorkflowEnhancementsTest extends TestCase
         $this->actingAs($admin)->get('/api/admin/receipts/'.$service->id.'/intake?paper=58')
             ->assertOk()->assertSee($service->tracking_key)->assertSee('Thermal 58 mm');
     }
+
+    public function test_technician_job_list_counts_filters_and_orders_assigned_work_by_deadline_then_priority(): void
+    {
+        $technician = $this->user('teknisi', 'teknisi_job_list');
+        $this->service([
+            'teknisi_id' => $technician->id,
+            'status' => 'dikerjakan',
+            'priority' => 'normal',
+            'estimated_completion_at' => today()->addDays(2),
+        ]);
+        $urgent = $this->service([
+            'teknisi_id' => $technician->id,
+            'status' => 'masuk',
+            'priority' => 'urgent',
+            'estimated_completion_at' => today()->addDays(2),
+        ]);
+        $this->service([
+            'teknisi_id' => $technician->id,
+            'status' => 'dikerjakan',
+            'priority' => 'high',
+            'estimated_completion_at' => today()->addDays(5),
+        ]);
+        $this->service([
+            'teknisi_id' => $technician->id,
+            'status' => 'selesai',
+            'estimated_completion_at' => today()->addDay(),
+        ]);
+        $this->service(['status' => 'masuk']);
+
+        $response = $this->actingAs($technician)->getJson('/api/admin/services-active')->assertOk();
+        $response->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.0.id', $urgent->id)
+            ->assertJsonPath('data.0.keluhan', 'Tidak menyala')
+            ->assertJsonPath('meta.work_counts.all', 4)
+            ->assertJsonPath('meta.work_counts.not_started', 1)
+            ->assertJsonPath('meta.work_counts.in_progress', 2)
+            ->assertJsonPath('meta.work_counts.completed', 1);
+
+        $this->getJson('/api/admin/services-active?work_filter=not_started')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $urgent->id);
+        $this->getJson('/api/admin/services-active?work_filter=in_progress')
+            ->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/admin/services-active?work_filter=completed')
+            ->assertOk()->assertJsonCount(1, 'data');
+    }
 }
