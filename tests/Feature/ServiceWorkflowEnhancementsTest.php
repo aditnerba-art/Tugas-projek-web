@@ -505,6 +505,12 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.photos.0.kind', 'intake')
             ->assertJsonPath('data.photos.0.thumbnail_url', $uploadResponse->json('data.0.thumbnail_url'));
+        $this->actingAs($technician)->get('/teknisi')
+            ->assertOk()
+            ->assertSee('Foto kondisi servis')
+            ->assertSee('+ Tambah foto')
+            ->assertSee('Sebelum servis')
+            ->assertSee('Sesudah servis');
         $photoUrl = $tracking->json('data.photos.0.url');
         $this->assertStringContainsString('tracking_key='.$service->tracking_key, $photoUrl);
 
