@@ -675,9 +675,6 @@ class ApiController extends Controller
                 $partsTotal = $service->items()->where('approval_status', '<>', 'cancelled')->sum('subtotal');
                 $service->total_biaya = (int) $service->biaya_jasa + (int) $partsTotal;
             }
-            if (array_key_exists('estimated_completion_at', $data)) {
-                $service->estimated_completion_at = $data['estimated_completion_at'];
-            }
             if (array_key_exists('warranty_days', $data)) {
                 $service->warranty_days = $data['warranty_days'];
             }
