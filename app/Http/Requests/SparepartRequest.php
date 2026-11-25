@@ -15,6 +15,9 @@ class SparepartRequest extends FormRequest
     public function rules(): array
     {
         $sparepart = $this->route('sparepart');
+        $priceRules = $this->user()?->role === 'owner'
+            ? ['nullable', 'numeric', 'min:0']
+            : ['prohibited'];
 
         return [
             'kode_barang' => [
@@ -24,8 +27,8 @@ class SparepartRequest extends FormRequest
             'nama_barang' => ['required', 'string', 'max:150'],
             'stok' => ['nullable', 'integer', 'min:0'],
             'stok_minimum' => ['nullable', 'integer', 'min:0'],
-            'harga_beli' => ['nullable', 'numeric', 'min:0'],
-            'harga_jual' => ['nullable', 'numeric', 'min:0'],
+            'harga_beli' => $priceRules,
+            'harga_jual' => $priceRules,
         ];
     }
 }

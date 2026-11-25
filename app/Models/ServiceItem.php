@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceItem extends Model
 {
-    protected $fillable = ['service_id', 'sparepart_id', 'jumlah', 'harga_modal', 'harga_satuan', 'subtotal'];
+    protected $fillable = ['service_id', 'sparepart_id', 'jumlah', 'harga_modal', 'harga_satuan', 'subtotal', 'approval_status'];
 
     protected function casts(): array
     {

@@ -21,7 +21,7 @@ class Service extends Model
         'keluhan', 'kelengkapan', 'status', 'biaya_jasa', 'total_biaya',
         'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
         'estimated_completion_at', 'priority', 'accessories', 'physical_condition',
-        'warranty_days', 'warranty_expires_at',
+        'warranty_days', 'warranty_expires_at', 'service_rate_id',
     ];
 
     protected function casts(): array
@@ -59,6 +59,11 @@ class Service extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ServiceItem::class);
+    }
+
+    public function serviceRate(): BelongsTo
+    {
+        return $this->belongsTo(ServiceRate::class);
     }
 
     public function logs(): HasMany

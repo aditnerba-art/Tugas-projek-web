@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\ServicePhotoController;
 use App\Models\ActivityLog;
+use App\Models\ServiceRate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
@@ -91,6 +92,10 @@ Route::prefix('api')->group(function () {
         Route::put('/owner/notification-templates/{template}', [ApiController::class, 'updateNotificationTemplate']);
         Route::get('/owner/notification-logs', [ApiController::class, 'notificationLogs']);
         Route::post('/owner/notification-logs/{notificationLog}/resend', [ApiController::class, 'resendNotification']);
+        Route::get('/owner/service-rates', [ApiController::class, 'serviceRates']);
+        Route::post('/owner/service-rates', [ApiController::class, 'createServiceRate']);
+        Route::put('/owner/service-rates/{serviceRate}', [ApiController::class, 'updateServiceRate']);
+        Route::delete('/owner/service-rates/{serviceRate}', [ApiController::class, 'deleteServiceRate']);
     });
     Route::middleware(['auth', 'password.changed', 'role:admin'])->group(function () {
         Route::get('/admin/users', [ApiController::class, 'users']);
@@ -118,6 +123,7 @@ Route::prefix('api')->group(function () {
     Route::middleware(['auth', 'password.changed', 'role:admin,teknisi,owner'])->group(function () {
         Route::get('/spareparts', [ApiController::class, 'spareparts']);
         Route::get('/spareparts/{sparepart}', [ApiController::class, 'sparepart']);
+        Route::get('/service-rates', [ApiController::class, 'activeServiceRates']);
     });
     Route::middleware(['auth', 'password.changed', 'role:admin,owner'])->group(function () {
         Route::post('/spareparts', [ApiController::class, 'createSparepart']);
