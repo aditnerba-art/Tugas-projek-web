@@ -25,6 +25,11 @@ Route::view('/offline-teknisi', 'offline-teknisi');
 
 Route::view('/admin', 'admin')->middleware(['auth', 'password.changed', 'role:admin'])->name('admin.dashboard');
 Route::view('/teknisi', 'teknisi')->middleware(['auth', 'password.changed', 'role:teknisi'])->name('teknisi.dashboard');
+Route::get('/teknisi/pekerjaan/{service}', function (\App\Models\Service $service, Request $request) {
+    abort_unless((int) $service->teknisi_id === (int) $request->user()->id, 404);
+
+    return view('teknisi', ['detailServiceId' => $service->id]);
+})->middleware(['auth', 'password.changed', 'role:teknisi'])->name('teknisi.services.show');
 Route::view('/owner', 'owner')->middleware(['auth', 'password.changed', 'role:owner'])->name('owner.dashboard');
 Route::view('/spareparts', 'spareparts')->middleware(['auth', 'password.changed', 'role:admin,owner']);
 Route::get('/owner/activity-logs', function (Request $request) {

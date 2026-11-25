@@ -55,7 +55,7 @@
     </style>
 </head>
 
-<body data-theme="dashboard" class="min-h-screen flex bg-slate-50 font-sans text-slate-900">
+<body data-theme="dashboard" data-detail-service-id="{{ $detailServiceId ?? '' }}" class="min-h-screen flex bg-slate-50 font-sans text-slate-900">
     <button id="technicianSidebarOverlay" type="button" class="fixed inset-0 z-40 hidden bg-slate-950/60 md:hidden" aria-label="Tutup menu"></button>
 
     <aside id="technicianSidebar" class="fixed inset-y-0 left-0 z-50 flex h-screen w-64 -translate-x-full flex-col border-r-2 border-amber-400 bg-[#0B1E3F] text-white transition-transform duration-300 md:sticky md:top-0 md:translate-x-0">
@@ -101,8 +101,13 @@
             </button>
             <div class="min-w-0 flex-1">
                 <p class="text-[10px] font-bold uppercase tracking-[.16em] text-amber-700">Workbench Teknisi</p>
-                <h1 class="truncate text-base font-extrabold text-[#0B1E3F] sm:text-lg">Panel Kerja Teknisi</h1>
+                <h1 class="truncate text-base font-extrabold text-[#0B1E3F] sm:text-lg">{{ !empty($detailServiceId) ? 'Detail Pekerjaan' : 'Panel Kerja Teknisi' }}</h1>
             </div>
+            @if(!empty($detailServiceId))
+                <a href="{{ route('teknisi.dashboard') }}" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 no-underline hover:bg-slate-50">
+                    ← Daftar pekerjaan
+                </a>
+            @endif
             <button type="button" onclick="initData()" class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
                 🔄 Refresh
             </button>
@@ -112,9 +117,14 @@
     <!-- Main Content -->
     <main class="flex-1 p-4 sm:p-6 lg:p-8">
         <div class="mx-auto max-w-7xl space-y-6">
+            @if(!empty($detailServiceId))
+                <p id="detailPageLoading" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600" role="status" aria-live="polite">
+                    Memuat detail pekerjaan…
+                </p>
+            @endif
 
             <!-- Form Update Status -->
-            <section class="overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white shadow-sm" aria-labelledby="jobListTitle">
+            <section id="serviceListSection" @if(!empty($detailServiceId)) hidden @endif class="overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white shadow-sm" aria-labelledby="jobListTitle">
                 <div class="space-y-4 p-5 sm:p-7">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
@@ -165,9 +175,13 @@
             <section id="serviceDetailWrap" class="hidden space-y-6 rounded-2xl border border-slate-200 border-t-4 border-amber-400 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="serviceDetailTitle">
                 <div class="flex items-center justify-between gap-3">
                     <h2 id="serviceDetailTitle" class="text-lg font-extrabold text-[#0B1E3F]">Detail dan pembaruan pekerjaan</h2>
-                    <button type="button" onclick="closeServiceDetail()" class="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700">Tutup detail</button>
+                    <button id="closeServiceDetailButton" type="button" class="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700">Kembali ke daftar</button>
                 </div>
-                <select id="service_id" class="hidden" aria-hidden="true"></select>
+                    <select id="service_id" class="hidden" aria-hidden="true">
+                        @if(!empty($detailServiceId))
+                            <option value="{{ $detailServiceId }}">{{ $detailServiceId }}</option>
+                        @endif
+                    </select>
 
                 <!-- Info Banner Unit yang Dipilih -->
                 <div id="unitInfoBanner" class="hidden p-5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
@@ -545,7 +559,9 @@
                 detailButton.type = 'button';
                 detailButton.textContent = 'Detail';
                 detailButton.className = 'min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50';
-                detailButton.addEventListener('click', () => openServiceDetail(service.id));
+                detailButton.addEventListener('click', () => {
+                    window.location.assign(`/teknisi/pekerjaan/${encodeURIComponent(service.id)}`);
+                });
                 actions.appendChild(detailButton);
                 actionCell.appendChild(actions);
                 row.appendChild(actionCell);
@@ -586,15 +602,6 @@
             });
         }
 
-        function openServiceDetail(serviceId) {
-            const select = document.getElementById('service_id');
-            resetSparepartRows();
-            select.value = String(serviceId);
-            document.getElementById('serviceDetailWrap').classList.remove('hidden');
-            onSelectService();
-            document.getElementById('serviceDetailTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
         function closeServiceDetail() {
             document.getElementById('service_id').value = '';
             resetSparepartRows();
@@ -624,14 +631,7 @@
                 }
                 const result = await response.json();
                 if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Pekerjaan gagal dimulai.');
-                setWorkFilter('in_progress');
-                await loadPendingServices(1);
-                if (servicesCache.some(service => String(service.id) === String(serviceId))) {
-                    openServiceDetail(serviceId);
-                } else {
-                    document.getElementById('serviceListMessage').textContent =
-                        'Pekerjaan sudah dimulai. Gunakan pencarian atau halaman berikutnya untuk membuka detailnya.';
-                }
+                window.location.assign(`/teknisi/pekerjaan/${encodeURIComponent(serviceId)}`);
             } catch (error) {
                 alert(error.message || 'Pekerjaan gagal dimulai. Coba lagi.');
                 button.disabled = false;
@@ -900,15 +900,22 @@
         async function initData() {
             const select = document.getElementById('service_id');
             const selectedServiceId = select.value;
+            const detailPageServiceId = document.body.dataset.detailServiceId;
             await Promise.all([loadPendingServices(), loadSpareparts(), loadServiceRates(), loadWarrantyPresets()]);
             if (servicesCache.some(service => String(service.id) === selectedServiceId)) {
                 select.value = selectedServiceId;
                 document.getElementById('serviceDetailWrap').classList.remove('hidden');
                 await onSelectService();
+                document.getElementById('detailPageLoading')?.remove();
             } else {
                 select.value = '';
                 closeServiceDetail();
                 document.getElementById('statusTimelineWrap').classList.add('hidden');
+                if (detailPageServiceId) {
+                    const notice = document.getElementById('detailPageLoading');
+                    notice.className = 'rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800';
+                    notice.textContent = 'Pekerjaan tidak ditemukan atau tidak lagi ditugaskan kepada Anda.';
+                }
             }
         }
         const technicianSidebar = document.getElementById('technicianSidebar');
@@ -937,13 +944,18 @@
         });
         document.querySelectorAll('[data-technician-filter]').forEach(button => {
             button.addEventListener('click', () => {
+                if (document.body.dataset.detailServiceId) {
+                    window.location.assign(`/teknisi?filter=${encodeURIComponent(button.dataset.technicianFilter)}`);
+                    return;
+                }
                 setWorkFilter(button.dataset.technicianFilter);
                 loadPendingServices(1);
                 setTechnicianSidebarOpen(false);
-                document.getElementById('jobListTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         });
-        setWorkFilter('all');
+        const validWorkFilters = ['all', 'not_started', 'in_progress', 'completed'];
+        const requestedWorkFilter = new URLSearchParams(window.location.search).get('filter');
+        setWorkFilter(validWorkFilters.includes(requestedWorkFilter) ? requestedWorkFilter : 'all');
         initData();
         let serviceFilterTimer;
         document.getElementById('serviceSearchFilter').addEventListener('input', () => {
@@ -956,6 +968,13 @@
                 setWorkFilter(button.dataset.workFilter);
                 loadPendingServices(1);
             });
+        });
+        document.getElementById('closeServiceDetailButton').addEventListener('click', () => {
+            if (document.body.dataset.detailServiceId) {
+                window.location.assign('/teknisi');
+                return;
+            }
+            closeServiceDetail();
         });
         document.getElementById('openEstimateChange').addEventListener('click', () => {
             document.getElementById('estimateChangeForm').classList.toggle('hidden');

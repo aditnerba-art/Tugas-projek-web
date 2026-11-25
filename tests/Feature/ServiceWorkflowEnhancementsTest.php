@@ -666,6 +666,30 @@ class ServiceWorkflowEnhancementsTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_technician_detail_page_is_separate_and_only_available_for_assigned_services(): void
+    {
+        $technician = $this->user('teknisi', 'teknisi_detail_page');
+        $otherTechnician = $this->user('teknisi', 'teknisi_detail_page_other');
+        $service = $this->service([
+            'teknisi_id' => $technician->id,
+            'status' => 'masuk',
+        ]);
+
+        $detailPage = $this->actingAs($technician)->get(route('teknisi.services.show', $service));
+        $detailPage
+            ->assertOk()
+            ->assertSee('Detail Pekerjaan')
+            ->assertSee('data-detail-service-id="'.$service->id.'"', false)
+            ->assertSee('← Daftar pekerjaan');
+        $this->assertMatchesRegularExpression(
+            '/<section id="serviceListSection"[^>]*\shidden(?:\s|>)/',
+            $detailPage->getContent(),
+        );
+
+        $this->actingAs($otherTechnician)->get(route('teknisi.services.show', $service))
+            ->assertNotFound();
+    }
+
     public function test_service_estimate_uses_median_history_queue_and_records_actual_completion(): void
     {
         $admin = $this->user('admin', 'admin_scheduling');
