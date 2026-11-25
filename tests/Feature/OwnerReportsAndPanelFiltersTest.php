@@ -85,8 +85,10 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             'teknisi_id' => $technician->id,
             'merek_tipe' => 'Laptop Laporan',
             'keluhan' => 'Tidak menyala',
-            'status' => 'dikerjakan',
+            'status' => 'selesai',
             'total_biaya' => 1000,
+            'initial_estimated_completion_at' => today(),
+            'actual_completed_at' => now(),
         ]);
         Payment::create([
             'service_id' => $service->id,
@@ -119,6 +121,9 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             ->assertJsonPath('data.summary.modal_sparepart', 100)
             ->assertJsonPath('data.summary.laba_kotor', 150)
             ->assertJsonPath('data.summary.piutang', 750)
+            ->assertJsonPath('data.summary.akurasi_estimasi_awal.sampel', 1)
+            ->assertJsonPath('data.summary.akurasi_estimasi_awal.tepat_waktu', 1)
+            ->assertJsonPath('data.summary.akurasi_estimasi_awal.persentase_tepat_waktu', 100)
             ->assertJsonPath('data.technician_counts.0.jumlah_servis', 1)
             ->assertJsonPath('data.technician_counts.0.omzet', 250)
             ->assertJsonPath('data.top_parts.0.jumlah_terjual', 2)
@@ -134,12 +139,14 @@ class OwnerReportsAndPanelFiltersTest extends TestCase
             str_getcsv(preg_split('/\r\n|\r|\n/', substr($csvContent, 3))[0], ';'),
         );
         $this->assertStringContainsString('Rekonsiliasi kas harian per kasir', $csvContent);
+        $this->assertStringContainsString('Akurasi estimasi awal servis selesai', $csvContent);
         $this->assertStringContainsString('SRV-REPORT-001', $csvContent);
 
         $this->get('/api/owner/reports/print'.$filters)
             ->assertOk()
             ->assertSee('Laporan Operasional TECKFO Service')
             ->assertSee('Rekonsiliasi kas harian per kasir')
+            ->assertSee('Estimasi awal tepat waktu')
             ->assertSee('RAM Laporan')
             ->assertSee('Pelanggan Laporan');
     }

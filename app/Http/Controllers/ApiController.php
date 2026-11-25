@@ -803,7 +803,7 @@ class ApiController extends Controller
                 'id', 'no_nota', 'jenis_unit', 'merek_tipe', 'status', 'biaya_jasa', 'total_biaya',
                 'status_pembayaran', 'metode_pembayaran', 'dp_dibayar', 'nominal_dibayar', 'kembalian',
                 'created_at', 'teknisi_id', 'customer_id', 'priority', 'estimated_completion_at', 'warranty_days',
-                'service_rate_id', 'keluhan',
+                'initial_estimated_completion_at', 'actual_completed_at', 'service_rate_id', 'keluhan',
                 'warranty_expires_at', 'accessories', 'physical_condition',
             ]),
             'nama_teknisi' => $service->technician?->nama,
@@ -1765,6 +1765,20 @@ class ApiController extends Controller
             ->fromSub($this->receivablesQuery($from, $to), 'receivables')
             ->sum('receivables.piutang');
         $cashSummary = $this->cashSummaryQuery($from, $to);
+        $estimateRows = Service::query()
+            ->whereIn('status', ['selesai', 'diambil'])
+            ->whereNotNull('initial_estimated_completion_at')
+            ->whereNotNull('actual_completed_at')
+            ->whereBetween('actual_completed_at', [$from, $to])
+            ->get(['initial_estimated_completion_at', 'actual_completed_at']);
+        $estimateSamples = $estimateRows->map(function (Service $service): array {
+            $estimate = Carbon::parse($service->initial_estimated_completion_at)->startOfDay();
+            $actual = Carbon::parse($service->actual_completed_at)->startOfDay();
+            $deviation = (int) $estimate->diffInDays($actual, false);
+
+            return ['on_time' => $actual->lte($estimate), 'absolute_deviation' => abs($deviation)];
+        });
+        $estimateSampleCount = $estimateSamples->count();
 
         return [
             'period' => $period,
@@ -1776,6 +1790,16 @@ class ApiController extends Controller
                 'laba_kotor' => $grossProfit,
                 'jumlah_servis' => (clone $services)->count(),
                 'piutang' => $receivableTotal,
+                'akurasi_estimasi_awal' => [
+                    'sampel' => $estimateSampleCount,
+                    'tepat_waktu' => $estimateSamples->where('on_time', true)->count(),
+                    'persentase_tepat_waktu' => $estimateSampleCount
+                        ? round($estimateSamples->where('on_time', true)->count() / $estimateSampleCount * 100, 1)
+                        : null,
+                    'rata_rata_selisih_hari' => $estimateSampleCount
+                        ? round($estimateSamples->sum('absolute_deviation') / $estimateSampleCount, 1)
+                        : null,
+                ],
             ],
             'series' => array_values($series),
             'status_counts' => $statusCounts,
@@ -1842,6 +1866,15 @@ class ApiController extends Controller
                     $row['jumlah_servis'],
                 ], ';');
             }
+            fputcsv($output, [], ';');
+            fputcsv($output, ['Akurasi estimasi awal servis selesai'], ';');
+            fputcsv($output, ['Sampel', 'Tepat waktu', 'Persentase tepat waktu', 'Rata-rata selisih absolut (hari)'], ';');
+            fputcsv($output, [
+                $report['summary']['akurasi_estimasi_awal']['sampel'],
+                $report['summary']['akurasi_estimasi_awal']['tepat_waktu'],
+                $report['summary']['akurasi_estimasi_awal']['persentase_tepat_waktu'],
+                $report['summary']['akurasi_estimasi_awal']['rata_rata_selisih_hari'],
+            ], ';');
             fputcsv($output, [], ';');
             fputcsv($output, ['Status servis', 'Jumlah'], ';');
             foreach ($report['status_counts'] as $row) {

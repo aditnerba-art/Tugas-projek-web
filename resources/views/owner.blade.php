@@ -338,11 +338,13 @@
                     <button id="loadReport" type="button" class="self-end rounded-lg border border-amber-400 bg-amber-400 px-4 py-2 text-sm font-bold text-[#0B1E3F]">Tampilkan laporan</button>
                 </div>
                 <p id="reportMessage" class="text-sm" role="status" aria-live="polite"></p>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Omzet servis</p><p id="reportRevenue" class="mt-1 font-extrabold text-[#0B1E3F]">—</p></div>
                     <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Modal sparepart terpakai</p><p id="reportCost" class="mt-1 font-extrabold text-slate-800">—</p></div>
                     <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Laba kotor (omzet - modal)</p><p id="reportProfit" class="mt-1 font-extrabold text-emerald-700">—</p></div>
                     <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Piutang saat ini pada periode</p><p id="reportReceivable" class="mt-1 font-extrabold text-rose-700">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Estimasi awal tepat waktu</p><p id="reportEstimateOnTime" class="mt-1 font-extrabold text-[#0B1E3F]">—</p></div>
+                    <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Rata-rata selisih estimasi awal</p><p id="reportEstimateDeviation" class="mt-1 font-extrabold text-slate-800">—</p></div>
                 </div>
                 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
                     <svg id="reportChart" class="h-56 min-w-[640px] w-full" viewBox="0 0 800 240" role="img" aria-label="Grafik omzet servis"></svg>
@@ -1080,6 +1082,13 @@
                 document.getElementById('reportCost').textContent = currency(report.summary.modal_sparepart);
                 document.getElementById('reportProfit').textContent = currency(report.summary.laba_kotor);
                 document.getElementById('reportReceivable').textContent = currency(report.summary.piutang);
+                const estimateAccuracy = report.summary.akurasi_estimasi_awal;
+                document.getElementById('reportEstimateOnTime').textContent = estimateAccuracy.sampel
+                    ? `${Number(estimateAccuracy.persentase_tepat_waktu).toLocaleString('id-ID')}% (${estimateAccuracy.tepat_waktu}/${estimateAccuracy.sampel})`
+                    : 'Belum ada data';
+                document.getElementById('reportEstimateDeviation').textContent = estimateAccuracy.sampel
+                    ? `${Number(estimateAccuracy.rata_rata_selisih_hari).toLocaleString('id-ID')} hari`
+                    : 'Belum ada data';
                 renderReportChart(report.series);
                 renderReportCategoryChart(
                     'reportStatusChart',

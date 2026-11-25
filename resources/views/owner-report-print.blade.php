@@ -31,6 +31,21 @@
         <div><strong>Modal sparepart</strong><br>Rp {{ number_format($report['summary']['modal_sparepart'], 0, ',', '.') }}</div>
         <div><strong>Laba kotor</strong><br>Rp {{ number_format($report['summary']['laba_kotor'], 0, ',', '.') }}</div>
         <div><strong>Jumlah servis</strong><br>{{ number_format($report['summary']['jumlah_servis'], 0, ',', '.') }}</div>
+        <div><strong>Estimasi awal tepat waktu</strong><br>
+            @if ($report['summary']['akurasi_estimasi_awal']['sampel'] > 0)
+                {{ number_format($report['summary']['akurasi_estimasi_awal']['persentase_tepat_waktu'], 1, ',', '.') }}%
+                ({{ $report['summary']['akurasi_estimasi_awal']['tepat_waktu'] }}/{{ $report['summary']['akurasi_estimasi_awal']['sampel'] }})
+            @else
+                Belum ada data
+            @endif
+        </div>
+        <div><strong>Rata-rata selisih estimasi awal</strong><br>
+            @if ($report['summary']['akurasi_estimasi_awal']['sampel'] > 0)
+                {{ number_format($report['summary']['akurasi_estimasi_awal']['rata_rata_selisih_hari'], 1, ',', '.') }} hari
+            @else
+                Belum ada data
+            @endif
+        </div>
     </section>
     <p>Laba kotor mengakui modal sparepart secara proporsional terhadap pembayaran bersih, termasuk pembalikan proporsional saat refund.</p>
     <h2>Ringkasan {{ $report['period'] === 'month' ? 'bulanan' : 'harian' }}</h2>
